@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<template id="__bundler_thumbnail">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#1c140d"/>
+  <g transform="translate(256 256)">
+    <rect x="-118" y="-118" width="236" height="236" rx="18" fill="#241a11" stroke="#4a3820" stroke-width="4"/>
+    <rect x="-92" y="-92" width="184" height="184" fill="#120d08"/>
+    <path d="M-92 20 L-30 -18 L28 26 L92 -14" fill="none" stroke="#3f7f8a" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="-40" cy="-46" r="14" fill="#e05555"/>
+    <circle cx="46" cy="52" r="14" fill="#3fb6a8"/>
+    <rect x="-92" y="-92" width="184" height="184" fill="none" stroke="#c9a24b" stroke-width="3" opacity="0.4"/>
+    <path d="M0 -150 L26 -124 L0 -98 L-26 -124 Z" fill="#e8cf8f" stroke="#a5802e" stroke-width="4"/>
+  </g>
+</svg>
+</template>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#16110c;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#d8c9a8;overflow:hidden}
+  a{color:#c9a24b;text-decoration:none}a:hover{color:#e8cf8f}
+  .mono{font-family:'IBM Plex Mono',monospace}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#3a2c1a;border-radius:5px}
+  ::-webkit-scrollbar-track{background:#120d08}
+  input,select{font-family:inherit}
+</style>
+</helmet>
+<div ref="{{ rootRef }}" style="display:flex;flex-direction:column;height:100vh;background:#16110c;color:#d8c9a8">
+
+  <!-- titlebar -->
+  <div style="display:flex;align-items:center;gap:18px;height:46px;padding:0 14px;background:linear-gradient(#241a11,#1c140d);border-bottom:1px solid #4a3820;flex:none">
+    <div style="display:flex;align-items:center;gap:9px">
+      <div style="width:17px;height:17px;transform:rotate(45deg);background:linear-gradient(135deg,#e8cf8f,#a5802e);border:1px solid #6b501f"></div>
+      <span style="font-family:'Cinzel',serif;font-weight:700;color:#e8cf8f;letter-spacing:.5px;font-size:15px">MapForge</span>
+      <span class="mono" style="color:#6b501f;font-size:10px;align-self:flex-end;padding-bottom:2px">web</span>
+    </div>
+    <div ref="{{ menuBarRef }}" style="display:flex;gap:2px">
+      <sc-for list="{{ menus }}" as="M" hint-placeholder-count="5">
+        <div style="position:relative">
+          <button onClick="{{ M.onClick }}" style="{{ M.style }}" style-hover="background:#2f2415;color:#d8c9a8">{{ M.label }}</button>
+          <sc-if value="{{ M.open }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:calc(100% + 8px);left:0;min-width:210px;background:#241a11;border:1px solid #4a3820;border-radius:7px;box-shadow:0 14px 34px rgba(0,0,0,.55);padding:5px;z-index:60">
+              <sc-for list="{{ M.items }}" as="I" hint-placeholder-count="3">
+                <button onClick="{{ I.onClick }}" style="{{ I.style }}" style-hover="background:#33271700;filter:brightness(1.35)">
+                  <span>{{ I.label }}</span><span style="{{ I.checkStyle }}">{{ I.check }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <button onClick="{{ exportZip }}" style="border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:6px 12px;font:500 12px 'IBM Plex Sans';cursor:pointer">Export map (.zip)</button>
+      <button onClick="{{ openFolder }}" style="border:1px solid #6b501f;background:linear-gradient(#d9b845,#a5802e);color:#2a1d09;border-radius:6px;padding:6px 14px;font:600 12px 'IBM Plex Sans';cursor:pointer">Open map folder</button>
+    </div>
+  </div>
+
+  <!-- layer chips -->
+  <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:#1c140d;border-bottom:1px solid #3a2c1a;flex:none">
+    <sc-for list="{{ layers }}" as="L" hint-placeholder-count="6">
+      <button onClick="{{ L.onClick }}" style="{{ L.style }}">{{ L.label }}</button>
+    </sc-for>
+    <button onClick="{{ toggleHighlight }}" style="{{ highlightStyle }}">Highlight attribute</button>
+  </div>
+
+  <!-- main -->
+  <div style="display:flex;flex:1;min-height:0">
+    <!-- viewport -->
+    <div ref="{{ viewRef }}" style="position:relative;flex:1;background:#120d08;overflow:hidden;min-width:0">
+      <canvas ref="{{ canvasRef }}" style="position:absolute;inset:0;width:100%;height:100%;display:block"></canvas>
+      <div class="mono" ref="{{ coordRef }}" style="position:absolute;top:12px;right:12px;padding:5px 10px;border-radius:5px;background:rgba(28,20,13,.85);border:1px solid #4a3820;color:#e8cf8f;font-size:11px;pointer-events:none">x — · y —</div>
+      <div style="position:absolute;bottom:12px;left:12px;display:flex;gap:5px">
+        <button onClick="{{ zoomOut }}" style="width:28px;height:28px;border-radius:5px;border:1px solid #4a3820;background:rgba(36,26,17,.9);color:#d8c9a8;cursor:pointer;font-size:15px">&minus;</button>
+        <button onClick="{{ zoomIn }}" style="width:28px;height:28px;border-radius:5px;border:1px solid #4a3820;background:rgba(36,26,17,.9);color:#d8c9a8;cursor:pointer;font-size:15px">+</button>
+        <button onClick="{{ fitView }}" class="mono" style="height:28px;border-radius:5px;border:1px solid #4a3820;background:rgba(36,26,17,.9);color:#d8c9a8;cursor:pointer;font-size:11px;padding:0 10px">Fit</button>
+        <span class="mono" ref="{{ zoomRef }}" style="align-self:center;padding:0 8px;color:#a08b5f;font-size:11px">100%</span>
+      </div>
+      <sc-if value="{{ empty }}" hint-placeholder-val="{{ true }}">
+        <div ref="{{ dropHintRef }}" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+          <div style="text-align:center;padding:38px 46px;border:2px dashed #4a3820;border-radius:12px;background:rgba(28,20,13,.5)">
+            <div style="font-family:'Cinzel',serif;color:#c9a24b;font-size:18px;margin-bottom:8px">Open a Metin2 map</div>
+            <div class="mono" style="color:#8a744c;font-size:12px;line-height:1.7">Click <b style="color:#d8c9a8">Open map folder</b> &nbsp;·&nbsp; or drag a map folder here<br>reads setting.txt, sectree grids, regen &amp; areadata</div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- resize handle -->
+    <div onMouseDown="{{ startResize }}" title="Drag to resize" style="width:6px;flex:none;cursor:col-resize;background:#3a2c1a"></div>
+
+    <!-- inspector -->
+    <div ref="{{ inspectorRef }}" style="width:344px;flex:none;background:#1c140d;border-left:1px solid #3a2c1a;display:flex;flex-direction:column">
+      <div style="display:flex;font-size:11.5px;flex:none">
+        <button onClick="{{ tabConvert }}" style="{{ convertTabStyle }}">Converter</button>
+        <button onClick="{{ tabRegen }}" style="{{ regenTabStyle }}">Regen</button>
+        <button onClick="{{ tabObjects }}" style="{{ objectsTabStyle }}">Objects</button>
+      </div>
+
+      <!-- CONVERT PANEL -->
+      <sc-if value="{{ convertActive }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;overflow-y:auto;padding:14px">
+          <div style="font-family:'Cinzel',serif;color:#c9a24b;font-size:12px;letter-spacing:.5px;margin-bottom:10px">MAP SETTINGS</div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Map name</div><div class="mono" style="background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:7px 9px;color:#e8cf8f">{{ iMapName }}</div></div>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Size (sectrees)</div><div class="mono" style="background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:7px 9px">{{ iDims }}</div></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Sectors</div><div class="mono" style="background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:7px 9px">{{ iSectors }}</div></div>
+            </div>
+            <div><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Base position</div><div class="mono" style="background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:7px 9px">{{ iBase }}</div></div>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">CellScale</div><div class="mono" style="background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:7px 9px">{{ iCell }}</div></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">HeightScale</div><div class="mono" style="background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:7px 9px">{{ iHeight }}</div></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">ViewRadius</div><div class="mono" style="background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:7px 9px">{{ iView }}</div></div>
+            </div>
+            <div><div style="color:#8a744c;font-size:10px;margin-bottom:3px">TextureSet</div><div class="mono" style="background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:7px 9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ iTex }}</div></div>
+            <div><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Environment</div><div class="mono" style="background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:7px 9px">{{ iEnv }}</div></div>
+          </div>
+          <div style="font-family:'Cinzel',serif;color:#c9a24b;font-size:12px;letter-spacing:.5px;margin:18px 0 10px">CURRENT LAYER · {{ layerName }}</div>
+          <div style="background:#120d08;border:1px solid #3a2c1a;border-radius:6px;padding:11px;font-size:11.5px;line-height:1.7;color:#a08b5f">
+            <div ref="{{ layerInfoRef }}">Load a map to inspect layers.</div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:12px">
+            <button onClick="{{ exportLayerPNG }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:9px;font:500 12px 'IBM Plex Sans';cursor:pointer">Export PNG</button>
+            <button onClick="{{ importPng }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:9px;font:500 12px 'IBM Plex Sans';cursor:pointer">Import PNG</button>
+          </div>
+          <div class="mono" style="margin-top:8px;font-size:10px;color:#6b5a3c;line-height:1.6">Import decodes a full-map PNG (cols×256 by rows×256) back into the current layer's per-sector files. Minimap is lossless; height/tile/shadow/attribute are approximate. Edits are written into <b>Export map (.zip)</b>.</div>
+        </div>
+      </sc-if>
+
+      <!-- REGEN PANEL -->
+      <sc-if value="{{ regenActive }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div style="padding:12px 12px 8px;flex:none">
+            <div style="display:flex;gap:7px;margin-bottom:8px">
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Type</div>
+                <select ref="{{ fType }}" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8">
+                  <option value="m">m — mob</option><option value="g">g — group</option><option value="r">r — group-group</option>
+                  <option value="ma">ma — mob aggr</option><option value="ga">ga — group aggr</option><option value="ra">ra — gg aggr</option>
+                  <option value="s">s — anywhere</option>
+                </select>
+              </div>
+              <div style="width:96px"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Vnum</div><input ref="{{ fVnum }}" class="mono" defaultValue="101" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+            </div>
+            <div style="display:flex;gap:7px;margin-bottom:8px">
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Sx (½rng)</div><input ref="{{ fSx }}" class="mono" defaultValue="0" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Sy (½rng)</div><input ref="{{ fSy }}" class="mono" defaultValue="0" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Dir</div><input ref="{{ fDir }}" class="mono" defaultValue="0" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+            </div>
+            <div style="display:flex;gap:7px">
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Respawn</div><input ref="{{ fResp }}" class="mono" defaultValue="1m" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Percent</div><input ref="{{ fPerc }}" class="mono" defaultValue="100" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Count</div><input ref="{{ fCount }}" class="mono" defaultValue="1" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+            </div>
+            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Click the map to place · click a row to load it here, edit, then <b style="color:#c9b567">Update</b>.</div>
+          </div>
+
+          <div style="display:flex;gap:4px;padding:0 12px 8px;flex:none">
+            <sc-for list="{{ subtabs }}" as="T" hint-placeholder-count="4">
+              <button onClick="{{ T.onClick }}" style="{{ T.style }}">{{ T.label }}</button>
+            </sc-for>
+          </div>
+
+          <div style="flex:1;overflow:auto;margin:0 12px;border:1px solid #3a2c1a;border-radius:6px;background:#120d08">
+            <div class="mono" style="display:flex;position:sticky;top:0;background:#241a11;color:#8a744c;font-size:10px;border-bottom:1px solid #3a2c1a">
+              <span style="width:36px;padding:5px 6px">Type</span><span style="width:66px;padding:5px 6px">Vnum</span><span style="width:42px;padding:5px 6px">X</span><span style="width:42px;padding:5px 6px">Y</span><span style="width:50px;padding:5px 6px">Resp</span><span style="width:30px;padding:5px 6px">Sx</span><span style="width:30px;padding:5px 6px">Sy</span><span style="width:28px;padding:5px 6px">Dir</span><span style="width:34px;padding:5px 6px">%</span><span style="width:36px;padding:5px 6px">Cnt</span><span style="width:30px;padding:5px 6px"></span>
+            </div>
+            <sc-for list="{{ rows }}" as="R" hint-placeholder-count="0">
+              <div onClick="{{ R.onClick }}" class="mono" style="{{ R.style }}">
+                <span style="width:36px;padding:5px 6px">{{ R.type }}</span><span style="width:66px;padding:5px 6px">{{ R.vnum }}</span><span style="width:42px;padding:5px 6px">{{ R.x }}</span><span style="width:42px;padding:5px 6px">{{ R.y }}</span><span style="width:50px;padding:5px 6px">{{ R.resp }}</span><span style="width:30px;padding:5px 6px">{{ R.sx }}</span><span style="width:30px;padding:5px 6px">{{ R.sy }}</span><span style="width:28px;padding:5px 6px">{{ R.dir }}</span><span style="width:34px;padding:5px 6px">{{ R.perc }}</span><span style="width:36px;padding:5px 6px">{{ R.count }}</span><span onClick="{{ R.onDelete }}" style="width:30px;padding:5px 6px;color:#b5573f;cursor:pointer;text-align:center">&times;</span>
+              </div>
+            </sc-for>
+            <div ref="{{ emptyRowsRef }}" class="mono" style="padding:14px;color:#5a4a30;font-size:11px;text-align:center">no spawns in this file</div>
+          </div>
+
+          <div style="padding:10px 12px;display:flex;gap:6px;flex:none">
+            <button onClick="{{ importRegen }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:5px;padding:8px;font:500 11px 'IBM Plex Sans';cursor:pointer">Import</button>
+            <button onClick="{{ updateRow }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#c9b567;border-radius:5px;padding:8px;font:500 11px 'IBM Plex Sans';cursor:pointer">Update</button>
+            <button onClick="{{ resetRegen }}" style="flex:none;border:1px solid #4a3820;background:#241a11;color:#b5573f;border-radius:5px;padding:8px 10px;font:500 11px 'IBM Plex Sans';cursor:pointer">Reset</button>
+            <button onClick="{{ exportRegen }}" style="flex:1;border:1px solid #6b501f;background:linear-gradient(#d9b845,#a5802e);color:#2a1d09;border-radius:5px;padding:8px;font:600 11px 'IBM Plex Sans';cursor:pointer">Export</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- OBJECTS PANEL -->
+      <sc-if value="{{ objectsActive }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <div style="padding:12px 12px 8px;flex:none">
+            <div style="color:#8a744c;font-size:10px;margin-bottom:3px">Sector (areadata.txt)</div>
+            <select ref="{{ oSectorRef }}" value="{{ oSectorVal }}" onChange="{{ onSectorPick }}" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8">
+              <sc-for list="{{ sectorOpts }}" as="S" hint-placeholder-count="0">
+                <option value="{{ S.value }}">{{ S.label }}</option>
+              </sc-for>
+            </select>
+            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Objects plot at (x, −y). Select one, then click the map to move it. Fields are cm (map-local).</div>
+          </div>
+
+          <div style="flex:1;overflow:auto;margin:0 12px;border:1px solid #3a2c1a;border-radius:6px;background:#120d08;min-height:60px">
+            <div class="mono" style="display:flex;position:sticky;top:0;background:#241a11;color:#8a744c;font-size:10px;border-bottom:1px solid #3a2c1a">
+              <span style="width:40px;padding:5px 6px">#</span><span style="width:104px;padding:5px 6px">CRC</span><span style="flex:1;padding:5px 6px">cell x·y</span><span style="width:30px;padding:5px 6px"></span>
+            </div>
+            <sc-for list="{{ objRows }}" as="O" hint-placeholder-count="0">
+              <div onClick="{{ O.onClick }}" class="mono" style="{{ O.style }}">
+                <span style="width:40px;padding:5px 6px">{{ O.idx }}</span><span style="width:104px;padding:5px 6px">{{ O.crc }}</span><span style="flex:1;padding:5px 6px">{{ O.cell }}</span><span onClick="{{ O.onDelete }}" style="width:30px;padding:5px 6px;color:#b5573f;cursor:pointer;text-align:center">&times;</span>
+              </div>
+            </sc-for>
+            <div ref="{{ emptyObjRef }}" class="mono" style="padding:14px;color:#5a4a30;font-size:11px;text-align:center">no objects in this sector</div>
+          </div>
+
+          <div style="padding:10px 12px 4px;flex:none">
+            <div style="display:flex;gap:7px;margin-bottom:7px">
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">X (cm)</div><input ref="{{ oX }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Y (cm)</div><input ref="{{ oY }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Z (cm)</div><input ref="{{ oZ }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+            </div>
+            <div style="display:flex;gap:7px;margin-bottom:7px">
+              <div style="flex:2"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Property CRC</div><input ref="{{ oCrc }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Bias</div><input ref="{{ oBias }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+            </div>
+            <div style="display:flex;gap:7px">
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Yaw</div><input ref="{{ oYaw }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Pitch</div><input ref="{{ oPitch }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Roll</div><input ref="{{ oRoll }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+            </div>
+          </div>
+
+          <div style="padding:6px 12px 10px;display:flex;gap:6px;flex:none">
+            <button onClick="{{ addObj }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:5px;padding:8px;font:500 11px 'IBM Plex Sans';cursor:pointer">Add</button>
+            <button onClick="{{ updateObj }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#c9b567;border-radius:5px;padding:8px;font:500 11px 'IBM Plex Sans';cursor:pointer">Update</button>
+            <button onClick="{{ exportAreadata }}" style="flex:1;border:1px solid #6b501f;background:linear-gradient(#d9b845,#a5802e);color:#2a1d09;border-radius:5px;padding:8px;font:600 11px 'IBM Plex Sans';cursor:pointer">Export .txt</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+
+  <!-- status -->
+  <div class="mono" style="display:flex;align-items:center;gap:14px;height:28px;padding:0 14px;background:#120d08;border-top:1px solid #3a2c1a;color:#8a744c;font-size:11px;flex:none">
+    <span style="color:#c9a24b">&#9679; {{ statusText }}</span>
+    <span>{{ iMapName }}</span>
+    <span style="margin-left:auto">{{ iDims }}</span>
+  </div>
+
+  <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:200;background:rgba(10,7,4,.6);display:flex;align-items:center;justify-content:center">
+      <div style="width:360px;background:#1c140d;border:1px solid #4a3820;border-radius:10px;box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden">
+        <div style="padding:18px 20px 6px;font-family:'Cinzel',serif;color:#e8cf8f;font-size:15px">{{ confirmTitle }}</div>
+        <div style="padding:0 20px 18px;color:#c9b89a;font-size:13px;line-height:1.55">{{ confirmMsg }}</div>
+        <div style="display:flex;gap:8px;padding:0 16px 16px;justify-content:flex-end">
+          <button onClick="{{ confirmNo }}" style="border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:8px 16px;font:500 12px 'IBM Plex Sans';cursor:pointer" style-hover="filter:brightness(1.2)">Cancel</button>
+          <button onClick="{{ confirmYes }}" style="{{ confirmBtnStyle }}" style-hover="filter:brightness(1.1)">{{ confirmYesLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <input ref="{{ inputRef }}" type="file" webkitdirectory="" directory="" multiple="" onChange="{{ onInput }}" style="display:none">
+  <input ref="{{ regenInputRef }}" type="file" accept=".txt" onChange="{{ onRegenInput }}" style="display:none">
+  <input ref="{{ pngInputRef }}" type="file" accept="image/png,image/*" onChange="{{ onPngInput }}" style="display:none">
+  <input ref="{{ serverAttrInputRef }}" type="file" onChange="{{ onServerAttrInput }}" style="display:none">
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;},&quot;showSectorGrid&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;View&quot;},&quot;markerScale&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.5,&quot;max&quot;:3,&quot;step&quot;:0.5,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;View&quot;}}">
+const TILE = 256;
+const LAYER_DEFS = [
+  ['minimap','Minimap'],['height','Height'],['tile','Tile'],['shadow','Shadow'],
+  ['attribute','Attribute'],['water','Water']
+];
+const REGEN_FILES = { regen:'regen.txt', boss:'boss.txt', stone:'stone.txt', npc:'npc.txt' };
+const MARK_COLOR = { regen:'#e05555', boss:'#d24bd2', stone:'#e8a53a', npc:'#3fb6a8' };
+const ATTR_FLAGS = [
+  { bit:0x01, name:'Block',    col:[224,67,58] },
+  { bit:0x02, name:'Water',    col:[58,120,224] },
+  { bit:0x04, name:'Safezone', col:[66,182,96] },
+  { bit:0x08, name:'Banshop',  col:[232,205,70] },
+  { bit:0x10, name:'Flag 5',   col:[232,140,50] },
+  { bit:0x20, name:'Flag 6',   col:[176,96,224] },
+  { bit:0x40, name:'Flag 7',   col:[64,200,208] },
+  { bit:0x80, name:'Object',   col:[226,96,166] }
+];
+
+class Component extends DCLogic {
+  state = {
+    layer:'minimap', mainTab:'convert', regenTab:'regen',
+    empty:true, highlight:false, statusText:'no map loaded',
+    info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null
+  };
+  pendingConfirm = null;
+
+  files = {}; sectorList = []; cache = {}; setting = {};
+  regen = { regen:[], boss:[], stone:[], npc:[] };
+  areadata = {};
+  zoom = 1; ox = 0; oy = 0; jobId = 0; selRow = -1; selObj = -1;
+  bounds = { minx:0, miny:0, maxx:0, maxy:0 };
+
+  // ---- refs ----
+  rootRef = el => this.root = el;
+  canvasRef = el => this.canvas = el;
+  viewRef = el => this.view = el;
+  inputRef = el => this.input = el;
+  regenInputRef = el => this.regenInput = el;
+  pngInputRef = el => this.pngInput = el;
+  serverAttrInputRef = el => this.serverAttrInput = el;
+  coordRef = el => this.coordEl = el;
+  zoomRef = el => this.zoomEl = el;
+  layerInfoRef = el => this.layerInfoEl = el;
+  emptyRowsRef = el => this.emptyRowsEl = el;
+  emptyObjRef = el => this.emptyObjEl = el;
+  dropHintRef = el => this.dropHintEl = el;
+  inspectorRef = el => this.inspector = el;
+  menuBarRef = el => this.menuBar = el;
+  oSectorRef = el => this._osec = el;
+  fType=el=>this._t=el; fVnum=el=>this._v=el; fSx=el=>this._sx=el; fSy=el=>this._sy=el;
+  fDir=el=>this._d=el; fResp=el=>this._r=el; fPerc=el=>this._p=el; fCount=el=>this._c=el;
+  oX=el=>this._ox=el; oY=el=>this._oy=el; oZ=el=>this._oz=el; oCrc=el=>this._ocrc=el;
+  oYaw=el=>this._oyaw=el; oPitch=el=>this._opitch=el; oRoll=el=>this._oroll=el; oBias=el=>this._obias=el;
+
+  componentDidMount() {
+    const cv = this.canvas, view = this.view;
+    this.ro = new ResizeObserver(() => this.resize());
+    this.ro.observe(view);
+    this.resize();
+    cv.addEventListener('wheel', e => this.onWheel(e), { passive:false });
+    cv.addEventListener('mousedown', e => this.onDown(e));
+    window.addEventListener('mousemove', e => this.onMove(e));
+    window.addEventListener('mouseup', e => this.onUp(e));
+    view.addEventListener('dragover', e => { e.preventDefault(); });
+    view.addEventListener('drop', e => this.onDrop(e));
+    this._docDown = e => { if(this.state.menu && this.menuBar && !this.menuBar.contains(e.target)) this.setState({menu:''}); };
+    window.addEventListener('mousedown', this._docDown, true);
+    this._keyDown = e => { if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); } };
+    window.addEventListener('keydown', this._keyDown);
+  }
+  componentWillUnmount(){ this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); }
+
+  // ================= confirm =================
+  askConfirm(msg, fn, opts){ this.pendingConfirm=fn; this.setState({ menu:'', confirm:{ msg, title:(opts&&opts.title)||'Are you sure?', yes:(opts&&opts.yes)||'Delete', danger:!(opts&&opts.safe) } }); }
+  confirmYes(){ const f=this.pendingConfirm; this.pendingConfirm=null; this.setState({confirm:null}); if(f) f(); }
+  confirmNo(){ this.pendingConfirm=null; this.setState({confirm:null}); }
+
+  // ================= menu =================
+  toggleMenu(k){ this.setState({ menu:this.state.menu===k?'':k }); }
+  run(fn){ this.setState({menu:''}); if(fn) fn(); }
+  gridOn(){ return this.state.showGrid!==null ? this.state.showGrid : (this.props.showSectorGrid ?? true); }
+  toggleGrid(){ this.setState({ showGrid:!this.gridOn(), menu:'' }); this.draw(); }
+  clearMap(){ this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.setState({ empty:true, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
+  attrExport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.exportLayerPNG(),120); }
+  attrImport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.importPng(),120); }
+
+  resize() {
+    const cv = this.canvas, r = this.view.getBoundingClientRect();
+    cv.width = Math.max(1, Math.round(r.width));
+    cv.height = Math.max(1, Math.round(r.height));
+    this.draw();
+  }
+
+  // ================= file loading =================
+  async openFolder() {
+    if (window.showDirectoryPicker) {
+      try {
+        const dir = await window.showDirectoryPicker();
+        const out = {}; await this.walkHandle(dir, '', out);
+        this.loadFiles(out, dir.name);
+      } catch(e) { if (e && e.name !== 'AbortError') this.input.click(); }
+    } else this.input.click();
+  }
+  async walkHandle(dir, prefix, out) {
+    for await (const [name, h] of dir.entries()) {
+      const p = prefix ? prefix + '/' + name : name;
+      if (h.kind === 'file') out[p.toLowerCase()] = await h.getFile();
+      else await this.walkHandle(h, p, out);
+    }
+  }
+  onInput(e) {
+    const fl = e.target.files; if (!fl || !fl.length) return;
+    const out = {}; let folder = null;
+    for (const f of fl) {
+      let rp = f.webkitRelativePath || f.name;
+      const i = rp.indexOf('/'); if (i >= 0) { if (!folder) folder = rp.slice(0, i); rp = rp.slice(i + 1); }
+      out[rp.toLowerCase()] = f;
+    }
+    this.loadFiles(out, folder);
+  }
+  async onDrop(e) {
+    e.preventDefault();
+    const items = e.dataTransfer.items; const out = {};
+    const entries = [];
+    for (const it of items) { const en = it.webkitGetAsEntry && it.webkitGetAsEntry(); if (en) entries.push(en); }
+    let folder = null;
+    for (const en of entries) { if (en.isDirectory && !folder) folder = en.name; await this.walkEntry(en, '', out); }
+    if (Object.keys(out).length) this.loadFiles(out, folder);
+  }
+  walkEntry(entry, prefix, out) {
+    return new Promise(res => {
+      const p = prefix ? prefix + '/' + entry.name : entry.name;
+      if (entry.isFile) entry.file(f => { out[p.toLowerCase()] = f; res(); }, () => res());
+      else {
+        const rd = entry.createReader(); const all = [];
+        const read = () => rd.readEntries(async ents => {
+          if (!ents.length) { for (const c of all) await this.walkEntry(c, p, out); res(); }
+          else { all.push(...ents); read(); }
+        }, () => res());
+        read();
+      }
+    });
+  }
+  getFile(path){ return this.files[path.toLowerCase()]; }
+
+  async loadFiles(map, folderName) {
+    this._folderName = folderName || null;
+    let prefix = '';
+    for (const k of Object.keys(map)) { const m = k.match(/(^|.*\/)(\d{6})\/[^/]+$/); if (m) { prefix = m[1]; break; } }
+    if (prefix) {
+      if (!this._folderName) this._folderName = prefix.replace(/\/$/,'').split('/').pop();
+      const nm = {}; for (const k of Object.keys(map)) nm[k.startsWith(prefix) ? k.slice(prefix.length) : k] = map[k]; map = nm;
+    }
+    this.files = map; this.cache = {};
+    const set = new Set();
+    for (const k of Object.keys(map)) { const m = k.match(/^(\d{6})\//); if (m) set.add(m[1]); }
+    this.sectorList = [...set].sort();
+    const sf = this.getFile('setting.txt');
+    this.setting = sf ? this.parseSetting(await sf.text()) : {};
+    const s = this.setting;
+    let minx=999,miny=999,maxx=0,maxy=0;
+    for (const c of this.sectorList){ const x=+c.slice(0,3),y=+c.slice(3,6); minx=Math.min(minx,x);miny=Math.min(miny,y);maxx=Math.max(maxx,x);maxy=Math.max(maxy,y); }
+    if (!this.sectorList.length){ minx=miny=0;maxx=maxy=0; }
+    this.bounds = { minx,miny,maxx,maxy };
+    const dimx = s.mapSizeX || (maxx-minx+1), dimy = s.mapSizeY || (maxy-miny+1);
+    for (const key of Object.keys(REGEN_FILES)) {
+      const f = this.getFile(REGEN_FILES[key]);
+      this.regen[key] = f ? this.parseRegen(await f.text()) : [];
+    }
+    this.areadata = {};
+    for (const c of this.sectorList) {
+      const af = this.getFile(c+'/areadata.txt');
+      this.areadata[c] = af ? this.parseAreadata(await af.text()) : [];
+    }
+    const firstObj = this.sectorList.find(c => this.areadata[c] && this.areadata[c].length);
+    const oSector = firstObj || this.sectorList[0] || '';
+    this.selRow = -1; this.selObj = -1;
+    this.setState({
+      empty:false, statusText:'loaded', oSector,
+      info:{
+        name: this._folderName || 'metin2_map',
+        dims: dimx + '×' + dimy,
+        sectors: String(this.sectorList.length),
+        base: s.baseX!=null ? (s.baseX+' , '+s.baseY) : '—',
+        cell: s.cellScale!=null ? String(s.cellScale) : '—',
+        height: s.heightScale!=null ? String(s.heightScale) : '—',
+        view: s.viewRadius!=null ? String(s.viewRadius) : '—',
+        tex: s.textureSet || '—', env: s.environment || '—'
+      },
+      rev:this.state.rev+1
+    });
+    this.fitView();
+    this.renderLayer();
+  }
+
+  // ================= parsers =================
+  parseSetting(txt){
+    const o={}; for (const line of txt.split(/\r?\n/)) {
+      const t = line.trim(); if(!t) continue;
+      const p = t.split(/[ \t]+/); const key = p[0].toLowerCase();
+      if (key==='mapsize'){ o.mapSizeX=+p[1]; o.mapSizeY=+p[2]; }
+      else if (key==='baseposition'){ o.baseX=+p[1]; o.baseY=+p[2]; }
+      else if (key==='cellscale') o.cellScale=+p[1];
+      else if (key==='heightscale') o.heightScale=p[1];
+      else if (key==='viewradius') o.viewRadius=+p[1];
+      else if (key==='textureset') o.textureSet=p.slice(1).join(' ');
+      else if (key==='environment') o.environment=p.slice(1).join(' ');
+    }
+    return o;
+  }
+  parseRegen(txt){
+    const rows=[];
+    for (const line of txt.split(/\r?\n/)){
+      let t=line.trim(); if(!t) continue;
+      if (t.startsWith('//')||t.startsWith('#')) continue;
+      const ci=t.indexOf('//'); if(ci>=0) t=t.slice(0,ci).trim();
+      const p=t.split(/[ \t]+/); if(!p.length) continue;
+      const type=p[0];
+      if (type[0]==='e'){ rows.push({type,x:+p[1]||0,y:+p[2]||0,sx:+p[3]||0,sy:+p[4]||0,dir:0,resp:'0',perc:'0',count:0,vnum:0}); continue; }
+      rows.push({ type, x:+p[1]||0, y:+p[2]||0, sx:+p[3]||0, sy:+p[4]||0,
+        dir:+p[6]||0, resp:p[7]||'1m', perc:p[8]||'100', count:+p[9]||1, vnum:+p[10]||0 });
+    }
+    return rows;
+  }
+  serializeRegen(rows){
+    let out='//type\tcx\tcy\tsx\tsy\tz\tdir\ttime\tpercent\tcount\tvnum\n';
+    for (const r of rows){
+      if (r.type[0]==='e'){ out += ['e',r.x,r.y,r.sx,r.sy,0].join('\t')+'\n'; continue; }
+      out += [r.type,r.x,r.y,r.sx,r.sy,0,r.dir,r.resp,r.perc,r.count,r.vnum].join('\t')+'\n';
+    }
+    return out;
+  }
+  parseBlocks(txt){
+    const map={}; let cur=null, toks=[];
+    for (let line of txt.split(/\r?\n/)){
+      line=line.trim(); if(!line) continue;
+      const p=line.split(/[ \t]+/); const k0=p[0].toLowerCase();
+      if(k0==='start'){ cur=(p[1]||'').toLowerCase(); toks=[]; }
+      else if(k0==='end'){ if(cur){ map[cur]=toks; cur=null; } }
+      else if(cur){ toks.push(...p); }
+      else { map[k0]=p.slice(1); }
+    }
+    return map;
+  }
+  parseAreadata(txt){
+    const m=this.parseBlocks(txt);
+    const n=m['objectcount']?parseInt(m['objectcount'][0])||0:0;
+    const objs=[];
+    for(let i=0;i<n;i++){
+      const t=m['object'+String(i).padStart(3,'0')]; if(!t) continue;
+      const o={ x:+t[0]||0, y:+t[1]||0, z:+t[2]||0, crc:(parseInt(t[3])>>>0)||0, yaw:0, pitch:0, roll:0, bias:0, portals:[] };
+      if(t.length>4){ const r=String(t[4]).split('#'); if(r.length===3){ o.yaw=+r[0]||0; o.pitch=+r[1]||0; o.roll=+r[2]||0; } else o.roll=+t[4]||0; }
+      if(t.length>5) o.bias=+t[5]||0;
+      if(t.length>6) o.portals=t.slice(6).map(v=>+v||0);
+      objs.push(o);
+    }
+    return objs;
+  }
+  serializeAreadata(objs){
+    let out='AreaDataFile\r\n\r\n';
+    objs.forEach((o,i)=>{
+      out+='Start Object'+String(i).padStart(3,'0')+'\r\n';
+      out+='\t'+o.x.toFixed(6)+' '+o.y.toFixed(6)+' '+o.z.toFixed(6)+'\r\n';
+      out+='\t'+((o.crc>>>0))+'\r\n';
+      out+='\t'+(o.yaw||0).toFixed(6)+'#'+(o.pitch||0).toFixed(6)+'#'+(o.roll||0).toFixed(6)+'\r\n';
+      out+='\t'+(o.bias||0).toFixed(6)+'\r\n';
+      if(o.portals&&o.portals.length&&o.portals[0]) out+='\t'+o.portals.join(' ')+'\r\n';
+      out+='End Object\r\n\r\n';
+    });
+    out+='ObjectCount '+objs.length+'\r\n';
+    return out;
+  }
+
+  // ================= sector layer bitmaps =================
+  async buildSector(layer, coord){
+    const f = n => this.getFile(coord+'/'+n);
+    try {
+      if (layer==='height'){
+        const file=f('height.raw'); if(!file) return null;
+        const b=await file.arrayBuffer(); if(b.byteLength!==131*131*2) return null;
+        const h=new Uint16Array(b); const img=new ImageData(256,256);
+        for(let y=0;y<256;y++)for(let x=0;x<256;x++){ const v=h[((y>>1)+1)*131+((x>>1)+1)]; const g=v>>8; const o=(y*256+x)*4; img.data[o]=g;img.data[o+1]=g;img.data[o+2]=g;img.data[o+3]=255; }
+        return await createImageBitmap(img);
+      }
+      if (layer==='tile'){
+        const file=f('tile.raw'); if(!file) return null;
+        const b=await file.arrayBuffer(); if(b.byteLength!==258*258) return null;
+        const t=new Uint8Array(b); const img=new ImageData(256,256);
+        for(let y=0;y<256;y++)for(let x=0;x<256;x++){ const idx=t[(y+1)*258+(x+1)]; const c=this.tileColor(idx); const o=(y*256+x)*4; img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255; }
+        return await createImageBitmap(img);
+      }
+      if (layer==='attribute'){
+        const file=f('attr.atr'); if(!file) return null;
+        const b=await file.arrayBuffer(); const dv=new DataView(b);
+        if(dv.getUint16(0,true)!==2634) return null;
+        const a=new Uint8Array(b,6); const img=new ImageData(256,256);
+        for(let i=0;i<65536;i++){ const c=this.attrColor(a[i]); const o=i*4; img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255; }
+        return await createImageBitmap(img);
+      }
+      if (layer==='water'){
+        const file=f('water.wtr');
+        const img=new ImageData(256,256);
+        if(file){ const b=await file.arrayBuffer(); const dv=new DataView(b);
+          if(dv.getUint16(0,true)===5426){ const cells=new Uint8Array(b,7,16384);
+            for(let y=0;y<256;y++)for(let x=0;x<256;x++){ const cv=cells[(y>>1)*128+(x>>1)]; const o=(y*256+x)*4;
+              if(cv===0xFF){ img.data[o]=18;img.data[o+1]=13;img.data[o+2]=8;img.data[o+3]=255; }
+              else { img.data[o]=44;img.data[o+1]=104;img.data[o+2]=180;img.data[o+3]=255; } } } }
+        return await createImageBitmap(img);
+      }
+      if (layer==='shadow'){
+        let file=f('shadowmap.raw');
+        if(file){ const b=await file.arrayBuffer(); if(b.byteLength<256*256*2) return null;
+          const h=new Uint16Array(b); const img=new ImageData(256,256);
+          for(let i=0;i<65536;i++){ const g=h[i]>>8; const o=i*4; img.data[o]=g;img.data[o+1]=g;img.data[o+2]=g;img.data[o+3]=255; }
+          return await createImageBitmap(img); }
+        file=f('shadowmap.dds'); if(!file) return null;
+        const dec=this.decodeDDS(await file.arrayBuffer()); if(!dec) return null;
+        return await createImageBitmap(new ImageData(dec.data,dec.w,dec.h));
+      }
+      if (layer==='minimap'){
+        const file=f('minimap.dds'); if(!file) return null;
+        const dec=this.decodeDDS(await file.arrayBuffer()); if(!dec) return null;
+        return await createImageBitmap(new ImageData(dec.data,dec.w,dec.h));
+      }
+      if (layer==='hl'){
+        const file=f('attr.atr'); if(!file) return null;
+        const b=await file.arrayBuffer(); const dv=new DataView(b);
+        if(dv.getUint16(0,true)!==2634) return null;
+        const a=new Uint8Array(b,6); const img=new ImageData(256,256);
+        for(let i=0;i<65536;i++){ const o=i*4; const byte=a[i]; let hit=null;
+          for(const F of ATTR_FLAGS){ if(byte&F.bit){ hit=F.col; break; } }
+          if(hit){ img.data[o]=hit[0];img.data[o+1]=hit[1];img.data[o+2]=hit[2];img.data[o+3]=175; } else img.data[o+3]=0; }
+        return await createImageBitmap(img);
+      }
+    } catch(e){ return null; }
+    return null;
+  }
+  tileColor(idx){ if(idx===0) return [30,24,16]; const hue=(idx*47)%360; return this.hsl(hue,0.35,0.5); }
+  attrColor(b){
+    if(b===0) return [30,24,16];
+    if(b&0x01) return [196,58,48];
+    if(b&0x02) return [48,108,196];
+    if(b&0x04) return [66,176,92];
+    if(b&0x08) return [214,190,66];
+    const mtn=(b&0x80)!==0; return mtn?[96,78,52]:[74,104,72];
+  }
+  hsl(h,s,l){ const c=(1-Math.abs(2*l-1))*s, x=c*(1-Math.abs((h/60)%2-1)), m=l-c/2; let r,g,b;
+    if(h<60){r=c;g=x;b=0;}else if(h<120){r=x;g=c;b=0;}else if(h<180){r=0;g=c;b=x;}else if(h<240){r=0;g=x;b=c;}else if(h<300){r=x;g=0;b=c;}else{r=c;g=0;b=x;}
+    return [Math.round((r+m)*255),Math.round((g+m)*255),Math.round((b+m)*255)]; }
+
+  decodeDDS(buf){
+    const dv=new DataView(buf);
+    if(dv.getUint32(0,true)!==0x20534444) return null;
+    const h=dv.getUint32(12,true), w=dv.getUint32(16,true);
+    const pfFlags=dv.getUint32(80,true), fourCC=dv.getUint32(84,true), bpp=dv.getUint32(88,true);
+    const out=new Uint8ClampedArray(w*h*4); let off=128;
+    const compressed=(pfFlags&0x4)!==0;
+    if(!compressed){
+      const data=new Uint8Array(buf,off);
+      if(bpp===32){ for(let i=0;i<w*h;i++){ const s=i*4,o=i*4; out[o]=data[s+2];out[o+1]=data[s+1];out[o+2]=data[s];out[o+3]=255; } }
+      else if(bpp===16){ for(let i=0;i<w*h;i++){ const v=data[i*2]|(data[i*2+1]<<8); const o=i*4; out[o]=((v>>11)&31)*255/31;out[o+1]=((v>>5)&63)*255/63;out[o+2]=(v&31)*255/31;out[o+3]=255; } }
+      else { for(let i=0;i<w*h;i++){ out[i*4+3]=255; } }
+      return {w,h,data:out};
+    }
+    const DXT1=0x31545844;
+    const blockSize=(fourCC===DXT1)?8:16;
+    const to888=v=>[((v>>11)&31)*255/31,((v>>5)&63)*255/63,(v&31)*255/31];
+    const bw=Math.ceil(w/4), bh=Math.ceil(h/4);
+    for(let by=0;by<bh;by++)for(let bx=0;bx<bw;bx++){
+      const bo=off+(by*bw+bx)*blockSize; const co=(fourCC===DXT1)?bo:bo+8;
+      const c0=dv.getUint16(co,true),c1=dv.getUint16(co+2,true),bits=dv.getUint32(co+4,true);
+      const p0=to888(c0),p1=to888(c1); const pal=[p0,p1,[0,0,0],[0,0,0]];
+      if(c0>c1||fourCC!==DXT1){ pal[2]=[(2*p0[0]+p1[0])/3,(2*p0[1]+p1[1])/3,(2*p0[2]+p1[2])/3]; pal[3]=[(p0[0]+2*p1[0])/3,(p0[1]+2*p1[1])/3,(p0[2]+2*p1[2])/3]; }
+      else { pal[2]=[(p0[0]+p1[0])/2,(p0[1]+p1[1])/2,(p0[2]+p1[2])/2]; pal[3]=[0,0,0]; }
+      for(let j=0;j<4;j++)for(let i=0;i<4;i++){ const code=(bits>>(2*(4*j+i)))&3; const c=pal[code]; const px=bx*4+i,py=by*4+j; if(px<w&&py<h){ const o=(py*w+px)*4; out[o]=c[0];out[o+1]=c[1];out[o+2]=c[2];out[o+3]=255; } }
+    }
+    return {w,h,data:out};
+  }
+
+  // ================= PNG re-import encoders =================
+  makeDDS(w,h,bgra){
+    const buf=new ArrayBuffer(128+w*h*4); const dv=new DataView(buf); const u8=new Uint8Array(buf);
+    u8[0]=0x44;u8[1]=0x44;u8[2]=0x53;u8[3]=0x20;
+    dv.setUint32(4,124,true);
+    dv.setUint32(8,0x1|0x2|0x4|0x1000|0x8,true);
+    dv.setUint32(12,h,true); dv.setUint32(16,w,true);
+    dv.setUint32(20,w*4,true);
+    dv.setUint32(76,32,true);
+    dv.setUint32(80,0x40|0x1,true);
+    dv.setUint32(88,32,true);
+    dv.setUint32(92,0x00ff0000,true); dv.setUint32(96,0x0000ff00,true);
+    dv.setUint32(100,0x000000ff,true); dv.setUint32(104,0xff000000,true);
+    dv.setUint32(108,0x1000,true);
+    u8.set(bgra,128);
+    return buf;
+  }
+  encodeMinimapDDS(id){
+    const w=id.width,h=id.height,d=id.data; const bgra=new Uint8Array(w*h*4);
+    for(let i=0;i<w*h;i++){ bgra[i*4]=d[i*4+2]; bgra[i*4+1]=d[i*4+1]; bgra[i*4+2]=d[i*4]; bgra[i*4+3]=255; }
+    return this.makeDDS(w,h,bgra);
+  }
+  encodeHeightRaw(id){
+    const out=new ArrayBuffer(131*131*2); const u16=new Uint16Array(out); const d=id.data;
+    for(let r=0;r<131;r++)for(let c=0;c<131;c++){ const px=Math.min(255,Math.max(0,(c-1)*2)), py=Math.min(255,Math.max(0,(r-1)*2)); u16[r*131+c]=d[(py*256+px)*4]<<8; }
+    return out;
+  }
+  encodeShadowRaw(id){ const out=new ArrayBuffer(256*256*2); const u16=new Uint16Array(out); const d=id.data; for(let i=0;i<65536;i++) u16[i]=d[i*4]<<8; return out; }
+  tilePalette(){ if(this._tpal) return this._tpal; const p=[]; for(let i=0;i<256;i++) p.push(this.tileColor(i)); this._tpal=p; return p; }
+  nearest(pal,r,g,b){ let best=0,bd=1e12; for(let i=0;i<pal.length;i++){ const c=pal[i]; const dd=(c[0]-r)*(c[0]-r)+(c[1]-g)*(c[1]-g)+(c[2]-b)*(c[2]-b); if(dd<bd){bd=dd;best=i;} } return best; }
+  encodeTileRaw(id){
+    const pal=this.tilePalette(); const out=new Uint8Array(258*258); const d=id.data;
+    for(let y=0;y<256;y++)for(let x=0;x<256;x++){ const o=(y*256+x)*4; out[(y+1)*258+(x+1)]=this.nearest(pal,d[o],d[o+1],d[o+2]); }
+    for(let x=0;x<258;x++){ out[x]=out[258+x]; out[257*258+x]=out[256*258+x]; }
+    for(let y=0;y<258;y++){ out[y*258]=out[y*258+1]; out[y*258+257]=out[y*258+256]; }
+    return out.buffer;
+  }
+  encodeAttrAtr(id){
+    const out=new Uint8Array(65542); const dv=new DataView(out.buffer);
+    dv.setUint16(0,2634,true); dv.setUint16(2,256,true); dv.setUint16(4,256,true);
+    const d=id.data; const cand=[[30,24,16,0],[78,120,74,0],[110,90,58,0x80],[196,58,48,1],[48,108,196,2],[208,186,70,4]];
+    for(let i=0;i<65536;i++){ const o=i*4; let best=0,bd=1e12; for(const c of cand){ const dd=(c[0]-d[o])*(c[0]-d[o])+(c[1]-d[o+1])*(c[1]-d[o+1])+(c[2]-d[o+2])*(c[2]-d[o+2]); if(dd<bd){bd=dd;best=c[3];} } out[6+i]=best; }
+    return out.buffer;
+  }
+  encodeLayer(layer,coord,id){
+    if(layer==='minimap') return {name:'minimap.dds',buf:this.encodeMinimapDDS(id)};
+    if(layer==='height') return {name:'height.raw',buf:this.encodeHeightRaw(id)};
+    if(layer==='tile') return {name:'tile.raw',buf:this.encodeTileRaw(id)};
+    if(layer==='attribute') return {name:'attr.atr',buf:this.encodeAttrAtr(id)};
+    if(layer==='shadow'){ if(this.getFile(coord+'/shadowmap.dds')&&!this.getFile(coord+'/shadowmap.raw')) return {name:'shadowmap.dds',buf:this.encodeMinimapDDS(id)}; return {name:'shadowmap.raw',buf:this.encodeShadowRaw(id)}; }
+    return {name:null,buf:null};
+  }
+  importPng(){ if(this.state.empty) return; this.pngInput.click(); }
+  async onPngInput(e){
+    const file=e.target.files&&e.target.files[0]; e.target.value=''; if(!file) return;
+    const layer=this.state.layer;
+    if(layer==='water'){ this.setState({statusText:'water PNG import not supported (needs layer heights)'}); return; }
+    const img=await createImageBitmap(file);
+    const b=this.bounds; const cols=b.maxx-b.minx+1, rows=b.maxy-b.miny+1;
+    const off=document.createElement('canvas'); off.width=cols*TILE; off.height=rows*TILE;
+    const ctx=off.getContext('2d'); ctx.imageSmoothingEnabled=false; ctx.drawImage(img,0,0,off.width,off.height);
+    let n=0;
+    for(const c of this.sectorList){
+      const sx=(+c.slice(0,3)-b.minx)*TILE, sy=(+c.slice(3,6)-b.miny)*TILE;
+      const id=ctx.getImageData(sx,sy,TILE,TILE);
+      const {name,buf}=this.encodeLayer(layer,c,id); if(!buf) continue;
+      this.files[(c+'/'+name).toLowerCase()]=new File([buf],name);
+      delete this.cache[layer+':'+c]; if(layer==='attribute') delete this.cache['hl:'+c];
+      n++;
+    }
+    this.setState({statusText:'imported '+layer+' from PNG → '+n+' sectors (in .zip on export)'});
+    this.renderLayer();
+  }
+
+  // ================= zip =================
+  crc32(buf){ let c=~0>>>0; for(let i=0;i<buf.length;i++){ c^=buf[i]; for(let k=0;k<8;k++) c=(c>>>1)^(0xEDB88320&(-(c&1))); } return (~c)>>>0; }
+  buildZip(entries){
+    const enc=new TextEncoder(); const chunks=[]; let offset=0; const central=[];
+    for(const e of entries){
+      const nameBytes=enc.encode(e.name); const crc=this.crc32(e.data); const size=e.data.length;
+      const local=new Uint8Array(30+nameBytes.length); const dv=new DataView(local.buffer);
+      dv.setUint32(0,0x04034b50,true); dv.setUint16(4,20,true); dv.setUint16(6,0,true); dv.setUint16(8,0,true);
+      dv.setUint16(10,0,true); dv.setUint16(12,0,true); dv.setUint32(14,crc,true);
+      dv.setUint32(18,size,true); dv.setUint32(22,size,true); dv.setUint16(26,nameBytes.length,true); dv.setUint16(28,0,true);
+      local.set(nameBytes,30); chunks.push(local, e.data);
+      central.push({nameBytes,crc,size,offset}); offset+=local.length+size;
+    }
+    const cds=[]; let cdSize=0;
+    for(const c of central){
+      const hd=new Uint8Array(46+c.nameBytes.length); const dv=new DataView(hd.buffer);
+      dv.setUint32(0,0x02014b50,true); dv.setUint16(4,20,true); dv.setUint16(6,20,true);
+      dv.setUint32(16,c.crc,true); dv.setUint32(20,c.size,true); dv.setUint32(24,c.size,true);
+      dv.setUint16(28,c.nameBytes.length,true); dv.setUint32(42,c.offset,true);
+      hd.set(c.nameBytes,46); cds.push(hd); cdSize+=hd.length;
+    }
+    const end=new Uint8Array(22); const dv=new DataView(end.buffer);
+    dv.setUint32(0,0x06054b50,true); dv.setUint16(8,central.length,true); dv.setUint16(10,central.length,true);
+    dv.setUint32(12,cdSize,true); dv.setUint32(16,offset,true);
+    return new Blob([...chunks,...cds,end],{type:'application/zip'});
+  }
+  async exportZip(){
+    if(this.state.empty||!Object.keys(this.files).length){ this.setState({statusText:'load a map first'}); return; }
+    this.setState({statusText:'zipping…'});
+    const enc=new TextEncoder(); const root=(this.state.info.name||'map');
+    const skip=new Set(['regen.txt','boss.txt','stone.txt','npc.txt','areadata.txt']);
+    const entries=[];
+    for(const [path,file] of Object.entries(this.files)){
+      const base=path.split('/').pop(); if(skip.has(base)) continue;
+      const buf=new Uint8Array(await file.arrayBuffer());
+      entries.push({name:root+'/'+path, data:buf});
+    }
+    for(const key of Object.keys(REGEN_FILES)){
+      const rows=this.regen[key]; if(rows&&rows.length) entries.push({name:root+'/'+REGEN_FILES[key], data:enc.encode(this.serializeRegen(rows))});
+    }
+    for(const c of Object.keys(this.areadata)){
+      const objs=this.areadata[c]; if(objs&&objs.length) entries.push({name:root+'/'+c+'/areadata.txt', data:enc.encode(this.serializeAreadata(objs))});
+    }
+    const blob=this.buildZip(entries);
+    this.download(root+'.zip', blob);
+    this.setState({statusText:'exported '+entries.length+' files → '+root+'.zip'});
+  }
+
+  // ================= server_attr (LZO1X) =================
+  // store-mode LZO1X encoder: one literal run covering the whole block + EOF marker.
+  lzoStore(src){
+    const n=src.length; const head=[];
+    const need=n-18;
+    if(need<0){ head.push(n-3); }        // tiny (n 4..18): single-byte literal code
+    else { let z=Math.floor(need/255), f=need-z*255; if(f===0){ z--; f=255; } head.push(0); for(let i=0;i<z;i++) head.push(0); head.push(f); }
+    const out=new Uint8Array(head.length+n+3); out.set(head,0); out.set(src,head.length);
+    const e=head.length+n; out[e]=0x11; out[e+1]=0; out[e+2]=0;
+    return out;
+  }
+  // faithful LZO1X decompressor (minilzo control flow) with runaway guard.
+  lzo1xDecompress(IN, outCap){
+    const out=new Uint8Array(outCap); let ip=0,op=0,t=0,m=0;
+    const litExt=()=>{ while(IN[ip]===0){ t+=255; ip++; } t+=15+IN[ip++]; };
+    let state; t=IN[ip++];
+    if(t>17){ t-=17; if(t<4){ state='match_next'; } else { do{ out[op++]=IN[ip++]; }while(--t>0); state='flr'; } }
+    else { ip--; state='lit0'; }
+    let guard=0;
+    for(;;){
+      if(++guard>4000000) throw new Error('lzo runaway');
+      if(state==='lit0'){
+        t=IN[ip++]; if(t>=16){ state='match'; continue; }
+        if(t===0) litExt();
+        t+=3; do{ out[op++]=IN[ip++]; }while(--t>0); state='flr';
+      } else if(state==='flr'){
+        t=IN[ip++]; if(t>=16){ state='match'; continue; }
+        m=op-(1+0x0800)-(t>>2)-(IN[ip++]<<2);
+        out[op++]=out[m++]; out[op++]=out[m++]; out[op++]=out[m++]; state='match_done';
+      } else if(state==='match'){
+        if(t>=64){ m=op-1-((t>>2)&7)-(IN[ip++]<<3); t=(t>>5)-1; }
+        else if(t>=32){ t&=31; if(t===0){ while(IN[ip]===0){ t+=255; ip++; } t+=31+IN[ip++]; } m=op-1-(IN[ip]>>2)-(IN[ip+1]<<6); ip+=2; }
+        else if(t>=16){ m=op-((t&8)<<11); t&=7; if(t===0){ while(IN[ip]===0){ t+=255; ip++; } t+=7+IN[ip++]; } m-=(IN[ip]>>2)+(IN[ip+1]<<6); ip+=2; if(m===op) break; m-=0x4000; }
+        else { m=op-1-(t>>2)-(IN[ip++]<<2); out[op++]=out[m++]; out[op++]=out[m++]; state='match_done'; continue; }
+        t+=2; do{ out[op++]=out[m++]; }while(--t>0); state='match_done';
+      } else if(state==='match_done'){
+        t=IN[ip-2]&3; if(t===0){ state='lit0'; } else { do{ out[op++]=IN[ip++]; }while(--t>0); t=IN[ip++]; state='match'; }
+      } else if(state==='match_next'){ do{ out[op++]=IN[ip++]; }while(--t>0); t=IN[ip++]; state='match'; }
+    }
+    return out.subarray(0,op);
+  }
+  async attrGrid(coord){
+    const f=this.getFile(coord+'/attr.atr'); if(!f) return null;
+    const b=await f.arrayBuffer(); const dv=new DataView(b);
+    if(dv.getUint16(0,true)!==2634||b.byteLength!==65542) return null;
+    return new Uint8Array(b,6,65536);
+  }
+  async generateServerAttr(){
+    this.setState({menu:''});
+    if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
+    this.setState({statusText:'generating server_attr…'});
+    const b=this.bounds;
+    const mapW=this.setting.mapSizeX||(b.maxx-b.minx+1), mapH=this.setting.mapSizeY||(b.maxy-b.miny+1);
+    const W=mapW*4, H=mapH*4;
+    const grids={};
+    for(let cy=0;cy<mapH;cy++)for(let cx=0;cx<mapW;cx++){
+      const code=String(b.minx+cx).padStart(3,'0')+String(b.miny+cy).padStart(3,'0');
+      grids[cx+','+cy]=await this.attrGrid(code);
+    }
+    const parts=[]; const hdr=new Uint8Array(8); const hv=new DataView(hdr.buffer);
+    hv.setInt32(0,W,true); hv.setInt32(4,H,true); parts.push(hdr);
+    const block=new Uint8Array(65536); const bv=new DataView(block.buffer);
+    for(let sy=0;sy<H;sy++)for(let sx=0;sx<W;sx++){
+      const g=grids[(sx>>2)+','+(sy>>2)]; const offX=(sx&3)*64, offY=(sy&3)*64;
+      for(let scy=0;scy<128;scy++)for(let scx=0;scx<128;scx++){
+        const av=g?g[(offY+(scy>>1))*256+(offX+(scx>>1))]:0;
+        bv.setUint32((scy*128+scx)*4, av, true);
+      }
+      const comp=this.lzoStore(block);
+      const sz=new Uint8Array(4); new DataView(sz.buffer).setUint32(0,comp.length,true);
+      parts.push(sz, comp.slice());
+    }
+    let total=0; for(const p of parts) total+=p.length;
+    const outb=new Uint8Array(total); let o=0; for(const p of parts){ outb.set(p,o); o+=p.length; }
+    this.files['server_attr']=new File([outb],'server_attr');
+    this.download('server_attr', new Blob([outb],{type:'application/octet-stream'}));
+    this.setState({statusText:'server_attr generated · '+W+'×'+H+' · '+outb.length+' bytes (also bundled in Export .zip)'});
+  }
+  importServerAttr(){ this.setState({menu:''}); if(this.state.empty){ this.setState({statusText:'load a map first'}); return; } this.serverAttrInput.click(); }
+  async onServerAttrInput(e){
+    const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
+    this.setState({statusText:'reading server_attr…'});
+    const buf=await f.arrayBuffer(); const dv=new DataView(buf);
+    const W=dv.getInt32(0,true), H=dv.getInt32(4,true);
+    if(W<=0||H<=0||W>8192||H>8192){ this.setState({statusText:'server_attr: bad header dims'}); return; }
+    const b=this.bounds; let off=8, done=0, bad=0; const grids={};
+    for(let sy=0;sy<H;sy++)for(let sx=0;sx<W;sx++){
+      if(off+4>buf.byteLength){ bad++; sy=H; break; }
+      const sz=dv.getUint32(off,true); off+=4;
+      if(off+sz>buf.byteLength){ bad++; break; }
+      const blk=new Uint8Array(buf,off,sz); off+=sz;
+      let d; try{ d=this.lzo1xDecompress(blk,65536); }catch(err){ bad++; continue; }
+      if(d.length!==65536){ bad++; continue; }
+      const du=new Uint32Array(d.buffer,d.byteOffset,16384);
+      const code=String(b.minx+(sx>>2)).padStart(3,'0')+String(b.miny+(sy>>2)).padStart(3,'0');
+      let g=grids[code]; if(!g){ g=new Uint8Array(65536); grids[code]=g; }
+      const offX=(sx&3)*64, offY=(sy&3)*64;
+      for(let scy=0;scy<128;scy+=2)for(let scx=0;scx<128;scx+=2){
+        g[(offY+(scy>>1))*256+(offX+(scx>>1))]=du[scy*128+scx]&0xFF;
+      }
+      done++;
+    }
+    let wrote=0;
+    for(const code of Object.keys(grids)){
+      const out=new Uint8Array(65542); const odv=new DataView(out.buffer);
+      odv.setUint16(0,2634,true); odv.setUint16(2,256,true); odv.setUint16(4,256,true);
+      out.set(grids[code],6);
+      this.files[(code+'/attr.atr').toLowerCase()]=new File([out],'attr.atr');
+      delete this.cache['attribute:'+code]; delete this.cache['hl:'+code]; wrote++;
+    }
+    this.files['server_attr']=f;
+    if(!done){ this.setState({statusText:'server_attr: no blocks decoded (bad/unsupported LZO stream)'}); return; }
+    this.setState({ layer:'attribute', statusText:'imported server_attr · '+done+'/'+(W*H)+' blocks → '+wrote+' attr.atr'+(bad?(' · '+bad+' skipped'):'') });
+    this.renderLayer();
+  }
+
+  // ================= render =================
+  async renderLayer(){
+    const layer=this.state.layer, job=++this.jobId;
+    if(!this.sectorList.length){ this.draw(); return; }
+    let ok=0,total=this.sectorList.length;
+    this.setState({ statusText:'rendering '+layer+'…' });
+    for(const c of this.sectorList){
+      const key=layer+':'+c;
+      if(!this.cache[key]){ const bmp=await this.buildSector(layer,c); if(job!==this.jobId) return; if(bmp){ this.cache[key]=bmp; ok++; } }
+      else ok++;
+      this.draw();
+    }
+    if(this.state.highlight) await this.ensureHighlight(job);
+    if(job!==this.jobId) return;
+    this.setState({ statusText:'ready' });
+    if(this.layerInfoEl) this.layerInfoEl.textContent = this.layerDesc(layer,ok,total);
+    this.draw();
+  }
+  async ensureHighlight(job){
+    for(const c of this.sectorList){ const key='hl:'+c; if(!this.cache[key]){ const bmp=await this.buildSector('hl',c); if(job!==this.jobId) return; if(bmp) this.cache[key]=bmp; } }
+  }
+  layerDesc(layer,ok,total){
+    const m={height:'Grayscale heightmap (uint16 → world Z ×0.5). 131×131 vertex grid per sector.',
+      tile:'Texture indices per 1 m tile. Colours are index hashes (reversible on PNG re-import).',
+      shadow:'Baked shadowmap (256×256).',
+      attribute:'Client attr.atr. Base: block=red, water=blue, safezone=green, banshop=yellow. Toggle “Highlight attribute flags” to colour all 8 bit flags. Server Attr menu → import/generate server_attr (LZO1X).',
+      water:'Water cells (blue) vs dry (dark), 128×128 per sector.',
+      minimap:'Rendered minimap.dds tiles (decoded). PNG re-import is lossless.'};
+    return (m[layer]||'')+'\n\n'+ok+' / '+total+' sectors rendered.';
+  }
+  draw(){
+    const cv=this.canvas; if(!cv) return; const ctx=cv.getContext('2d');
+    ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='#120d08'; ctx.fillRect(0,0,cv.width,cv.height);
+    if(this.state.empty) return;
+    ctx.imageSmoothingEnabled=false;
+    ctx.setTransform(this.zoom,0,0,this.zoom,this.ox,this.oy);
+    const layer=this.state.layer;
+    for(const c of this.sectorList){ const bmp=this.cache[layer+':'+c]; if(!bmp) continue; const x=+c.slice(0,3),y=+c.slice(3,6); ctx.drawImage(bmp,x*TILE,y*TILE,TILE,TILE); }
+    if(this.state.highlight) for(const c of this.sectorList){ const bmp=this.cache['hl:'+c]; if(!bmp) continue; const x=+c.slice(0,3),y=+c.slice(3,6); ctx.drawImage(bmp,x*TILE,y*TILE,TILE,TILE); }
+    if(this.gridOn()){
+      ctx.strokeStyle='rgba(201,162,75,.28)'; ctx.lineWidth=1/this.zoom;
+      for(const c of this.sectorList){ const x=+c.slice(0,3),y=+c.slice(3,6); ctx.strokeRect(x*TILE,y*TILE,TILE,TILE); }
+    }
+    if(this.state.mainTab==='regen'){
+      const rows=this.currentRows(); const ms=(this.props.markerScale ?? 1)*7/this.zoom;
+      const col=MARK_COLOR[this.state.regenTab]||'#e05555';
+      rows.forEach((r,i)=>{ if(r.type[0]==='e'||r.type[0]==='s') return;
+        const cx=r.x, cy=r.y; ctx.fillStyle=(i===this.selRow)?'#ffffff':col;
+        ctx.beginPath(); ctx.moveTo(cx,cy-ms); ctx.lineTo(cx+ms,cy); ctx.lineTo(cx,cy+ms); ctx.lineTo(cx-ms,cy); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1/this.zoom; ctx.stroke();
+        if(r.sx>0||r.sy>0){ ctx.strokeStyle=(i===this.selRow)?'#ffffff':col; ctx.lineWidth=1/this.zoom; ctx.strokeRect(cx-r.sx,cy-r.sy,r.sx*2,r.sy*2); }
+      });
+    }
+    if(this.state.mainTab==='objects'){
+      const rad=(this.props.markerScale ?? 1)*4/this.zoom;
+      for(const c of Object.keys(this.areadata)){
+        const objs=this.areadata[c]; if(!objs) continue;
+        objs.forEach((o,i)=>{ const px=o.x/100, py=(-o.y)/100; const sel=(c===this.state.oSector && i===this.selObj);
+          ctx.fillStyle=sel?'#ffffff':(c===this.state.oSector?'#6ad0e0':'#3d7f8a');
+          ctx.beginPath(); ctx.arc(px,py,rad,0,6.2832); ctx.fill();
+          ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1/this.zoom; ctx.stroke();
+        });
+      }
+    }
+  }
+  currentRows(){ return this.regen[this.state.regenTab]||[]; }
+  curObjs(){ return this.areadata[this.state.oSector]||[]; }
+
+  // ================= interaction =================
+  onWheel(e){ e.preventDefault(); if(this.state.empty) return; const r=this.canvas.getBoundingClientRect(); const mx=e.clientX-r.left,my=e.clientY-r.top; const f=e.deltaY<0?1.12:1/1.12; const nz=Math.min(40,Math.max(0.02,this.zoom*f)); this.ox=mx-(mx-this.ox)*(nz/this.zoom); this.oy=my-(my-this.oy)*(nz/this.zoom); this.zoom=nz; this.updateZoom(); this.draw(); }
+  onDown(e){ this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy}; this.moved=false; }
+  onMove(e){
+    if(this.state.empty){ return; }
+    const r=this.canvas.getBoundingClientRect(); const inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
+    if(this.down){ const dx=e.clientX-this.down.x,dy=e.clientY-this.down.y; if(Math.abs(dx)+Math.abs(dy)>3) this.moved=true; if(this.moved){ this.ox=this.down.ox+dx; this.oy=this.down.oy+dy; this.draw(); } }
+    if(inside && this.coordEl){ const mx=e.clientX-r.left,my=e.clientY-r.top; const ax=Math.floor((mx-this.ox)/this.zoom), ay=Math.floor((my-this.oy)/this.zoom); this.coordEl.textContent='x '+ax+' · y '+ay; }
+  }
+  onUp(e){
+    if(!this.down) return; const wasMoved=this.moved; this.down=null;
+    if(wasMoved||this.state.empty) return;
+    const r=this.canvas.getBoundingClientRect(); if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) return;
+    const mx=e.clientX-r.left,my=e.clientY-r.top;
+    if(this.state.mainTab==='regen'){ this.placeSpawn(Math.round((mx-this.ox)/this.zoom), Math.round((my-this.oy)/this.zoom)); return; }
+    if(this.state.mainTab==='objects'){
+      const wx=(mx-this.ox)/this.zoom, wy=(my-this.oy)/this.zoom;
+      const objs=this.curObjs();
+      if(this.selObj>=0 && objs[this.selObj]){ objs[this.selObj].x=Math.round(wx*100); objs[this.selObj].y=-Math.round(wy*100); this.selectObj(this.selObj); }
+      else this.setState({statusText:'select an object first, then click to move it'});
+      return;
+    }
+  }
+  placeSpawn(x,y){
+    const b=this.bounds;
+    const minX=b.minx*TILE, minY=b.miny*TILE, maxX=(b.maxx+1)*TILE, maxY=(b.maxy+1)*TILE;
+    if(x<minX||y<minY||x>=maxX||y>=maxY){ this.setState({statusText:'click inside the map to place a spawn'}); return; }
+    const type=this._t?this._t.value:'m';
+    const row={ type, x, y, sx:+(this._sx?this._sx.value:0)||0, sy:+(this._sy?this._sy.value:0)||0,
+      dir:+(this._d?this._d.value:0)||0, resp:(this._r?this._r.value:'1m')||'1m', perc:(this._p?this._p.value:'100')||'100',
+      count:+(this._c?this._c.value:1)||1, vnum:+(this._v?this._v.value:0)||0 };
+    this.currentRows().push(row); this.selRow=this.currentRows().length-1;
+    this.refreshRows(); this.draw();
+  }
+
+  startResize(e){
+    e.preventDefault();
+    const startX=e.clientX, startW=this.inspector?this.inspector.offsetWidth:344;
+    const move=ev=>{ const w=Math.min(640,Math.max(260,startW-(ev.clientX-startX))); if(this.inspector) this.inspector.style.width=w+'px'; this.resize(); };
+    const up=()=>{ window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); document.body.style.cursor=''; };
+    window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); document.body.style.cursor='col-resize';
+  }
+  updateZoom(){ if(this.zoomEl) this.zoomEl.textContent=Math.round(this.zoom*100)+'%'; }
+  zoomIn(){ this.zoom=Math.min(40,this.zoom*1.25); this.recenterZoom(); }
+  zoomOut(){ this.zoom=Math.max(0.02,this.zoom/1.25); this.recenterZoom(); }
+  recenterZoom(){ this.updateZoom(); this.draw(); }
+  fitView(){
+    const cv=this.canvas; if(!cv) return; const b=this.bounds;
+    const w=(b.maxx-b.minx+1)*TILE, h=(b.maxy-b.miny+1)*TILE;
+    const pad=24; this.zoom=Math.min((cv.width-pad)/w,(cv.height-pad)/h); if(!isFinite(this.zoom)||this.zoom<=0) this.zoom=1;
+    this.ox=(cv.width-w*this.zoom)/2 - b.minx*TILE*this.zoom;
+    this.oy=(cv.height-h*this.zoom)/2 - b.miny*TILE*this.zoom;
+    this.updateZoom(); this.draw();
+  }
+
+  // ================= tabs / layers =================
+  setLayer(k){ if(k===this.state.layer) return; this.setState({layer:k}); this.renderLayer(); }
+  tabConvert(){ this.setState({mainTab:'convert'}); this.draw(); }
+  tabRegen(){ this.setState({mainTab:'regen'}); this.draw(); }
+  tabObjects(){ this.setState({mainTab:'objects'}); this.refreshObjs(); this.draw(); }
+  setRegenTab(k){ this.selRow=-1; this.setState({regenTab:k}); this.refreshRows(); this.draw(); }
+  toggleHighlight(){ const nv=!this.state.highlight; this.setState({highlight:nv}); if(nv) this.ensureHighlight(this.jobId).then(()=>this.draw()); else this.draw(); }
+  refreshRows(){ this.setState({rev:this.state.rev+1}); if(this.emptyRowsEl) this.emptyRowsEl.style.display=this.currentRows().length?'none':'block'; }
+  refreshObjs(){ this.setState({rev:this.state.rev+1}); if(this.emptyObjEl) this.emptyObjEl.style.display=this.curObjs().length?'none':'block'; }
+  selectRow(i){ this.selRow=i; const r=this.currentRows()[i]; if(r){ if(this._t)this._t.value=r.type; if(this._v)this._v.value=r.vnum; if(this._sx)this._sx.value=r.sx; if(this._sy)this._sy.value=r.sy; if(this._d)this._d.value=r.dir; if(this._r)this._r.value=r.resp; if(this._p)this._p.value=r.perc; if(this._c)this._c.value=r.count; } this.refreshRows(); this.draw(); }
+  updateRow(){ if(this.selRow<0){ this.setState({statusText:'select a row to update'}); return; } const r=this.currentRows()[this.selRow]; if(!r) return; r.type=this._t?this._t.value:r.type; r.vnum=+(this._v?this._v.value:r.vnum)||0; r.sx=+(this._sx?this._sx.value:0)||0; r.sy=+(this._sy?this._sy.value:0)||0; r.dir=+(this._d?this._d.value:0)||0; r.resp=(this._r?this._r.value:r.resp)||'1m'; r.perc=(this._p?this._p.value:r.perc)||'100'; r.count=+(this._c?this._c.value:1)||1; this.setState({statusText:'row updated'}); this.refreshRows(); this.draw(); }
+  deleteRow(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); const r=this.currentRows()[i]; if(!r) return; this.askConfirm('Delete this '+r.type+' spawn'+(r.vnum?' (vnum '+r.vnum+')':'')+'?',()=>{ this.currentRows().splice(i,1); if(this.selRow>=i) this.selRow=-1; this.refreshRows(); this.draw(); },{title:'Delete spawn'}); }
+
+  // ---- objects ----
+  onSectorPick(e){ this.selObj=-1; this.setState({oSector:e.target.value}); this.refreshObjs(); this.draw(); }
+  selectObj(i){ this.selObj=i; const o=this.curObjs()[i]; if(o){ if(this._ox)this._ox.value=o.x; if(this._oy)this._oy.value=o.y; if(this._oz)this._oz.value=o.z; if(this._ocrc)this._ocrc.value=o.crc; if(this._oyaw)this._oyaw.value=o.yaw; if(this._opitch)this._opitch.value=o.pitch; if(this._oroll)this._oroll.value=o.roll; if(this._obias)this._obias.value=o.bias; } this.refreshObjs(); this.draw(); }
+  updateObj(){ const o=this.curObjs()[this.selObj]; if(!o){ this.setState({statusText:'select an object to update'}); return; } o.x=+(this._ox.value)||0; o.y=+(this._oy.value)||0; o.z=+(this._oz.value)||0; o.crc=(parseInt(this._ocrc.value)>>>0)||0; o.yaw=+(this._oyaw.value)||0; o.pitch=+(this._opitch.value)||0; o.roll=+(this._oroll.value)||0; o.bias=+(this._obias.value)||0; this.setState({statusText:'object updated'}); this.refreshObjs(); this.draw(); }
+  addObj(){ const c=this.state.oSector; if(!c){ this.setState({statusText:'no sector'}); return; } const ax=+c.slice(0,3),ay=+c.slice(3,6); const o={x:(ax*256+128)*100,y:-(ay*256+128)*100,z:0,crc:0,yaw:0,pitch:0,roll:0,bias:0,portals:[]}; (this.areadata[c]=this.areadata[c]||[]).push(o); this.selObj=this.areadata[c].length-1; this.setState({statusText:'object added — set CRC, then click map to move'}); this.selectObj(this.selObj); }
+  deleteObjRow(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); const o=this.curObjs()[i]; if(!o) return; this.askConfirm('Delete object #'+i+' (CRC '+o.crc+') from sector '+this.state.oSector+'?',()=>{ this.curObjs().splice(i,1); if(this.selObj>=i) this.selObj=-1; this.refreshObjs(); this.draw(); },{title:'Delete object'}); }
+  exportAreadata(){ const c=this.state.oSector; if(!c) return; this.download('areadata_'+c+'.txt', new Blob([this.serializeAreadata(this.curObjs())],{type:'text/plain'})); }
+
+  // ================= import / export =================
+  importRegen(){ this.regenInput.click(); }
+  async onRegenInput(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; this.regen[this.state.regenTab]=this.parseRegen(await f.text()); this.selRow=-1; this.refreshRows(); this.draw(); e.target.value=''; }
+  resetRegen(){ const tab=this.state.regenTab; const n=this.currentRows().length; if(!n){ this.regen[tab]=[]; this.refreshRows(); return; } this.askConfirm('Remove all '+n+' spawn(s) from '+REGEN_FILES[tab]+'? This cannot be undone.',()=>{ this.regen[tab]=[]; this.selRow=-1; this.refreshRows(); this.draw(); this.setState({statusText:REGEN_FILES[tab]+' reset'}); },{title:'Reset '+REGEN_FILES[tab],yes:'Reset all'}); }
+  exportRegen(){ const txt=this.serializeRegen(this.currentRows()); this.download(REGEN_FILES[this.state.regenTab], new Blob([txt],{type:'text/plain'})); }
+  async exportLayerPNG(){
+    if(!this.sectorList.length) return;
+    const layer=this.state.layer, b=this.bounds;
+    const cols=b.maxx-b.minx+1, rows=b.maxy-b.miny+1;
+    const off=document.createElement('canvas'); off.width=cols*TILE; off.height=rows*TILE;
+    const ctx=off.getContext('2d'); ctx.imageSmoothingEnabled=false;
+    ctx.fillStyle='#120d08'; ctx.fillRect(0,0,off.width,off.height);
+    for(const c of this.sectorList){ let bmp=this.cache[layer+':'+c]; if(!bmp){ bmp=await this.buildSector(layer,c); if(bmp) this.cache[layer+':'+c]=bmp; } if(!bmp) continue; const x=(+c.slice(0,3)-b.minx)*TILE, y=(+c.slice(3,6)-b.miny)*TILE; ctx.drawImage(bmp,x,y,TILE,TILE); }
+    if(this.state.highlight){ for(const c of this.sectorList){ const bmp=this.cache['hl:'+c]; if(!bmp) continue; const x=(+c.slice(0,3)-b.minx)*TILE, y=(+c.slice(3,6)-b.miny)*TILE; ctx.drawImage(bmp,x,y,TILE,TILE); } }
+    off.toBlob(bl=>{ if(bl) this.download((this.state.info.name||'map')+'_'+layer+'.png', bl); });
+  }
+  download(name,blob){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+
+  // ================= renderVals =================
+  chipStyle(active){ return `padding:5px 12px;border-radius:5px;cursor:pointer;white-space:nowrap;font:${active?'600':'500'} 11.5px 'IBM Plex Sans';border:1px solid ${active?'#6b501f':'#3a2c1a'};background:${active?'linear-gradient(#d9b845,#a5802e)':'#241a11'};color:${active?'#2a1d09':'#a08b5f'}`; }
+  subStyle(active){ return `flex:1;padding:5px 0;border-radius:4px;cursor:pointer;text-align:center;font:${active?'600':'500'} 11px 'IBM Plex Sans';border:1px solid ${active?'#6b501f':'#3a2c1a'};background:${active?'linear-gradient(#d9b845,#a5802e)':'#241a11'};color:${active?'#2a1d09':'#a08b5f'}`; }
+  tabStyle(active){ return `flex:1;padding:11px 2px;cursor:pointer;text-align:center;border:0;border-bottom:2px solid ${active?'#c9a24b':'#3a2c1a'};background:${active?'#1c140d':'#171009'};color:${active?'#e8cf8f':'#a08b5f'};font:${active?'600':'500'} 12px ${active?"'Cinzel',serif":"'IBM Plex Sans'"}`; }
+
+  menuBtnStyle(open){ return `padding:5px 10px;border-radius:5px;border:0;cursor:pointer;font:500 12px 'IBM Plex Sans';background:${open?'#2f2415':'transparent'};color:${open?'#e8cf8f':'#a08b5f'}`; }
+  menuItemStyle(danger){ return `display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;text-align:left;white-space:nowrap;padding:7px 12px;border:0;border-radius:5px;background:transparent;color:${danger?'#e88a6f':'#d8c9a8'};font:500 12px 'IBM Plex Sans';cursor:pointer`; }
+  mkItem(label,fn,opts){ const o=opts||{}; return { label, onClick:()=>this.run(fn), style:this.menuItemStyle(o.danger), check:o.check?'✓':'', checkStyle:'color:#c9a24b;font-size:11px' }; }
+  buildMenus(){
+    const st=this.state, has=!st.empty;
+    const F=[
+      this.mkItem('Open map folder…',()=>this.openFolder()),
+      this.mkItem('Export map (.zip)',()=>this.exportZip()),
+      this.mkItem('Close map',()=>{ if(has) this.askConfirm('Close the current map? Unsaved edits (regen, objects, imports) will be lost.',()=>this.clearMap(),{title:'Close map',yes:'Close'}); },{danger:true})
+    ];
+    const M=[
+      ...LAYER_DEFS.map(([k,label])=>this.mkItem('Layer: '+label,()=>this.setLayer(k),{check:st.layer===k})),
+      this.mkItem('Fit to view',()=>this.fitView()),
+      this.mkItem('Sector grid',()=>this.toggleGrid(),{check:this.gridOn()}),
+      this.mkItem('Export view PNG',()=>this.exportLayerPNG()),
+      this.mkItem('Import PNG…',()=>this.importPng())
+    ];
+    const A=[
+      this.mkItem('Show attribute layer',()=>this.setLayer('attribute'),{check:st.layer==='attribute'}),
+      this.mkItem('Highlight attribute flags',()=>this.toggleHighlight(),{check:st.highlight}),
+      this.mkItem('Import from server_attr…',()=>this.importServerAttr()),
+      this.mkItem('Generate server_attr',()=>this.generateServerAttr())
+    ];
+    const R=[
+      this.mkItem('Open Regen tab',()=>this.tabRegen(),{check:st.mainTab==='regen'}),
+      ...Object.keys(REGEN_FILES).map(k=>this.mkItem('File: '+REGEN_FILES[k],()=>{ this.tabRegen(); this.setRegenTab(k); },{check:st.regenTab===k})),
+      this.mkItem('Import .txt…',()=>{ this.tabRegen(); this.importRegen(); }),
+      this.mkItem('Export current file',()=>this.exportRegen()),
+      this.mkItem('Reset current file',()=>{ this.tabRegen(); this.resetRegen(); },{danger:true})
+    ];
+    const U=[
+      this.mkItem('Converter tab',()=>this.tabConvert(),{check:st.mainTab==='convert'}),
+      this.mkItem('Objects (areadata) tab',()=>this.tabObjects(),{check:st.mainTab==='objects'}),
+      this.mkItem('Export areadata .txt',()=>this.exportAreadata()),
+      this.mkItem('About MapForge',()=>this.setState({statusText:'MapForge web · Metin2 map editor'}))
+    ];
+    return [['file','File',F],['map','Map',M],['attr','Server Attr',A],['regen','Regen',R],['util','Utility',U]]
+      .map(([key,label,items])=>({ key, label, items, open:st.menu===key, style:this.menuBtnStyle(st.menu===key), onClick:()=>this.toggleMenu(key) }));
+  }
+
+  renderVals(){
+    const st=this.state, info=st.info;
+    const menus=this.buildMenus();
+    const cf=st.confirm||{};
+    const layers=LAYER_DEFS.map(([k,label])=>({ key:k, label, style:this.chipStyle(st.layer===k), onClick:()=>this.setLayer(k) }));
+    const subtabs=Object.keys(REGEN_FILES).map(k=>({ key:k, label:REGEN_FILES[k], style:this.subStyle(st.regenTab===k), onClick:()=>this.setRegenTab(k) }));
+    const rows=this.currentRows().map((r,i)=>({
+      type:r.type, vnum:r.vnum, x:r.x, y:r.y, resp:r.resp, sx:r.sx, sy:r.sy, dir:r.dir, perc:r.perc, count:r.count,
+      onClick:()=>this.selectRow(i), onDelete:(e)=>this.deleteRow(i,e),
+      style:`display:flex;cursor:pointer;font-size:10.5px;border-bottom:1px solid #241a11;color:#d8c9a8;background:${i===this.selRow?'#3a2c1a':(i%2?'#171009':'transparent')}`
+    }));
+    const layerLabel=(LAYER_DEFS.find(l=>l[0]===st.layer)||['','—'])[1];
+    const sectorOpts=this.sectorList.map(c=>({ value:c, label:c+'  ('+(this.areadata[c]?this.areadata[c].length:0)+' obj)' }));
+    const objRows=this.curObjs().map((o,i)=>({
+      idx:i, crc:o.crc, cell:Math.round(o.x/100)+' · '+Math.round(-o.y/100),
+      onClick:()=>this.selectObj(i), onDelete:(e)=>this.deleteObjRow(i,e),
+      style:`display:flex;cursor:pointer;font-size:10.5px;border-bottom:1px solid #241a11;color:#d8c9a8;background:${i===this.selObj?'#3a2c1a':(i%2?'#171009':'transparent')}`
+    }));
+    return {
+      layers, subtabs, rows, sectorOpts, objRows, layerName:layerLabel, oSectorVal:st.oSector,
+      menus, menuBarRef:this.menuBarRef,
+      confirmOpen:!!st.confirm, confirmTitle:cf.title||'', confirmMsg:cf.msg||'', confirmYesLabel:cf.yes||'Delete',
+      confirmBtnStyle:`border:1px solid ${cf.danger?'#7a2f22':'#6b501f'};background:${cf.danger?'linear-gradient(#c25236,#9a3d26)':'linear-gradient(#d9b845,#a5802e)'};color:${cf.danger?'#fff':'#2a1d09'};border-radius:6px;padding:8px 16px;font:600 12px 'IBM Plex Sans';cursor:pointer`,
+      confirmYes:()=>this.confirmYes(), confirmNo:()=>this.confirmNo(),
+      empty:st.empty,
+      convertActive:st.mainTab==='convert', regenActive:st.mainTab==='regen', objectsActive:st.mainTab==='objects',
+      convertTabStyle:this.tabStyle(st.mainTab==='convert'), regenTabStyle:this.tabStyle(st.mainTab==='regen'), objectsTabStyle:this.tabStyle(st.mainTab==='objects'),
+      highlightStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,
+      statusText:st.statusText,
+      iMapName:info.name, iDims:info.dims, iSectors:info.sectors, iBase:info.base, iCell:info.cell, iHeight:info.height, iView:info.view, iTex:info.tex, iEnv:info.env,
+      openFolder:()=>this.openFolder(), onInput:(e)=>this.onInput(e), onRegenInput:(e)=>this.onRegenInput(e), onPngInput:(e)=>this.onPngInput(e),
+      serverAttrInputRef:this.serverAttrInputRef, onServerAttrInput:(e)=>this.onServerAttrInput(e),
+      toggleHighlight:()=>this.toggleHighlight(), tabConvert:()=>this.tabConvert(), tabRegen:()=>this.tabRegen(), tabObjects:()=>this.tabObjects(),
+      zoomIn:()=>this.zoomIn(), zoomOut:()=>this.zoomOut(), fitView:()=>this.fitView(),
+      importRegen:()=>this.importRegen(), resetRegen:()=>this.resetRegen(), exportRegen:()=>this.exportRegen(), updateRow:()=>this.updateRow(),
+      exportLayerPNG:()=>this.exportLayerPNG(), importPng:()=>this.importPng(), exportZip:()=>this.exportZip(),
+      onSectorPick:(e)=>this.onSectorPick(e), addObj:()=>this.addObj(), updateObj:()=>this.updateObj(), exportAreadata:()=>this.exportAreadata(),
+      startResize:(e)=>this.startResize(e), inspectorRef:this.inspectorRef,
+      rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, pngInputRef:this.pngInputRef,
+      coordRef:this.coordRef, zoomRef:this.zoomRef, layerInfoRef:this.layerInfoRef, emptyRowsRef:this.emptyRowsRef, emptyObjRef:this.emptyObjRef, dropHintRef:this.dropHintRef, oSectorRef:this.oSectorRef,
+      fType:this.fType, fVnum:this.fVnum, fSx:this.fSx, fSy:this.fSy, fDir:this.fDir, fResp:this.fResp, fPerc:this.fPerc, fCount:this.fCount,
+      oX:this.oX, oY:this.oY, oZ:this.oZ, oCrc:this.oCrc, oYaw:this.oYaw, oPitch:this.oPitch, oRoll:this.oRoll, oBias:this.oBias
+    };
+  }
+}
+</script>
+</body>
+</html>
