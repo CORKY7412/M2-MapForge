@@ -252,6 +252,33 @@
     <span style="margin-left:auto">{{ iDims }}</span>
   </div>
 
+  <sc-if value="{{ mergeOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:190;background:rgba(10,7,4,.62);display:flex;align-items:center;justify-content:center">
+      <div style="width:520px;background:#1c140d;border:1px solid #4a3820;border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden">
+        <div style="padding:16px 20px 4px;font-family:'Cinzel',serif;color:#e8cf8f;font-size:16px">Merge maps</div>
+        <div style="padding:0 20px 14px;color:#a08b5f;font-size:12px;line-height:1.5">Drop a map folder into each cell. Empty cells become padding. Sizes, sector numbers, regen (cells), areadata (cm) and the textureset are all re-adapted. Regenerate <b style="color:#c9b567">server_attr</b> afterwards.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 20px">
+          <sc-for list="{{ mergeCells }}" as="C" hint-placeholder-count="4">
+            <div onDragOver="{{ C.onDragOver }}" onDrop="{{ C.onDrop }}" style="{{ C.style }}">
+              <div style="font:600 10px 'IBM Plex Mono',monospace;color:#8a744c;letter-spacing:.5px">{{ C.corner }}</div>
+              <div style="font-weight:600;color:#e8cf8f;font-size:12.5px;margin-top:4px;word-break:break-all">{{ C.name }}</div>
+              <div class="mono" style="color:#a08b5f;font-size:11px;margin-top:2px">{{ C.dims }}</div>
+              <sc-if value="{{ C.filled }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ C.onAttachTs }}" class="mono" style="{{ C.tsStyle }}">{{ C.tsLabel }}</button>
+                <button onClick="{{ C.onClear }}" style="position:absolute;top:6px;right:6px;width:20px;height:20px;border:1px solid #4a3820;background:#241a11;color:#b5573f;border-radius:4px;cursor:pointer;font-size:12px;line-height:1">&times;</button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div class="mono" ref="{{ mergeMsgRef }}" style="padding:12px 20px 0;color:#c9b567;font-size:11px;min-height:16px">{{ mergeMsg }}</div>
+        <div style="display:flex;gap:8px;padding:14px 16px 16px;justify-content:flex-end">
+          <button onClick="{{ closeMerge }}" style="border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:8px 16px;font:500 12px 'IBM Plex Sans';cursor:pointer">Cancel</button>
+          <button onClick="{{ runMerge }}" style="border:1px solid #6b501f;background:linear-gradient(#d9b845,#a5802e);color:#2a1d09;border-radius:6px;padding:8px 18px;font:600 12px 'IBM Plex Sans';cursor:pointer">Merge &amp; preview</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;inset:0;z-index:200;background:rgba(10,7,4,.6);display:flex;align-items:center;justify-content:center">
       <div style="width:360px;background:#1c140d;border:1px solid #4a3820;border-radius:10px;box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden">
@@ -269,10 +296,11 @@
   <input ref="{{ regenInputRef }}" type="file" accept=".txt" onChange="{{ onRegenInput }}" style="display:none">
   <input ref="{{ pngInputRef }}" type="file" accept="image/png,image/*" onChange="{{ onPngInput }}" style="display:none">
   <input ref="{{ serverAttrInputRef }}" type="file" onChange="{{ onServerAttrInput }}" style="display:none">
+  <input ref="{{ tsInputRef }}" type="file" accept=".txt" onChange="{{ onTsInput }}" style="display:none">
 </div>
 
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;},&quot;showSectorGrid&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;View&quot;},&quot;markerScale&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.5,&quot;max&quot;:3,&quot;step&quot;:0.5,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;View&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;},&quot;showSectorGrid&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;View&quot;},&quot;markerScale&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.5,&quot;max&quot;:3,&quot;step&quot;:0.5,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;View&quot;},&quot;normalizeWater&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Merge&quot;}}">
 const TILE = 256;
 const LAYER_DEFS = [
   ['minimap','Minimap'],['height','Height'],['tile','Tile'],['shadow','Shadow'],
@@ -296,9 +324,11 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null,
+    mergeOpen:false, mergeMsg:'', mergeInfo:[null,null,null,null]
   };
   pendingConfirm = null;
+  mergeSlots = [null,null,null,null];
 
   files = {}; sectorList = []; cache = {}; setting = {};
   regen = { regen:[], boss:[], stone:[], npc:[] };
@@ -314,6 +344,7 @@ class Component extends DCLogic {
   regenInputRef = el => this.regenInput = el;
   pngInputRef = el => this.pngInput = el;
   serverAttrInputRef = el => this.serverAttrInput = el;
+  tsInputRef = el => this.tsInput = el;
   coordRef = el => this.coordEl = el;
   zoomRef = el => this.zoomEl = el;
   layerInfoRef = el => this.layerInfoEl = el;
@@ -322,6 +353,7 @@ class Component extends DCLogic {
   dropHintRef = el => this.dropHintEl = el;
   inspectorRef = el => this.inspector = el;
   menuBarRef = el => this.menuBar = el;
+  mergeMsgRef = el => this.mergeMsgEl = el;
   oSectorRef = el => this._osec = el;
   fType=el=>this._t=el; fVnum=el=>this._v=el; fSx=el=>this._sx=el; fSy=el=>this._sy=el;
   fDir=el=>this._d=el; fResp=el=>this._r=el; fPerc=el=>this._p=el; fCount=el=>this._c=el;
@@ -775,6 +807,253 @@ class Component extends DCLogic {
     this.setState({statusText:'exported '+entries.length+' files → '+root+'.zip'});
   }
 
+  // ================= merge maps =================
+  openMerge(){ this.setState({ menu:'', mergeOpen:true, mergeMsg:'' }); }
+  mergedName(filled){ return filled.map(({s})=>s.name).join('_')+'_merged'; }
+  closeMerge(){ this.setState({ mergeOpen:false }); }
+  pad3(n){ return String(n).padStart(3,'0'); }
+  mergeDragOver(e){ e.preventDefault(); }
+  async slotDrop(i,e){
+    e.preventDefault();
+    const items=e.dataTransfer.items; const out={}; const entries=[];
+    for(const it of items){ const en=it.webkitGetAsEntry&&it.webkitGetAsEntry(); if(en) entries.push(en); }
+    let folder=null;
+    for(const en of entries){ if(en.isDirectory&&!folder) folder=en.name; await this.walkEntry(en,'',out); }
+    if(!Object.keys(out).length){ this.setState({mergeMsg:'no files found in drop'}); return; }
+    const slot=await this.ingestSlot(out, folder);
+    if(!slot.sectors.length){ this.setState({mergeMsg:'that folder has no XXXYYY sectors'}); return; }
+    this.mergeSlots[i]=slot;
+    this.refreshMergeInfo('loaded '+slot.name+' into slot '+['TL','TR','BL','BR'][i]);
+  }
+  clearSlot(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); this.mergeSlots[i]=null; this.refreshMergeInfo(''); }
+  attachTs(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); if(!this.mergeSlots[i]) return; this._tsSlot=i; this.tsInput.click(); }
+  async onTsInput(e){
+    const f=e.target.files&&e.target.files[0]; e.target.value=''; const i=this._tsSlot;
+    if(!f||i==null||!this.mergeSlots[i]) return;
+    const parsed=this.parseTextureSet(await f.text());
+    this.mergeSlots[i].tsFile=f; this.mergeSlots[i].tsPath=f.name; this.mergeSlots[i].tsCount=parsed.entries.length;
+    this.refreshMergeInfo('attached textureset ('+parsed.entries.length+' textures) to '+['TL','TR','BL','BR'][i]);
+  }
+  refreshMergeInfo(msg){
+    const info=this.mergeSlots.map(s=> s?{name:s.name,dims:s.w+'×'+s.h+' · '+s.sectors.length+' sec',ts:s.tsFile?(s.tsCount+' tex'):(this.findTextureSetFile(s)?'in-folder':null)}:null);
+    this.setState({ mergeInfo:info, mergeMsg:msg!==undefined?msg:this.state.mergeMsg });
+  }
+  async ingestSlot(rawmap, folderName){
+    let prefix='';
+    for(const k of Object.keys(rawmap)){ const m=k.match(/(^|.*\/)(\d{6})\/[^/]+$/); if(m){ prefix=m[1]; break; } }
+    let name=folderName||null; let files={};
+    if(prefix){ if(!name) name=prefix.replace(/\/$/,'').split('/').pop(); for(const k of Object.keys(rawmap)) files[k.startsWith(prefix)?k.slice(prefix.length):k]=rawmap[k]; }
+    else files=rawmap;
+    const set=new Set(); for(const k of Object.keys(files)){ const m=k.match(/^(\d{6})\//); if(m) set.add(m[1]); }
+    const sectors=[...set];
+    let minx=999,miny=999,maxx=0,maxy=0; for(const c of sectors){ const x=+c.slice(0,3),y=+c.slice(3,6); minx=Math.min(minx,x);miny=Math.min(miny,y);maxx=Math.max(maxx,x);maxy=Math.max(maxy,y); }
+    if(!sectors.length){ minx=miny=0; }
+    const sf=files['setting.txt']; const setting=sf?this.parseSetting(await sf.text()):{};
+    const w=setting.mapSizeX||(maxx-minx+1), h=setting.mapSizeY||(maxy-miny+1);
+    return { files, name:name||'map', sectors, minx, miny, w, h, setting };
+  }
+  // Real textureset grammar (CTextureSet::Load/Save): `TextureCount N` + a
+  // `Start TextureSet … End` block whose tokens are N entries of several fields each
+  // (filename uScale vScale uOffset vOffset bSplat usBegin usEnd). Returns ordered entries.
+  // Textureset entries are ONE per line inside the block. The texture path is the
+  // first field and may be QUOTED and contain spaces (e.g. "d:\ymir work\terrain\..").
+  // We keep each entry's raw line verbatim, and extract just the path for dedup.
+  extractTexPath(line){
+    const q=line.match(/^\s*"([^"]*)"/); if(q) return q[1];
+    const m=line.match(/^\s*(\S+)/); return m?m[1]:line.trim();
+  }
+  // Real WorldEditor format:
+  //   TextureSet            (header)
+  //   TextureCount N
+  //   Start TextureNNN
+  //       "path"            (may contain spaces, quoted)
+  //       uScale / vScale / uOffset / vOffset / splat / begin / end  (7 lines)
+  //   End TextureNNN
+  // Each entry keeps its FULL body (path + params) so nothing is lost on write.
+  parseTextureSet(txt){
+    const lines=txt.split(/\r?\n/); let count=null; const entries=[];
+    let cur=null;
+    for(const raw of lines){ const trimmed=raw.trim(); if(!trimmed) continue;
+      const low=trimmed.toLowerCase();
+      if(low.startsWith('texturecount')){ count=parseInt(trimmed.split(/[ \t]+/)[1])||0; continue; }
+      if(low.startsWith('start texture')){ cur={ file:null, body:[] }; continue; }
+      if(low.startsWith('end texture')){ if(cur){ entries.push(cur); cur=null; } continue; }
+      if(low==='textureset'||low==='start textureset'){ continue; }
+      if(low==='end'){ continue; }
+      if(cur){ if(cur.file===null && /["\\/]|\.(dds|tga|png|jpg|bmp)/i.test(trimmed)) cur.file=this.extractTexPath(trimmed); cur.body.push(raw.replace(/\s+$/,'').replace(/^\s+/,'')); }
+    }
+    if(!entries.length){ // fallback: flat path-per-line (older/simple files)
+      for(const raw of lines){ const t=raw.trim(); if(!t||/^\d+$/.test(t)||/^texturecount|^textureset|^start|^end/i.test(t)) continue; if(/["\\/]|\.(dds|tga|png|jpg|bmp)$/i.test(t)) entries.push({file:this.extractTexPath(t),body:[t]}); }
+    }
+    return { entries, count:count!=null?count:entries.length };
+  }
+  buildTextureSet(entries){
+    let t='TextureSet\r\n\r\nTextureCount '+entries.length+'\r\n\r\n';
+    entries.forEach((e,i)=>{
+      const id='Texture'+String(i+1).padStart(3,'0');
+      const body=(e.body&&e.body.length)?e.body:['"'+e.file+'"','5.000000','5.000000','0.000000','0.000000','0','0','0'];
+      t+='Start '+id+'\r\n';
+      for(const ln of body) t+='\t'+ln+'\r\n';
+      t+='End '+id+'\r\n';
+    });
+    return t;
+  }
+  findTextureSetFile(s){
+    if(s.tsFile) return {file:s.tsFile,path:s.tsPath||(s.setting.textureSet||'textureset.txt')};
+    const ref=(s.setting.textureSet||'').toLowerCase().replace(/\\/g,'/'); const base=ref.split('/').pop();
+    for(const k of Object.keys(s.files)){ if(base && k.endsWith(base)) return {file:s.files[k],path:k}; }
+    for(const k of Object.keys(s.files)){ if(/textureset.*\.txt$/.test(k)) return {file:s.files[k],path:k}; }
+    return null;
+  }
+  parseWater(buf){
+    const dv=new DataView(buf);
+    if(dv.getUint16(0,true)!==5426) return null;
+    const n=dv.getUint8(6); const cells=new Uint8Array(buf,7,16384).slice();
+    const rest=buf.byteLength-7-16384; const heights=[];
+    for(let i=0;i<n;i++){ heights.push(rest===n*4?dv.getInt32(7+16384+i*4,true):dv.getUint16(7+16384+i*2,true)); }
+    return { cells, heights };
+  }
+  serializeWater(cells, heights){
+    const n=heights.length; const out=new Uint8Array(7+16384+4*n); const dv=new DataView(out.buffer);
+    dv.setUint16(0,5426,true); dv.setUint16(2,128,true); dv.setUint16(4,128,true); dv.setUint8(6,n);
+    out.set(cells,7);
+    for(let i=0;i<n;i++) dv.setInt32(7+16384+i*4,heights[i],true);
+    return out.buffer;
+  }
+  async remapTileFile(file, remap){
+    const b=new Uint8Array(await file.arrayBuffer()); const out=new Uint8Array(b.length);
+    for(let i=0;i<b.length;i++){ const v=b[i]; out[i]=(remap[v]!==undefined)?remap[v]:v; }
+    return new File([out],'tile.raw');
+  }
+  async runMerge(){
+    const slots=this.mergeSlots;
+    const filled=slots.map((s,i)=>s?{s,i}:null).filter(Boolean);
+    if(filled.length<2){ this.setState({mergeMsg:'drop at least two maps'}); return; }
+    const prim=filled[0].s;
+    for(const {s} of filled){
+      if(String(s.setting.cellScale)!==String(prim.setting.cellScale) || String(s.setting.heightScale)!==String(prim.setting.heightScale)){
+        this.setState({mergeMsg:'✗ CellScale/HeightScale differ between maps — cannot merge safely'}); return;
+      }
+    }
+    this.setState({mergeMsg:'merging…'});
+    const wAt=i=>slots[i]?slots[i].w:0, hAt=i=>slots[i]?slots[i].h:0;
+    const col0=Math.max(wAt(0),wAt(2)), col1=Math.max(wAt(1),wAt(3));
+    const row0=Math.max(hAt(0),hAt(1)), row1=Math.max(hAt(2),hAt(3));
+    const off=[[0,0],[col0,0],[0,row0],[col0,row0]];
+    const totalW=col0+col1, totalH=row0+row1;
+
+    // textureset union + per-slot remap. Textureset lives OUTSIDE the map folder,
+    // so each slot must have one attached (or auto-found). Union dedups by filename;
+    // shared ground textures collapse to one index, so tiles stay correct across maps.
+    let warn='';
+    const tsFiles=filled.map(({s})=>this.findTextureSetFile(s));
+    let union=null, texOutPath=null, remaps={};
+    if(tsFiles.every(Boolean)){
+      const lists=[]; for(const t of tsFiles) lists.push(this.parseTextureSet(await t.file.text()));
+      union=[]; const posByName={};
+      const keyOf=e=>e.file.toLowerCase().replace(/\\/g,'/');
+      filled.forEach(({i},k)=>{
+        const list=lists[k].entries; const rm={0:0};
+        for(let idx=0;idx<list.length;idx++){
+          const key=keyOf(list[idx]);
+          let pos=posByName[key];
+          if(pos===undefined){ union.push(list[idx]); pos=union.length; posByName[key]=pos; }
+          rm[idx+1]=pos;      // 1-based union slot
+        }
+        remaps[i]=rm;
+      });
+      texOutPath='textureset/'+this.mergedName(filled)+'.txt';   // inside the merged map folder
+      if(union.length>255) warn=' ⚠ merged textureset has '+union.length+' textures (>255 limit)';
+    } else {
+      const missing=filled.filter((f,k)=>!tsFiles[k]).map(({i})=>['TL','TR','BL','BR'][i]);
+      this.setState({ mergeMsg:'✗ attach a textureset .txt for: '+missing.join(', ')+' (needed to remap tiles + rewrite the TextureSet field). Use “+ attach textureset .txt” on each cell.' });
+      return;
+    }
+
+    // global water-layer reindex: collect every distinct height across all sectors,
+    // assign a fixed global id, so 3D tools that treat layer ids globally show correct Z.
+    const doWater=(this.props.normalizeWater ?? true);
+    const gHeights=[]; const gById=new Map(); let waterWarn='';
+    if(doWater){
+      for(const {s} of filled){
+        for(const path of Object.keys(s.files)){
+          if(!/^\d{3}\d{3}\/water\.wtr$/.test(path)) continue;
+          const w=this.parseWater(await s.files[path].arrayBuffer()); if(!w) continue;
+          for(let c=0;c<16384;c++){ const v=w.cells[c]; if(v===0xFF||v>=w.heights.length) continue; const h=w.heights[v]; if(!gById.has(h)){ gById.set(h,gHeights.length); gHeights.push(h); } }
+        }
+      }
+      if(gHeights.length>255){ waterWarn=' ⚠ '+gHeights.length+' distinct water heights (>255) — water left per-sector'; }
+    }
+    const useWater=doWater && gHeights.length>0 && gHeights.length<=255;
+
+    const enc=new TextEncoder();
+    const merged={};
+    // sector files (verbatim, tiles remapped, water globally reindexed)
+    for(const {s,i} of filled){
+      const [ox,oy]=off[i]; const rm=remaps[i];
+      for(const [path,file] of Object.entries(s.files)){
+        const m=path.match(/^(\d{3})(\d{3})\/(.+)$/);
+        if(!m) continue;
+        const nx=(+m[1]-s.minx)+ox, ny=(+m[2]-s.miny)+oy; const base=m[3];
+        const nfolder=this.pad3(nx)+this.pad3(ny);
+        if(base==='areadata.txt') continue;             // rebuilt below
+        if(base==='server_attr') continue;
+        if(base==='tile.raw' && rm){ merged[nfolder+'/'+base]=await this.remapTileFile(file,rm); continue; }
+        if(base==='water.wtr' && useWater){
+          const w=this.parseWater(await file.arrayBuffer());
+          if(w){ const nc=new Uint8Array(16384); for(let c=0;c<16384;c++){ const v=w.cells[c]; nc[c]=(v===0xFF||v>=w.heights.length)?0xFF:gById.get(w.heights[v]); } merged[nfolder+'/'+base]=new File([this.serializeWater(nc,gHeights)],'water.wtr'); continue; }
+        }
+        merged[nfolder+'/'+base]=file;
+      }
+    }
+    // regen (cell shift), merged across sources
+    const regenOut={regen:[],boss:[],stone:[],npc:[]};
+    for(const {s,i} of filled){
+      const [ox,oy]=off[i]; const scx=(ox-s.minx)*256, scy=(oy-s.miny)*256;
+      for(const key of Object.keys(REGEN_FILES)){
+        const f=s.files[REGEN_FILES[key]]; if(!f) continue;
+        const rows=this.parseRegen(await f.text());
+        for(const r of rows){ r.x+=scx; r.y+=scy; regenOut[key].push(r); }
+      }
+    }
+    for(const key of Object.keys(REGEN_FILES)){ if(regenOut[key].length) merged[REGEN_FILES[key]]=new File([enc.encode(this.serializeRegen(regenOut[key]))],REGEN_FILES[key]); }
+    // areadata (cm shift, y negated), per new sector
+    for(const {s,i} of filled){
+      const [ox,oy]=off[i]; const cmx=(ox-s.minx)*256*100, cmy=(oy-s.miny)*256*100;
+      for(const path of Object.keys(s.files)){
+        const m=path.match(/^(\d{3})(\d{3})\/areadata\.txt$/); if(!m) continue;
+        const nfolder=this.pad3((+m[1]-s.minx)+ox)+this.pad3((+m[2]-s.miny)+oy);
+        const objs=this.parseAreadata(await s.files[path].text());
+        for(const o of objs){ o.x+=cmx; o.y-=cmy; }
+        if(objs.length) merged[nfolder+'/areadata.txt']=new File([enc.encode(this.serializeAreadata(objs))],'areadata.txt');
+      }
+    }
+    // carry primary root files (except rebuilt ones)
+    const skipRoot=new Set(['setting.txt','regen.txt','boss.txt','stone.txt','npc.txt','server_attr']);
+    for(const [path,file] of Object.entries(prim.files)){ if(path.includes('/')) continue; if(skipRoot.has(path)) continue; if(texOutPath&&path===texOutPath.split('/').pop()) continue; merged[path]=file; }
+    // merged textureset file
+    if(union){ merged[texOutPath]=new File([enc.encode(this.buildTextureSet(union))],texOutPath.split('/').pop()); }
+    // setting.txt
+    const texPath='textureset\\'+texOutPath.split('/').pop();
+    merged['setting.txt']=new File([enc.encode(this.buildSettingText(prim.setting,totalW,totalH,texPath))],'setting.txt');
+
+    const name=this.mergedName(filled);
+    this.setState({ mergeOpen:false, mergeMsg:'' });
+    await this.loadFiles(merged, name);
+    this.setState({ statusText:'merged '+filled.length+' maps → '+totalW+'×'+totalH+(useWater?(' · water: '+gHeights.length+' global layers'):'')+' · regenerate server_attr before use'+warn+waterWarn });
+  }
+  buildSettingText(o,W,H,texPath){
+    let t='ScriptType\tMapSetting\r\n\r\n';
+    if(o.cellScale!=null) t+='CellScale\t'+o.cellScale+'\r\n';
+    if(o.heightScale!=null) t+='HeightScale\t'+o.heightScale+'\r\n\r\n';
+    if(o.viewRadius!=null) t+='ViewRadius\t'+o.viewRadius+'\r\n\r\n';
+    t+='MapSize\t'+W+'\t'+H+'\r\n';
+    if(o.baseX!=null) t+='BasePosition\t'+o.baseX+'\t'+o.baseY+'\r\n';
+    if(texPath) t+='TextureSet\t'+texPath+'\r\n';
+    if(o.environment) t+='Environment\t'+o.environment+'\r\n';
+    return t;
+  }
+
   // ================= server_attr (LZO1X) =================
   // store-mode LZO1X encoder: one literal run covering the whole block + EOF marker.
   lzoStore(src){
@@ -1066,6 +1345,7 @@ class Component extends DCLogic {
     const st=this.state, has=!st.empty;
     const F=[
       this.mkItem('Open map folder…',()=>this.openFolder()),
+      this.mkItem('Merge maps…',()=>this.openMerge()),
       this.mkItem('Export map (.zip)',()=>this.exportZip()),
       this.mkItem('Close map',()=>{ if(has) this.askConfirm('Close the current map? Unsaved edits (regen, objects, imports) will be lost.',()=>this.clearMap(),{title:'Close map',yes:'Close'}); },{danger:true})
     ];
@@ -1123,6 +1403,17 @@ class Component extends DCLogic {
       confirmOpen:!!st.confirm, confirmTitle:cf.title||'', confirmMsg:cf.msg||'', confirmYesLabel:cf.yes||'Delete',
       confirmBtnStyle:`border:1px solid ${cf.danger?'#7a2f22':'#6b501f'};background:${cf.danger?'linear-gradient(#c25236,#9a3d26)':'linear-gradient(#d9b845,#a5802e)'};color:${cf.danger?'#fff':'#2a1d09'};border-radius:6px;padding:8px 16px;font:600 12px 'IBM Plex Sans';cursor:pointer`,
       confirmYes:()=>this.confirmYes(), confirmNo:()=>this.confirmNo(),
+      mergeOpen:st.mergeOpen, mergeMsg:st.mergeMsg, mergeMsgRef:this.mergeMsgRef,
+      openMerge:()=>this.openMerge(), closeMerge:()=>this.closeMerge(), runMerge:()=>this.runMerge(),
+      tsInputRef:this.tsInputRef, onTsInput:(e)=>this.onTsInput(e),
+      mergeCells:['TL','TR','BL','BR'].map((corner,i)=>{ const inf=st.mergeInfo[i]; const filled=!!inf; const hasTs=filled&&inf.ts; return {
+        corner, filled, name:filled?inf.name:'drop map folder', dims:filled?inf.dims:'—',
+        tsLabel:hasTs?('✓ textureset · '+inf.ts):'+ attach textureset .txt',
+        tsStyle:`margin-top:7px;padding:3px 7px;border-radius:4px;cursor:pointer;font-size:10px;border:1px solid ${hasTs?'#4a6b3a':'#4a3820'};background:${hasTs?'#1e2a16':'#15100a'};color:${hasTs?'#8fce6f':'#a08b5f'}`,
+        onAttachTs:(e)=>this.attachTs(i,e),
+        onDragOver:(e)=>this.mergeDragOver(e), onDrop:(e)=>this.slotDrop(i,e), onClear:(e)=>this.clearSlot(i,e),
+        style:`position:relative;min-height:92px;border-radius:8px;padding:10px 12px;cursor:default;border:1.5px ${filled?'solid #6b501f':'dashed #4a3820'};background:${filled?'#241a11':'#15100a'}`
+      }; }),
       empty:st.empty,
       convertActive:st.mainTab==='convert', regenActive:st.mainTab==='regen', objectsActive:st.mainTab==='objects',
       convertTabStyle:this.tabStyle(st.mainTab==='convert'), regenTabStyle:this.tabStyle(st.mainTab==='regen'), objectsTabStyle:this.tabStyle(st.mainTab==='objects'),
