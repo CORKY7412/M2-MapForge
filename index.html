@@ -1339,6 +1339,15 @@ class Component extends DCLogic {
   toggleHighlight(){ const nv=!this.state.highlight; this.setState({highlight:nv}); if(nv) this.ensureHighlight(this.jobId).then(()=>this.draw()); else this.draw(); }
   refreshRows(){ this.setState({rev:this.state.rev+1}); if(this.emptyRowsEl) this.emptyRowsEl.style.display=this.currentRows().length?'none':'block'; }
   refreshObjs(){ this.setState({rev:this.state.rev+1}); if(this.emptyObjEl) this.emptyObjEl.style.display=this.curObjs().length?'none':'block'; }
+  // second click on the same row within 400ms = focus it on the map
+  clickRow(i){ const t=Date.now(), dbl=(this._lastRowClick && this._lastRowClick.i===i && t-this._lastRowClick.t<400); this._lastRowClick=dbl?null:{i,t}; this.selectRow(i); if(dbl) this.focusRow(i); }
+  // center on the spawn; zoom in (never out) until ~2 sectors span the view
+  focusRow(i){
+    const r=this.currentRows()[i], cv=this.canvas; if(!r||!cv||r.type[0]==='e'||r.type[0]==='s') return;
+    this.zoom=Math.max(this.zoom, Math.min(40, Math.min(cv.width,cv.height)/(TILE*2)));
+    this.ox=cv.width/2-r.x*this.zoom; this.oy=cv.height/2-r.y*this.zoom;
+    this.updateZoom(); this.draw();
+  }
   selectRow(i){ this.selRow=i; const r=this.currentRows()[i]; if(r){ if(this._t)this._t.value=r.type; if(this._v)this._v.value=r.vnum; if(this._x)this._x.value=r.x; if(this._y)this._y.value=r.y; if(this._sx)this._sx.value=r.sx; if(this._sy)this._sy.value=r.sy; if(this._d)this._d.value=r.dir; if(this._r)this._r.value=r.resp; if(this._p)this._p.value=r.perc; if(this._c)this._c.value=r.count; } this.refreshRows(); this.draw(); }
   updateRow(){ if(this.selRow<0){ this.setState({statusText:'select a row to update'}); return; } const r=this.currentRows()[this.selRow]; if(!r) return; r.type=this._t?this._t.value:r.type; r.vnum=+(this._v?this._v.value:r.vnum)||0; const nx=this._x?parseInt(this._x.value):NaN, ny=this._y?parseInt(this._y.value):NaN; if(!isNaN(nx)) r.x=nx; if(!isNaN(ny)) r.y=ny; r.sx=+(this._sx?this._sx.value:0)||0; r.sy=+(this._sy?this._sy.value:0)||0; r.dir=+(this._d?this._d.value:0)||0; r.resp=(this._r?this._r.value:r.resp)||'1m'; r.perc=(this._p?this._p.value:r.perc)||'100'; r.count=+(this._c?this._c.value:1)||1; this.setState({statusText:'row updated'}); this.refreshRows(); this.draw(); }
   deleteRow(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); const r=this.currentRows()[i]; if(!r) return; this.askConfirm('Delete this '+r.type+' spawn'+(r.vnum?' (vnum '+r.vnum+')':'')+'?',()=>{ this.currentRows().splice(i,1); if(this.selRow>=i) this.selRow=-1; this.refreshRows(); this.draw(); },{title:'Delete spawn'}); }
@@ -1423,7 +1432,7 @@ class Component extends DCLogic {
     const subtabs=Object.keys(REGEN_FILES).map(k=>({ key:k, label:REGEN_FILES[k], style:this.subStyle(st.regenTab===k), onClick:()=>this.setRegenTab(k) }));
     const rows=this.currentRows().map((r,i)=>({
       type:r.type, vnum:r.vnum, x:r.x, y:r.y, resp:r.resp, sx:r.sx, sy:r.sy, dir:r.dir, perc:r.perc, count:r.count,
-      onClick:()=>this.selectRow(i), onDelete:(e)=>this.deleteRow(i,e),
+      onClick:()=>this.clickRow(i), onDelete:(e)=>this.deleteRow(i,e),
       style:`display:flex;cursor:pointer;font-size:10.5px;border-bottom:1px solid #241a11;color:#d8c9a8;background:${i===this.selRow?'#3a2c1a':(i%2?'#171009':'transparent')}`
     }));
     const layerLabel=(LAYER_DEFS.find(l=>l[0]===st.layer)||['','—'])[1];
