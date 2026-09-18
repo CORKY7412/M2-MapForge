@@ -91,6 +91,15 @@ Optional helpers under the **Tools** menu. The ruler and the stats panel are off
 - **Stats panel**: an overlay in the top-left of the map with rows and summed `count` for every regen file, the current file by type with its warning count and top 10 vnums, and the objects (total, sectors used, distinct and most-used CRCs, warnings). A group row counts its groups, not the mobs inside them.
 - **Ruler**: click two points on the map to measure the distance in meters, with Δx / Δy (map units are meters: 1 px of the map image = 1 m). A third click starts a new measurement, **Esc** clears it. While the ruler is on, clicks only measure — nothing is placed or selected — and dragging still pans.
 
+### Workspaces (Chrome / Edge)
+MapForge remembers what you opened, so a setup can be reloaded from disk in one click.
+
+- Opening a map folder creates a workspace automatically (named after the folder; opening the same folder again reuses it). Loading a regen folder, dropping spawn files or loading `mob_names.txt` links those to the current workspace.
+- The start screen lists your workspaces next to the open box, most recent first, with what each one links. Click one to reload the map, the regens and the mob names from their folders; the browser asks for read permission first (once per session — Chrome can remember it). View settings (layer, tab, tool toggles) come back too.
+- ✎ renames a workspace — worth doing, because a web page never sees a full path, so two folders both called `map_a2` look the same until you name them. × removes it from the list; nothing on disk is touched. **File › Workspace … rename** does the same for the open one.
+- A workspace stores references to folders and files, never their contents or your edits. If something was moved or deleted it is reported and the rest still loads.
+- Needs the File System Access API, so Chrome / Edge (and other Chromium browsers that keep it on, such as Opera and Vivaldi). **Brave** ships with it switched off: enable `brave://flags/#file-system-access-api` and restart. Firefox and Safari cannot hand a page a reusable reference to a real folder at all. Where it is missing, the Workspaces panel says so and everything else works as before. The references live in the browser’s site storage (IndexedDB), which survives restarts but is wiped by “clear site data” and cleanup tools.
+
 ### Safety & UI
 - **Undo / redo** for every spawn and object edit — place, move, edit, delete, import or reset a regen file, add or delete an object, move an object to another sector. **Ctrl+Z** undoes, **Ctrl+Y** or **Ctrl+Shift+Z** redoes (also as **↶ Undo / ↷ Redo** buttons in the top bar and under the **Edit** menu; both name the next step). Up to 100 steps; a run of stepper presses on one item counts as one step. Undo jumps back to the tab, file and sector where the edit happened. While a form has unsaved typed text, Ctrl+Z is left to the text field. Layer imports, `server_attr` and map merges are not tracked, and loading or closing a map clears the history.
 - Confirmation modal on every destructive action (reset a regen file, delete a spawn/object, close map).
