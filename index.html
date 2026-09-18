@@ -378,7 +378,7 @@ class Component extends DCLogic {
     view.addEventListener('drop', e => this.onDrop(e));
     this._docDown = e => { if(this.state.menu && this.menuBar && !this.menuBar.contains(e.target)) this.setState({menu:''}); };
     window.addEventListener('mousedown', this._docDown, true);
-    this._keyDown = e => { if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); }
+    this._keyDown = e => { if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.mainTab==='regen' && this.selRow>=0 && !this.dragRow){ this.selRow=-1; if(this._x)this._x.value=''; if(this._y)this._y.value=''; this.refreshRows(); this.draw(); } }
       else if(e.key==='Enter' && this.state.confirm){ e.preventDefault(); if(!e.repeat) this.confirmYes(); }
       else if(e.key==='Delete' && this.state.mainTab==='regen' && this.selRow>=0 && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteRow(this.selRow); } };
     window.addEventListener('keydown', this._keyDown);
@@ -1257,7 +1257,7 @@ class Component extends DCLogic {
     return -1;
   }
   onDown(e){
-    this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy}; this.moved=false; this.dragRow=null;
+    this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null;
     if(e.button!==0||this.state.empty||this.state.mainTab!=='regen'||e.shiftKey) return;   // shift = force place on top
     const r=this.canvas.getBoundingClientRect(); const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
     const i=this.hitSpawn(wx,wy); if(i<0) return;
@@ -1283,9 +1283,9 @@ class Component extends DCLogic {
     if(inside && this.coordEl){ const mx=e.clientX-r.left,my=e.clientY-r.top; const ax=Math.floor((mx-this.ox)/this.zoom), ay=Math.floor((my-this.oy)/this.zoom); this.coordEl.textContent='x '+ax+' · y '+ay; }
   }
   onUp(e){
-    if(!this.down) return; const wasMoved=this.moved; this.down=null;
+    if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn; this.down=null;
     if(this.dragRow){ const d=this.dragRow; this.dragRow=null; if(wasMoved){ this.setState({statusText:'spawn moved to '+d.row.x+', '+d.row.y}); this.refreshRows(); } return; }
-    if(wasMoved||this.state.empty) return;
+    if(wasMoved||this.state.empty||btn===2) return;   // right click never places/moves
     const r=this.canvas.getBoundingClientRect(); if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) return;
     const mx=e.clientX-r.left,my=e.clientY-r.top;
     if(this.state.mainTab==='regen'){ this.placeSpawn(Math.round((mx-this.ox)/this.zoom), Math.round((my-this.oy)/this.zoom)); return; }
