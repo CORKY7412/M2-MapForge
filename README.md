@@ -45,7 +45,7 @@ Load, place, edit and export server spawn files — `regen.txt`, `boss.txt`, `st
 - Drag a marker to move it (clicking a marker selects its row). **Shift**+click places a new spawn even on top of an existing marker.
 - Click a row to load it into the form (including X/Y), edit, then **Update** or press **Enter** in any field.
 - X / Y / Sx / Sy / Dir / Respawn / Percent have ▲▼ stepper buttons and respond to **↑ / ↓** (hold **Shift** for ±10); steps apply live to the selected spawn. Dir stays within 0–8 and Percent within 0–100. Respawn text is left as typed until you step it; a step rewrites it as proper h/m/s with no zero parts (`120s` +1 → `2m1s`, `120s` −1 → `1m59s`, `1m` −1 → `59s`, `1h` −1 → `59m`).
-- Respawn values the server would misread (`120` with no unit, `1d`, `1.5h`, uppercase units, a space…) are flagged with a **⚠** on the field and on the list rows, with the time the server would actually use; exports report how many remain. See [`docs/mapformat/server-regen.md`](docs/mapformat/server-regen.md).
+- Rows the server would misread or never spawn are flagged with a **⚠** on the form fields and on the list rows: respawn values it reads differently (`120` with no unit, `1d`, `1.5h`, uppercase units, a space…, with the time it would actually use), group rows (`g` / `ga` / `r`) with Sx and Sy both 0, and vnum 0. Exports report how many remain. See [`docs/mapformat/server-regen.md`](docs/mapformat/server-regen.md).
 - Delete rows (row button, or **Del** on the selected spawn), import an existing `.txt`, reset a file, or export the current file in correct 11-column server format.
 - Spawns are drawn on the map as markers with their spawn-extent rectangles.
 
@@ -68,8 +68,9 @@ Per-sector `areadata.txt` editor:
 - **Import PNG** — decodes a full-map PNG back into the current layer's per-sector files. Minimap and tile round-trip losslessly / index-exact; height, shadow and attribute are approximate; water is not supported.
 
 ### Safety & UI
+- **Undo / redo** for every spawn and object edit — place, move, edit, delete, import or reset a regen file, add or delete an object, move an object to another sector. **Ctrl+Z** undoes, **Ctrl+Y** or **Ctrl+Shift+Z** redoes (also as **↶ Undo / ↷ Redo** buttons in the top bar and under the **Edit** menu; both name the next step). Up to 100 steps; a run of stepper presses on one item counts as one step. Undo jumps back to the tab, file and sector where the edit happened. While a form has unsaved typed text, Ctrl+Z is left to the text field. Layer imports, `server_attr` and map merges are not tracked, and loading or closing a map clears the history.
 - Confirmation modal on every destructive action (reset a regen file, delete a spawn/object, close map).
-- Working menu bar: **File · Map · Server Attr · Regen · Utility**.
+- Working menu bar: **File · Edit · Map · Server Attr · Regen · Utility**.
 - Resizable inspector sidebar.
 - Loads a folder via the picker **or** by drag-and-drop onto the viewport.
 

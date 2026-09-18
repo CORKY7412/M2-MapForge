@@ -143,7 +143,14 @@ The Respawn field accepts free text and exports it as typed, so a trap value sta
 - **Red** — the line would never spawn or is corrupted: the server reads 0 (`120`, `1d`, `1H`, empty, `0s`), or the value is past the overflow ceiling.
 - **Amber** — the server reads a time, but not the one written (`1h30` → 1h, `1.5h` → 15h, `2m-1s` → 2m1s, `30ms` → 30m), the value is legal but risky (`1s`, above `20000h`), or it contains a space (which would split the row — MapForge removes it on export).
 
-The warning shows on the Respawn field (coloured border, `⚠`, and a line saying what the server reads), as a `⚠` on the affected rows of the spawn list (hover for the reason), and as a count in the status bar after exporting a regen file or the map ZIP.
+Two more row-level checks use the same warning, both red:
+
+- a `g` / `ga` / `r` row with `sx` and `sy` both 0 — the [point-spawn trap](#type-letters-regencpp107-130): the group id is read as a mob vnum and the group never spawns;
+- `vnum` 0 — nothing to spawn.
+
+`ma` / `ra` are deliberately not flagged: stock source degrades them to `m` / `r`, but some server sources implement them. A `count` of 0 cannot occur in MapForge — import and the form both fall back to 1.
+
+The warning shows on the offending form fields (coloured border; the Respawn field also gets a `⚠`) with a line saying what the server reads, as a `⚠` on the affected rows of the spawn list (hover for the reason), and as a count in the status bar after exporting a regen file or the map ZIP.
 
 The ▲▼ / ↑↓ stepper only ever writes the safe grammar: it reads the current value (treating a bare number as seconds and ignoring case), steps it, and rewrites it as `h`/`m`/`s` parts with no zero parts, never going below `1s` — so stepping a bare `120` once turns it into a valid tag.
 
