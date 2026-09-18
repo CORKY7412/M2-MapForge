@@ -658,9 +658,13 @@ class Component extends DCLogic {
     try{ await this.wsRefresh(); let w=null; for(const c of this._ws||[]){ if(c.map&&c.map.handle&&await c.map.handle.isSameEntry(handle)){ w=c; break; } }
       if(!w){ w=(this._ws||[]).find(c=>c.map&&!c.map.handle&&c.map.name===handle.name)||null; if(w){ w.map.handle=handle; delete w.imported; } }
       if(!w){ const taken=new Set((this._ws||[]).map(c=>c.name)); let name=handle.name, n=2; while(taken.has(name)) name=handle.name+' ('+(n++)+')'; w={id:'ws'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),name,created:Date.now(),map:{handle,name:handle.name}}; }
-      w.opened=Date.now(); w.info={dims:this.state.info.dims,sectors:this.state.info.sectors}; this.setState({wsCur:w.id}); await this.wsSave(w);
+      w.opened=Date.now(); w.info={dims:this.state.info.dims,sectors:this.state.info.sectors}; await this.wsCarryNames(w); this.setState({wsCur:w.id}); await this.wsSave(w);
     }catch(e){ this.wsFail(e); } }
   // remember a linked source on the current workspace: kind = 'regen' ({dir} or {files:[…]}) or 'names' ({file})
+  // Mob names stay loaded when another map is opened, so the file they came from (this._namesLink) is carried along and linked to that
+  // map's workspace too — otherwise a workspace would only seem to have names when another one happened to be opened first.
+  async wsLinkNames(link){ this._namesLink=link||null; if(link) await this.wsLink('names',link); }
+  async wsCarryNames(w){ if(w && !w.names && this._namesLink && this.mobNames.size){ w.names=this._namesLink; return true; } return false; }
   async wsLink(kind,link){ const w=this.wsGet(this.state.wsCur); if(!w||!link) return; w[kind]=link; w.opened=Date.now(); await this.wsSave(w); }
   async wsSaveView(){ const w=this.wsGet(this.state.wsCur); if(!w||this.state.empty) return; w.view=this.wsView(); try{ await this.wsTx('readwrite',st=>st.put(w)); }catch(e){} }
   async wsPerm(handle){ if(!handle) return false; const o={mode:'read'}; if((await handle.queryPermission(o))==='granted') return true; return (await handle.requestPermission(o))==='granted'; }
@@ -676,7 +680,8 @@ class Component extends DCLogic {
       if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats}); await this.renderLayer(); }
       if(w.regen){ try{ const files={}; if(w.regen.dir){ if(await this.wsPerm(w.regen.dir)) for await(const [name,h] of w.regen.dir.entries()) if(h.kind==='file') files[name.toLowerCase()]=await h.getFile(); } else for(const f of w.regen.files||[]) if(await this.wsPerm(f.handle)) files[f.name.toLowerCase()]=await f.handle.getFile();
           if(Object.keys(files).length){ const tab=this.state.mainTab, rt=this.state.regenTab; await this.applyRegenFolder(files,w.regen.name||''); this.setState({mainTab:tab,regenTab:rt}); } else miss.push(w.regen.dir||(w.regen.files||[]).some(f=>f.handle)?'regens (moved or permission refused)':'regens (not linked yet — load them once)'); }catch(e){ miss.push('regens (moved or permission refused)'); } }
-      if(w.names){ try{ if(await this.wsPerm(w.names.file)) await this.loadNamesFile(await w.names.file.getFile()); else miss.push(w.names.file?'mob names (permission refused)':'mob names (not linked yet — load the file once)'); }catch(e){ miss.push('mob names (moved or deleted)'); } }
+      if(!w.names) await this.wsCarryNames(w);
+      else { try{ if(await this.wsPerm(w.names.file)){ await this.loadNamesFile(await w.names.file.getFile()); this._namesLink=w.names; } else miss.push(w.names.file?'mob names (permission refused)':'mob names (not linked yet — load the file once)'); }catch(e){ miss.push('mob names (moved or deleted)'); } }
       this.clearHistory(); w.opened=Date.now(); await this.wsSave(w); this.refreshRows(); this.draw();
       this.setState({statusText:'workspace '+w.name+' loaded'+(miss.length?' · not loaded: '+miss.join(', '):'')});
     }catch(e){ console.error(e); this.setState({statusText:'could not open '+w.name+': '+((e&&e.name==='NotFoundError')?'the folder was moved or deleted':(e&&e.message)||e)}); }
@@ -766,12 +771,13 @@ class Component extends DCLogic {
   mobNames=new Map();
   decodeText(buf){ try{ return new TextDecoder('utf-8',{fatal:true}).decode(buf); }catch(e){ return new TextDecoder('windows-1252').decode(buf); } }   // these files are often in a legacy codepage
   parseMobNames(txt){ const m=new Map(); for(const line of txt.split(/\r?\n/)){ const p=line.split('\t'); const v=parseInt(p[0]); const name=(p[1]||'').trim(); if(v>0 && String(v)===p[0].trim() && name) m.set(v,name); } return m; }
-  async pickNamesFile(){ if(!window.showOpenFilePicker){ this.namesInput.click(); return; } try{ const [h]=await window.showOpenFilePicker({types:[{description:'mob_names.txt',accept:{'text/plain':['.txt']}}]}); const before=this.mobNames; await this.loadNamesFile(await h.getFile()); if(this.mobNames!==before) await this.wsLink('names',{file:h,name:h.name}); }catch(e){ if(e&&e.name!=='AbortError') this.namesInput.click(); } }
-  async onNamesInput(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; e.target.value=''; await this.loadNamesFile(f); }
+  async pickNamesFile(){ if(!window.showOpenFilePicker){ this.namesInput.click(); return; } try{ const [h]=await window.showOpenFilePicker({types:[{description:'mob_names.txt',accept:{'text/plain':['.txt']}}]}); const before=this.mobNames; await this.loadNamesFile(await h.getFile()); if(this.mobNames!==before) await this.wsLinkNames({file:h,name:h.name}); }catch(e){ if(e&&e.name!=='AbortError') this.namesInput.click(); } }
+  async onNamesInput(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; e.target.value=''; const before=this.mobNames; await this.loadNamesFile(f); if(this.mobNames!==before) this._namesLink=null; }
   async loadNamesFile(f){ const m=this.parseMobNames(this.decodeText(await f.arrayBuffer()));
     if(!m.size){ this.setState({statusText:'no names found in '+f.name+' — expected lines of vnum<TAB>name'}); return; }
     this.mobNames=m; this.setState({mobNames:m.size,statusText:'loaded '+m.size.toLocaleString('en-US')+' mob names from '+f.name}); this.refreshRows(); this.draw(); }
-  unloadMobNames(){ this.mobNames=new Map(); this.setState({mobNames:0,vnumName:'',statusText:'mob names unloaded'}); this.refreshRows(); this.draw(); }
+  unloadMobNames(){ this.mobNames=new Map(); this._namesLink=null; const w=this.wsGet(this.state.wsCur); if(w&&w.names){ delete w.names; this.wsSave(w); }   // unloading also takes the file off the open workspace
+    this.setState({mobNames:0,vnumName:'',statusText:'mob names unloaded'+(w?' and unlinked from this workspace':'')}); this.refreshRows(); this.draw(); }
   mobName(type,vnum){ return (this.mobNames.size && /^[ms]/.test(type||''))?(this.mobNames.get(+vnum)||''):''; }
 
   // ================= stats panel =================
@@ -960,7 +966,7 @@ class Component extends DCLogic {
     const wanted = new Set(Object.values(REGEN_FILES)), top = {}; let names = null;
     for (const k of keys) { if (k.split('/').length > 2) continue; if (wanted.has(base(k))) top[base(k)] = out[k]; else if (base(k) === 'mob_names.txt') names = out[k]; }
     const imgs = keys.filter(k => /\.(png|zip)$/i.test(k)); if (imgs.length && !this.state.empty && !Object.keys(top).length && !names) { await this.importLayerFiles(imgs.map(k => Object.assign(out[k], { _path: k }))); return; }
-    if (names) { const before = this.mobNames; await this.loadNamesFile(names); const h = hFile('mob_names.txt'); if (h && this.mobNames !== before) await this.wsLink('names', { file: h, name: h.name }); }
+    if (names) { const before = this.mobNames; await this.loadNamesFile(names); const h = hFile('mob_names.txt'); if (this.mobNames !== before) await this.wsLinkNames(h ? { file: h, name: h.name } : null); }
     if (Object.keys(top).length) { await this.applyRegenFolder(top, folder || ''); if (!this.state.empty) { if (folder && hDir) await this.wsLink('regen', { dir: hDir, name: hDir.name }); else { const fl = Object.keys(top).map(n => ({ name: n, handle: hFile(n) })).filter(f => f.handle); if (fl.length) await this.wsLink('regen', { files: fl, name: '' }); } } }
     else if (!names) this.loadFiles(out, folder);
   }
