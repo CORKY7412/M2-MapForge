@@ -167,14 +167,14 @@
             <div style="display:flex;gap:7px;margin-bottom:8px">
               <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Sx (½rng)</div><div class="spin"><input ref="{{ fSx }}" class="mono" defaultValue="0" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"><div class="spin-btns"><button onClick="{{ sxUp }}" title="+1 (Shift +10)">▲</button><button onClick="{{ sxDown }}" title="−1 (Shift −10)">▼</button></div></div></div>
               <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Sy (½rng)</div><div class="spin"><input ref="{{ fSy }}" class="mono" defaultValue="0" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"><div class="spin-btns"><button onClick="{{ syUp }}" title="+1 (Shift +10)">▲</button><button onClick="{{ syDown }}" title="−1 (Shift −10)">▼</button></div></div></div>
-              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Dir</div><input ref="{{ fDir }}" class="mono" defaultValue="0" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Dir</div><div class="spin"><input ref="{{ fDir }}" class="mono" defaultValue="0" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"><div class="spin-btns"><button onClick="{{ dirUp }}" title="+1 (Shift +10)">▲</button><button onClick="{{ dirDown }}" title="−1 (Shift −10)">▼</button></div></div></div>
             </div>
             <div style="display:flex;gap:7px">
-              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Respawn</div><input ref="{{ fResp }}" class="mono" defaultValue="1m" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
-              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Percent</div><input ref="{{ fPerc }}" class="mono" defaultValue="100" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Respawn</div><div class="spin"><input ref="{{ fResp }}" class="mono" defaultValue="1m" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"><div class="spin-btns"><button onClick="{{ respUp }}" title="+1 (Shift +10)">▲</button><button onClick="{{ respDown }}" title="−1 (Shift −10)">▼</button></div></div></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Percent</div><div class="spin"><input ref="{{ fPerc }}" class="mono" defaultValue="100" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"><div class="spin-btns"><button onClick="{{ percUp }}" title="+1 (Shift +10)">▲</button><button onClick="{{ percDown }}" title="−1 (Shift −10)">▼</button></div></div></div>
               <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Count</div><input ref="{{ fCount }}" class="mono" defaultValue="1" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
             </div>
-            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Click the map to place · drag a marker to move it · <b style="color:#d8c9a8">Shift</b>+click to place on top of one · click a row to load it here, edit, then <b style="color:#c9b567">Update</b> or <b style="color:#d8c9a8">Enter</b> · <b style="color:#d8c9a8">↑↓</b> step X/Y/Sx/Sy (Shift ×10).</div>
+            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Click the map to place · drag a marker to move it · <b style="color:#d8c9a8">Shift</b>+click to place on top of one · click a row to load it here, edit, then <b style="color:#c9b567">Update</b> or <b style="color:#d8c9a8">Enter</b> · <b style="color:#d8c9a8">↑↓</b> step the numeric fields (Shift ×10).</div>
           </div>
 
           <div style="display:flex;gap:4px;padding:0 12px 8px;flex:none">
@@ -367,7 +367,7 @@ class Component extends DCLogic {
   mergeMsgRef = el => this.mergeMsgEl = el;
   oSectorRef = el => this._osec = el;
   fType=el=>this._t=this.bindField(el); fVnum=el=>this._v=this.bindField(el); fSx=el=>this._sx=this.bindField(el,'sx'); fSy=el=>this._sy=this.bindField(el,'sy');
-  fDir=el=>this._d=this.bindField(el); fResp=el=>this._r=this.bindField(el); fPerc=el=>this._p=this.bindField(el); fCount=el=>this._c=this.bindField(el);
+  fDir=el=>this._d=this.bindField(el,'dir'); fResp=el=>this._r=this.bindField(el,'resp'); fPerc=el=>this._p=this.bindField(el,'perc'); fCount=el=>this._c=this.bindField(el);
   fX=el=>this._x=this.bindField(el,'x'); fY=el=>this._y=this.bindField(el,'y');
   // regen form field: Enter = Update; spin fields also step with ArrowUp/ArrowDown (Shift = 10)
   bindField(el,spinKey){
@@ -378,10 +378,19 @@ class Component extends DCLogic {
     return el;
   }
   nudge(key,dir,e){
-    const el=this['_'+key]; if(!el) return; const pos=(key==='x'||key==='y');
-    let v=parseInt(el.value); if(isNaN(v)){ if(pos) return; v=0; }
-    v+=dir*((e&&e.shiftKey)?10:1); if(!pos) v=Math.max(0,v);
-    el.value=v; if(this.selRow>=0) this.updateRow(); else this.checkDirty();
+    const el=this[({dir:'_d',resp:'_r',perc:'_p'})[key]||('_'+key)]; if(!el) return;
+    const step=dir*((e&&e.shiftKey)?10:1), pos=(key==='x'||key==='y');
+    if(key==='resp'){
+      // step the last number, keep its s/m/h suffix as typed (120s -> 121s, 1h30m -> 1h31m); 0 disables a spawn, so stop at 1
+      const m=/^(.*?)(\d+)(\D*)$/.exec(String(el.value).trim()); if(!m) return;
+      el.value=m[1]+Math.max(1,parseInt(m[2])+step)+m[3];
+    } else {
+      let v=parseInt(el.value); if(isNaN(v)){ if(pos) return; v=0; }
+      v+=step;
+      if(key==='dir') v=Math.min(8,Math.max(0,v)); else if(key==='perc') v=Math.min(100,Math.max(0,v)); else if(!pos) v=Math.max(0,v);
+      el.value=v;
+    }
+    if(this.selRow>=0) this.updateRow(); else this.checkDirty();
   }
   oX=el=>this._ox=el; oY=el=>this._oy=el; oZ=el=>this._oz=el; oCrc=el=>this._ocrc=el;
   oYaw=el=>this._oyaw=el; oPitch=el=>this._opitch=el; oRoll=el=>this._oroll=el; oBias=el=>this._obias=el;
@@ -1507,6 +1516,7 @@ class Component extends DCLogic {
       updateLabel:st.dirty?'Update *':'Update',
       updateBtnStyle:`flex:1;border:1px solid ${st.dirty?'#c9a24b':'#4a3820'};background:${st.dirty?'#c9a24b':'#241a11'};color:${st.dirty?'#1a1209':'#c9b567'};border-radius:5px;padding:8px;font:${st.dirty?600:500} 11px 'IBM Plex Sans';cursor:pointer`,
       xUp:e=>this.nudge('x',1,e), xDown:e=>this.nudge('x',-1,e), yUp:e=>this.nudge('y',1,e), yDown:e=>this.nudge('y',-1,e),
+      dirUp:e=>this.nudge('dir',1,e), dirDown:e=>this.nudge('dir',-1,e), respUp:e=>this.nudge('resp',1,e), respDown:e=>this.nudge('resp',-1,e), percUp:e=>this.nudge('perc',1,e), percDown:e=>this.nudge('perc',-1,e),
       sxUp:e=>this.nudge('sx',1,e), sxDown:e=>this.nudge('sx',-1,e), syUp:e=>this.nudge('sy',1,e), syDown:e=>this.nudge('sy',-1,e),
       oX:this.oX, oY:this.oY, oZ:this.oZ, oCrc:this.oCrc, oYaw:this.oYaw, oPitch:this.oPitch, oRoll:this.oRoll, oBias:this.oBias
     };
