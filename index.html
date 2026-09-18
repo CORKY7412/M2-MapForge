@@ -336,6 +336,11 @@ function serverRegenSecs(text){ let time=0,tmp=0; for(const c of String(text)){ 
 function fmtSecs(t){ return t<=0?'0':[['h',3600],['m',60],['s',1]].map(([u,n])=>{ const v=Math.floor(t/n); t-=v*n; return v?v+u:''; }).join(''); }
 const RESP_MAX_SAFE=20000*3600, RESP_CEILING=85899000, _respTrapCache=new Map();
 // null when the tag is safe, else {sev:'red'|'amber', msg}
+// ---- regen dir column: 0 = random, 1..8 = (dir-1)*45°. Compass mapping follows the usual regen convention — 1 south, 2 south-east,
+// 3 east … 8 south-west — i.e. counter-clockwise as seen on the map. It is NOT verified against the client; to flip it, change DIR_BASE
+// (angle of dir 1, measured from south) or DIR_SIGN (+1 counter-clockwise on the map, -1 clockwise).
+const DIR_BASE=0, DIR_SIGN=1;
+function dirVector(dir){ const d=Math.trunc(+dir); if(!(d>=1&&d<=8)) return null; const a=(DIR_BASE+DIR_SIGN*(d-1)*45)*Math.PI/180; return {x:Math.sin(a),y:Math.cos(a)}; }
 // ---- regen rows: everything that makes a line misread or never spawn. [] when fine, else [{sev,msg,fields}], red first ----
 function rowTraps(r){
   const w=[]; if(!r||!r.type||r.type[0]==='e') return w;
@@ -398,7 +403,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false,
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true,
     mergeOpen:false, mergeMsg:'', mergeInfo:[null,null,null,null]
   };
   pendingConfirm = null;
@@ -1555,6 +1560,10 @@ class Component extends DCLogic {
         const cx=r.x, cy=r.y, sel=(i===this.selRow||this.selSet.has(r)); ctx.fillStyle=sel?'#ffffff':col;
         ctx.beginPath(); ctx.moveTo(cx,cy-ms); ctx.lineTo(cx+ms,cy); ctx.lineTo(cx,cy+ms); ctx.lineTo(cx-ms,cy); ctx.closePath(); ctx.fill();
         ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1/this.zoom; ctx.stroke();
+        const dv=(this.state.dirArrows && !(r.sx>0||r.sy>0))?dirVector(r.dir):null;
+        if(dv){ const a0=ms*1.15, a1=ms*2.7, hx=cx+dv.x*a1, hy=cy+dv.y*a1, hw=ms*0.55; ctx.strokeStyle=sel?'#ffffff':col; ctx.fillStyle=sel?'#ffffff':col; ctx.lineWidth=1.6/this.zoom;
+          ctx.beginPath(); ctx.moveTo(cx+dv.x*a0,cy+dv.y*a0); ctx.lineTo(hx-dv.x*hw,hy-dv.y*hw); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(hx-dv.x*hw*1.6-dv.y*hw,hy-dv.y*hw*1.6+dv.x*hw); ctx.lineTo(hx-dv.x*hw*1.6+dv.y*hw,hy-dv.y*hw*1.6-dv.x*hw); ctx.closePath(); ctx.fill(); }
         if(r.sx>0||r.sy>0){ ctx.strokeStyle=sel?'#ffffff':col; ctx.lineWidth=1/this.zoom; ctx.strokeRect(cx-r.sx,cy-r.sy,r.sx*2,r.sy*2); }
       });
       const hs=3.5/this.zoom; ctx.lineWidth=1/this.zoom;
@@ -1875,6 +1884,7 @@ class Component extends DCLogic {
       this.mkItem('Reset current file',()=>{ this.tabRegen(); this.resetRegen(); },{danger:true})
     ];
     const U=[
+      this.mkItem('Direction arrows on point spawns',()=>{ this.setState({dirArrows:!st.dirArrows}); this.draw(); },{check:st.dirArrows}),
       this.mkItem('Stats panel',()=>{ if(has) this.toggleStats(); },{check:st.stats}),
       this.mkItem('Ruler (1 px = 1 m)',()=>{ if(has) this.toggleRuler(); },{check:st.ruler}),
       this.mkItem('Converter tab',()=>this.tabConvert(),{check:st.mainTab==='convert'}),
