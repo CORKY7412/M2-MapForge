@@ -357,6 +357,7 @@
 
   <input ref="{{ inputRef }}" type="file" webkitdirectory="" directory="" multiple="" onChange="{{ onInput }}" style="display:none">
   <input ref="{{ regenInputRef }}" type="file" accept=".txt" onChange="{{ onRegenInput }}" style="display:none">
+  <input ref="{{ wsInputRef }}" type="file" accept=".json,application/json" onChange="{{ onWsInput }}" style="display:none">
   <input ref="{{ regenDirInputRef }}" type="file" webkitdirectory="" directory="" multiple="" onChange="{{ onRegenDirInput }}" style="display:none">
   <input ref="{{ namesInputRef }}" type="file" accept=".txt" onChange="{{ onNamesInput }}" style="display:none">
   <input ref="{{ pngAllInputRef }}" type="file" accept=".png,.zip,image/png,application/zip" multiple="" onChange="{{ onPngAllInput }}" style="display:none">
@@ -463,6 +464,7 @@ class Component extends DCLogic {
   regenInputRef = el => this.regenInput = el;
   namesInputRef = el => this.namesInput = el;
   regenDirInputRef = el => this.regenDirInput = el;
+  wsInputRef = el => this.wsInput = el;
   pngInputRef = el => this.pngInput = el;
   serverAttrInputRef = el => this.serverAttrInput = el;
   tsInputRef = el => this.tsInput = el;
@@ -654,6 +656,7 @@ class Component extends DCLogic {
   async wsMapOpened(handle){
     if(!this.wsCan()||!handle){ this.setState({wsCur:''}); return; }
     try{ await this.wsRefresh(); let w=null; for(const c of this._ws||[]){ if(c.map&&c.map.handle&&await c.map.handle.isSameEntry(handle)){ w=c; break; } }
+      if(!w){ w=(this._ws||[]).find(c=>c.map&&!c.map.handle&&c.map.name===handle.name)||null; if(w){ w.map.handle=handle; delete w.imported; } }
       if(!w){ const taken=new Set((this._ws||[]).map(c=>c.name)); let name=handle.name, n=2; while(taken.has(name)) name=handle.name+' ('+(n++)+')'; w={id:'ws'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),name,created:Date.now(),map:{handle,name:handle.name}}; }
       w.opened=Date.now(); w.info={dims:this.state.info.dims,sectors:this.state.info.sectors}; this.setState({wsCur:w.id}); await this.wsSave(w);
     }catch(e){ this.wsFail(e); } }
@@ -663,22 +666,50 @@ class Component extends DCLogic {
   async wsPerm(handle){ if(!handle) return false; const o={mode:'read'}; if((await handle.queryPermission(o))==='granted') return true; return (await handle.requestPermission(o))==='granted'; }
   // reload everything a workspace points at. Must start from a click: the browser only shows its permission prompt for a user action.
   async wsOpen(id){
-    const w=this.wsGet(id); if(!w||!w.map||!w.map.handle) return; const miss=[];
+    const w=this.wsGet(id); if(!w||!w.map) return; const miss=[];
+    if(!w.map.handle){ this.askConfirm('"'+w.name+'" was imported, so its folders are not linked on this computer yet.\n\nPick the map folder "'+w.map.name+'" now. Regens and mob names are linked again the first time you load them for this workspace.',async()=>{
+        try{ const dir=await window.showDirectoryPicker(); w.map.handle=dir; w.map.name=dir.name; delete w.imported; await this.wsSave(w); await this.wsOpen(id); }catch(e){ if(!e||e.name!=='AbortError') this.setState({statusText:'could not link the folder: '+((e&&e.message)||e)}); } },{title:'Link the map folder',yes:'Pick folder…',safe:true}); return; }
     try{
       if(!await this.wsPerm(w.map.handle)){ this.setState({statusText:'permission to read '+w.map.name+' was not given'}); return; }
       this.setState({statusText:'loading '+w.name+'…'}); const out={}; await this.walkHandle(w.map.handle,'',out); await this.loadFiles(out,w.map.handle.name);
       if(this.state.empty) return; this.setState({wsCur:w.id});
       if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats}); await this.renderLayer(); }
       if(w.regen){ try{ const files={}; if(w.regen.dir){ if(await this.wsPerm(w.regen.dir)) for await(const [name,h] of w.regen.dir.entries()) if(h.kind==='file') files[name.toLowerCase()]=await h.getFile(); } else for(const f of w.regen.files||[]) if(await this.wsPerm(f.handle)) files[f.name.toLowerCase()]=await f.handle.getFile();
-          if(Object.keys(files).length){ const tab=this.state.mainTab, rt=this.state.regenTab; await this.applyRegenFolder(files,w.regen.name||''); this.setState({mainTab:tab,regenTab:rt}); } else miss.push('regens'); }catch(e){ miss.push('regens'); } }
-      if(w.names){ try{ if(await this.wsPerm(w.names.file)) await this.loadNamesFile(await w.names.file.getFile()); else miss.push('mob names'); }catch(e){ miss.push('mob names'); } }
+          if(Object.keys(files).length){ const tab=this.state.mainTab, rt=this.state.regenTab; await this.applyRegenFolder(files,w.regen.name||''); this.setState({mainTab:tab,regenTab:rt}); } else miss.push(w.regen.dir||(w.regen.files||[]).some(f=>f.handle)?'regens (moved or permission refused)':'regens (not linked yet — load them once)'); }catch(e){ miss.push('regens (moved or permission refused)'); } }
+      if(w.names){ try{ if(await this.wsPerm(w.names.file)) await this.loadNamesFile(await w.names.file.getFile()); else miss.push(w.names.file?'mob names (permission refused)':'mob names (not linked yet — load the file once)'); }catch(e){ miss.push('mob names (moved or deleted)'); } }
       this.clearHistory(); w.opened=Date.now(); await this.wsSave(w); this.refreshRows(); this.draw();
-      this.setState({statusText:'workspace '+w.name+' loaded'+(miss.length?' · could not read: '+miss.join(', ')+' (moved or permission refused)':'')});
+      this.setState({statusText:'workspace '+w.name+' loaded'+(miss.length?' · not loaded: '+miss.join(', '):'')});
     }catch(e){ console.error(e); this.setState({statusText:'could not open '+w.name+': '+((e&&e.name==='NotFoundError')?'the folder was moved or deleted':(e&&e.message)||e)}); }
   }
   wsRename(id,ev){ if(ev&&ev.stopPropagation) ev.stopPropagation(); const w=this.wsGet(id); if(!w) return; const name=(window.prompt('Workspace name',w.name)||'').trim(); if(!name||name===w.name) return; w.name=name; this.wsSave(w); }
   wsRemove(id,ev){ if(ev&&ev.stopPropagation) ev.stopPropagation(); const w=this.wsGet(id); if(!w) return; this.askConfirm('Remove the workspace "'+w.name+'" from the list? Nothing on disk is touched.',async()=>{ try{ await this.wsTx('readwrite',st=>st.delete(id)); if(this.state.wsCur===id) this.setState({wsCur:''}); await this.wsRefresh(); }catch(e){ this.wsFail(e); } },{title:'Remove workspace',yes:'Remove'}); }
-  wsLinks(w){ const p=['map: '+w.map.name]; if(w.regen) p.push('regens: '+(w.regen.dir?(w.regen.name||'folder'):(w.regen.files||[]).map(f=>f.name).join(' '))); if(w.names) p.push(w.names.name||'mob_names.txt'); return p.join('  ·  '); }
+  // ---- export / import. A handle cannot be written to a file, so the export carries names and view settings only. Imported entries
+  // are 'not linked': opening one asks for its map folder once, and opening a map folder of the same name adopts it. Regens and mob
+  // names are linked again the first time they are loaded for that workspace.
+  async wsExport(){
+    await this.wsRefresh(); const all=this._ws||[]; if(!all.length){ this.setState({statusText:'no workspaces to export'}); return; }
+    const data={app:'MapForge',kind:'workspaces',version:1,exported:new Date().toISOString(),note:'Names and view settings only. Folders cannot be exported by a browser; link them again after importing.',
+      workspaces:all.map(w=>({name:w.name,created:w.created||0,opened:w.opened||0,map:{name:w.map.name},regen:w.regen?{name:w.regen.name||'',folder:!!w.regen.dir||!!w.regen.folder,files:(w.regen.files||[]).map(f=>f.name)}:null,names:w.names?{name:w.names.name||'mob_names.txt'}:null,view:w.view||null,info:w.info||null}))};
+    const file='mapforge-workspaces-'+this.fileStamp()+'.json'; this.download(file,new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+    this.setState({statusText:'exported '+all.length+' workspace'+(all.length>1?'s':'')+' → '+file+' (names and settings; folders are linked again after import)'});
+  }
+  wsImport(){ if(!this.wsCan()){ this.setState({statusText:'workspaces need Chrome or Edge'}); return; } this.wsInput.click(); }
+  async onWsInput(e){ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
+    let data; try{ data=JSON.parse(await f.text()); }catch(err){ this.setState({statusText:f.name+' is not valid JSON'}); return; }
+    if(!data||data.kind!=='workspaces'||!Array.isArray(data.workspaces)){ this.setState({statusText:f.name+' is not a MapForge workspaces file'}); return; }
+    try{ await this.wsRefresh(); const str=(v,d)=>String(v==null?d:v).slice(0,200), taken=new Set((this._ws||[]).map(w=>w.name)); let n=0;
+      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight'];
+      for(const x of data.workspaces.slice(0,500)){ if(!x||!x.map||!x.map.name) continue;
+        let name=str(x.name,x.map.name).trim()||str(x.map.name); const base=name; let k=2; while(taken.has(name)) name=base+' (imported'+(k>2?' '+(k-1):'')+')', k++; taken.add(name);
+        const w={id:'ws'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)+n,name,created:+x.created||Date.now(),opened:+x.opened||0,imported:true,map:{name:str(x.map.name),handle:null}};
+        if(x.regen) w.regen=x.regen.folder?{name:str(x.regen.name,''),folder:true,dir:null}:{name:'',files:(Array.isArray(x.regen.files)?x.regen.files:[]).slice(0,4).map(nm=>({name:str(nm),handle:null}))};
+        if(x.names) w.names={name:str(x.names.name,'mob_names.txt'),file:null};
+        if(x.view&&typeof x.view==='object'){ w.view={}; for(const key of VIEW) if(key in x.view) w.view[key]=x.view[key]; }
+        if(x.info&&typeof x.info==='object') w.info={dims:str(x.info.dims,''),sectors:str(x.info.sectors,'')};
+        await this.wsTx('readwrite',st=>st.put(w)); n++; }
+      await this.wsRefresh(); this.setState({statusText:n?'imported '+n+' workspace'+(n>1?'s':'')+' — open one to link its map folder':'no workspaces found in '+f.name});
+    }catch(err){ this.wsFail(err); } }
+  wsLinks(w){ const un=' (not linked)', p=['map: '+w.map.name+(w.map.handle?'':un)]; if(w.regen){ const dir=w.regen.dir||w.regen.folder, linked=w.regen.dir||(w.regen.files||[]).some(f=>f.handle); p.push('regens: '+(dir?(w.regen.name||'folder'):(w.regen.files||[]).map(f=>f.name).join(' '))+(linked?'':un)); } if(w.names) p.push((w.names.name||'mob_names.txt')+(w.names.file?'':un)); return p.join('  ·  '); }
   wsWhen(t){ if(!t) return ''; const d=(Date.now()-t)/1000; if(d<90) return 'just now'; if(d<5400) return Math.round(d/60)+' min ago'; if(d<129600) return Math.round(d/3600)+' h ago'; if(d<2592000) return Math.round(d/86400)+' days ago'; return new Date(t).toLocaleDateString(); }
 
   // ================= regen folder =================
@@ -2112,6 +2143,8 @@ class Component extends DCLogic {
       this.mkItem('Merge maps…',()=>this.openMerge()),
       this.mkItem('Export map (.zip)',()=>this.exportZip()),
       ...(st.wsCur&&this.wsGet(st.wsCur)?[this.mkItem('Workspace: '+this.wsGet(st.wsCur).name+' · rename…',()=>this.wsRename(st.wsCur))]:[]),
+      this.mkItem('Export workspaces…',()=>this.wsExport()),
+      this.mkItem('Import workspaces…',()=>this.wsImport()),
       this.mkItem('Close map',()=>{ if(has) this.askConfirm('Close the current map? Unsaved edits (regen, objects, imports) will be lost.',()=>this.clearMap(),{title:'Close map',yes:'Close'}); },{danger:true})
     ];
     const ut=this.undoStack[this.undoStack.length-1], rt=this.redoStack[this.redoStack.length-1];
@@ -2214,7 +2247,7 @@ class Component extends DCLogic {
       highlightStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,
       statusText:st.statusText,
       iMapName:info.name, iDims:info.dims, iSectors:info.sectors, iBase:info.base, iCell:info.cell, iHeight:info.height, iView:info.view, iTex:info.tex, iEnv:info.env,
-      openFolder:()=>this.openFolder(), onInput:(e)=>this.onInput(e), onRegenInput:(e)=>this.onRegenInput(e), onNamesInput:(e)=>this.onNamesInput(e), onRegenDirInput:(e)=>this.onRegenDirInput(e), loadRegenFolder:()=>this.loadRegenFolder(), onPngInput:(e)=>this.onPngInput(e), onPngAllInput:(e)=>this.onPngAllInput(e), exportAllPNG:()=>this.exportAllPNG(), importAllPNG:()=>this.importAllPNG(), importAllPNGFolder:()=>this.importAllPNGFolder(),
+      openFolder:()=>this.openFolder(), onInput:(e)=>this.onInput(e), onRegenInput:(e)=>this.onRegenInput(e), onNamesInput:(e)=>this.onNamesInput(e), onRegenDirInput:(e)=>this.onRegenDirInput(e), onWsInput:(e)=>this.onWsInput(e), loadRegenFolder:()=>this.loadRegenFolder(), onPngInput:(e)=>this.onPngInput(e), onPngAllInput:(e)=>this.onPngAllInput(e), exportAllPNG:()=>this.exportAllPNG(), importAllPNG:()=>this.importAllPNG(), importAllPNGFolder:()=>this.importAllPNGFolder(),
       serverAttrInputRef:this.serverAttrInputRef, onServerAttrInput:(e)=>this.onServerAttrInput(e),
       toggleHighlight:()=>this.toggleHighlight(), tabConvert:()=>this.tabConvert(), tabRegen:()=>this.tabRegen(), tabObjects:()=>this.tabObjects(),
       zoomIn:()=>this.zoomIn(), zoomOut:()=>this.zoomOut(), fitView:()=>this.fitView(),
@@ -2227,7 +2260,7 @@ class Component extends DCLogic {
       updateObjBtnStyle:`flex:1;border:1px solid ${st.objDirty?'#c9a24b':'#4a3820'};background:${st.objDirty?'#c9a24b':'#241a11'};color:${st.objDirty?'#1a1209':'#c9b567'};border-radius:5px;padding:8px;font:${st.objDirty?600:500} 11px 'IBM Plex Sans';cursor:pointer`,
       onSectorPick:(e)=>this.onSectorPick(e), addObj:()=>this.addObj(), updateObj:()=>this.updateObj(), exportAreadata:()=>this.exportAreadata(),
       startResize:(e)=>this.startResize(e), inspectorRef:this.inspectorRef,
-      rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, namesInputRef:this.namesInputRef, regenDirInputRef:this.regenDirInputRef, pngInputRef:this.pngInputRef, pngAllInputRef:this.pngAllInputRef, pngDirInputRef:this.pngDirInputRef,
+      rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, namesInputRef:this.namesInputRef, regenDirInputRef:this.regenDirInputRef, wsInputRef:this.wsInputRef, pngInputRef:this.pngInputRef, pngAllInputRef:this.pngAllInputRef, pngDirInputRef:this.pngDirInputRef,
       coordRef:this.coordRef, zoomRef:this.zoomRef, layerInfoRef:this.layerInfoRef, emptyRowsRef:this.emptyRowsRef, emptyObjRef:this.emptyObjRef, dropHintRef:this.dropHintRef, oSectorRef:this.oSectorRef,
       fType:this.fType, fVnum:this.fVnum, fSx:this.fSx, fSy:this.fSy, fDir:this.fDir, fResp:this.fResp, fPerc:this.fPerc, fCount:this.fCount, fX:this.fX, fY:this.fY,
       vnumNameOn:!!st.vnumName, vnumName:st.vnumName, nameHeadStyle:nameCol,
