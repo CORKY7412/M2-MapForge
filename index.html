@@ -181,7 +181,7 @@
             <sc-if value="{{ respWarnOn }}" hint-placeholder-val="{{ false }}">
               <div class="mono" style="{{ respWarnStyle }}">⚠ {{ respWarnMsg }}</div>
             </sc-if>
-            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Click the map to place · drag a marker to move it · drag the white handles on its range to set Sx/Sy · <b style="color:#d8c9a8">Shift</b>+click to place on top of one · click a row to load it here, edit, then <b style="color:#c9b567">Update</b> or <b style="color:#d8c9a8">Enter</b> · <b style="color:#d8c9a8">↑↓</b> step the numeric fields (Shift ×10).</div>
+            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Click the map to place · drag a marker to move it · drag the white handles on its range to set Sx/Sy · <b style="color:#d8c9a8">Ctrl</b>+click adds/removes a marker from the selection, <b style="color:#d8c9a8">Ctrl</b>+drag boxes (+<b style="color:#d8c9a8">Alt</b> removes), <b style="color:#d8c9a8">Ctrl+A</b> all · <b style="color:#d8c9a8">Shift</b>+click to place on top of one · click a row to load it here, edit, then <b style="color:#c9b567">Update</b> or <b style="color:#d8c9a8">Enter</b> · <b style="color:#d8c9a8">↑↓</b> step the numeric fields (Shift ×10).</div>
           </div>
 
           <div style="display:flex;gap:4px;padding:0 12px 8px;flex:none">
@@ -221,7 +221,7 @@
                 <option value="{{ S.value }}">{{ S.label }}</option>
               </sc-for>
             </select>
-            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Objects plot at (x, −y). Click a marker to select it · drag it to move (clicking the map never moves an object) · <b style="color:#d8c9a8">Enter</b> = Update · <b style="color:#d8c9a8">↑↓</b> step fields · <b style="color:#d8c9a8">Del</b> deletes · <b style="color:#d8c9a8">Esc</b> deselects. Fields are cm (map-local).</div>
+            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Objects plot at (x, −y). Click a marker to select it · drag it to move (clicking the map never moves an object) · <b style="color:#d8c9a8">Ctrl</b>+click adds/removes a marker from the selection, <b style="color:#d8c9a8">Ctrl</b>+drag boxes (+<b style="color:#d8c9a8">Alt</b> removes), <b style="color:#d8c9a8">Ctrl+A</b> all · <b style="color:#d8c9a8">Enter</b> = Update · <b style="color:#d8c9a8">↑↓</b> step fields · <b style="color:#d8c9a8">Del</b> deletes · <b style="color:#d8c9a8">Esc</b> deselects. Fields are cm (map-local).</div>
           </div>
 
           <div style="flex:1;overflow:auto;margin:0 12px;border:1px solid #3a2c1a;border-radius:6px;background:#120d08;min-height:60px">
@@ -446,6 +446,12 @@ class Component extends DCLogic {
     return ORDER.map(u=>{ const n=Math.floor(total/SEC[u]); total-=n*SEC[u]; return n?n+u:''; }).join('');
   }
   nudge(key,dir,e){
+    if(this.isMulti('row')){ const g=this.group('row'), step=dir*((e&&e.shiftKey)?10:1), b=this.bounds;
+      this.pushUndo('edit '+this.gName('row',g.length),this.scopeRegen(),'rows:'+key+':'+g.length);
+      for(const r of g){ if(key==='resp'){ const nv=this.stepResp(r.resp,step); if(nv!=null) r.resp=nv; }
+        else if(key==='perc'){ r.perc=String(Math.min(100,Math.max(0,(parseInt(r.perc)||0)+step))); }
+        else { let v=(+r[key]||0)+step; if(key==='dir') v=Math.min(8,Math.max(0,v)); else if(key==='x') v=Math.min((b.maxx+1)*TILE-1,Math.max(b.minx*TILE,v)); else if(key==='y') v=Math.min((b.maxy+1)*TILE-1,Math.max(b.miny*TILE,v)); else v=Math.max(0,v); r[key]=v; } }
+      this.fillRowForm(); this.refreshRows(); this.draw(); return; }
     const el=this[({dir:'_d',resp:'_r',perc:'_p'})[key]||('_'+key)]; if(!el) return;
     const step=dir*((e&&e.shiftKey)?10:1), pos=(key==='x'||key==='y');
     if(key==='resp'){
@@ -471,6 +477,10 @@ class Component extends DCLogic {
   objField(key){ return this[({x:'_ox',y:'_oy',z:'_oz',crc:'_ocrc',yaw:'_oyaw',pitch:'_opitch',roll:'_oroll',bias:'_obias'})[key]]; }
   // x/y/z/bias step 10 cm (Shift 100); yaw/pitch/roll step 1° (Shift 10°) and wrap at 360
   nudgeObj(key,dir,e){
+    if(this.isMulti('obj')){ const g=this.group('obj'), rot=(key==='yaw'||key==='pitch'||key==='roll'), big=!!(e&&e.shiftKey), step=dir*(rot?(big?10:1):(big?100:10));
+      this.pushUndo('edit '+this.gName('obj',g.length),this.scopeArea(),'objs:'+key+':'+g.length);
+      for(const o of g){ let v=(+o[key]||0)+step; if(rot) v=((v%360)+360)%360; o[key]=Math.round(v*1e6)/1e6; }
+      this.fillObjForm(); this.refreshObjs(); this.draw(); return; }
     const el=this.objField(key); if(!el) return; const rot=(key==='yaw'||key==='pitch'||key==='roll'), big=!!(e&&e.shiftKey), o=this.curObjs()[this.selObj];
     let v=parseFloat(el.value); if(isNaN(v)){ if(!o) return; v=+o[key]||0; }
     v+=dir*(rot?(big?10:1):(big?100:10)); if(rot) v=((v%360)+360)%360;
@@ -496,14 +506,105 @@ class Component extends DCLogic {
         if(typing||this.state.empty||this.state.confirm) return;
         e.preventDefault(); if(e.key.toLowerCase()==='y'||e.shiftKey) this.redo(); else this.undo(); return;
       }
-      if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.mainTab==='regen' && this.selRow>=0 && !this.dragRow && !this.dragHandle){ this.selRow=-1; if(this._x)this._x.value=''; if(this._y)this._y.value=''; this.refreshRows(); this.draw(); }
-        else if(this.state.mainTab==='objects' && this.selObj>=0 && !this.dragObj){ this.selObj=-1; for(const k of ['x','y','z','crc','yaw','pitch','roll','bias']){ const el=this.objField(k); if(el) el.value=''; } this.refreshObjs(); this.draw(); } }
+      if((e.ctrlKey||e.metaKey) && !e.altKey && e.key.toLowerCase()==='a' && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'') && !this.state.empty && !this.state.confirm && (this.state.mainTab==='regen'||this.state.mainTab==='objects')){
+        e.preventDefault(); this.selectAll(this.state.mainTab==='regen'?'row':'obj'); return; }
+      if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.mainTab==='regen' && this.group('row').length && !this.dragRow && !this.dragHandle && !this.dragGroup){ this.deselect('row'); }
+        else if(this.state.mainTab==='objects' && this.group('obj').length && !this.dragObj && !this.dragGroup){ this.deselect('obj'); } }
       else if(e.key==='Enter' && this.state.confirm){ e.preventDefault(); if(!e.repeat) this.confirmYes(); }
-      else if(e.key==='Delete' && this.state.mainTab==='regen' && this.selRow>=0 && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteRow(this.selRow); }
-      else if(e.key==='Delete' && this.state.mainTab==='objects' && this.curObjs()[this.selObj] && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteObjRow(this.selObj); } };
+      else if(e.key==='Delete' && this.state.mainTab==='regen' && this.group('row').length && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteGroup('row'); }
+      else if(e.key==='Delete' && this.state.mainTab==='objects' && this.group('obj').length && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteGroup('obj'); } };
     window.addEventListener('keydown', this._keyDown);
+    this._copy=e=>this.onCopy(e,false); this._cut=e=>this.onCopy(e,true); this._paste=e=>this.onPaste(e);
+    document.addEventListener('copy',this._copy); document.addEventListener('cut',this._cut); document.addEventListener('paste',this._paste);
   }
-  componentWillUnmount(){ this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); }
+  componentWillUnmount(){ document.removeEventListener('copy',this._copy); document.removeEventListener('cut',this._cut); document.removeEventListener('paste',this._paste); this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); }
+
+  // ================= multi-select =================
+  // A group is a Set of row / object references on top of the primary selection (selRow / selObj), which still drives the form.
+  // k is 'row' (Regen tab, current file) or 'obj' (Objects tab, current sector). A set of 0 or 1 means plain single selection.
+  selSet=new Set(); selObjSet=new Set();
+  gItems(k){ return k==='obj'?this.curObjs():this.currentRows(); }
+  gSet(k){ return k==='obj'?this.selObjSet:this.selSet; }
+  gPrimary(k){ return k==='obj'?this.selObj:this.selRow; }
+  isMulti(k){ return this.gSet(k).size>1; }
+  group(k){ const set=this.gSet(k), items=this.gItems(k); if(set.size>1) return items.filter(it=>set.has(it)); const p=items[this.gPrimary(k)]; return p?[p]:[]; }
+  gPos(k,it){ return k==='obj'?{x:it.x/100,y:-it.y/100}:{x:it.x,y:it.y}; }
+  gDrawn(k,it){ return k==='obj' || (it.type[0]!=='e' && it.type[0]!=='s'); }
+  gName(k,n){ return n+(k==='obj'?' object':' spawn')+(n===1?'':'s'); }
+  setPrimary(k,i){ if(k==='obj') this.selectObj(i,null,true); else this.selectRow(i,true); }
+  gStatus(k){ const n=this.group(k).length; this.setState({statusText:n?this.gName(k,n)+' selected':'nothing selected'}); }
+  // keep the primary inside the group: if it fell out, the last member takes over
+  fixPrimary(k){ const set=this.gSet(k), items=this.gItems(k); let p=this.gPrimary(k); if(set.size && !set.has(items[p])){ p=-1; for(let i=items.length-1;i>=0;i--) if(set.has(items[i])){ p=i; break; } } else if(!set.size && !items[p]) p=-1; this.setPrimary(k,p); this.gStatus(k); }
+  // Ctrl+click: add the item to the group, or take it out
+  toggleSel(k,i){ const set=this.gSet(k), items=this.gItems(k), it=items[i]; if(!it) return; if(!set.size){ const p=items[this.gPrimary(k)]; if(p) set.add(p); }
+    if(set.has(it)){ set.delete(it); if(this.gPrimary(k)===i){ if(k==='obj') this.selObj=-1; else this.selRow=-1; } } else { set.add(it); if(k==='obj') this.selObj=i; else this.selRow=i; }
+    this.fixPrimary(k); }
+  // Shift+click in a list: everything between the primary and the clicked row
+  rangeSel(k,i){ const set=this.gSet(k), items=this.gItems(k); let p=this.gPrimary(k); if(p<0) p=i; for(let n=Math.min(p,i);n<=Math.max(p,i);n++) if(items[n]) set.add(items[n]); if(k==='obj') this.selObj=i; else this.selRow=i; this.fixPrimary(k); }
+  selectAll(k){ const set=this.gSet(k); for(const it of this.gItems(k)) set.add(it); this.fixPrimary(k); }
+  // Ctrl+drag box: add what is inside (Ctrl+Alt: take it out). Only items that have a marker on the map.
+  boxSel(k,b){ const set=this.gSet(k), items=this.gItems(k), x0=Math.min(b.x0,b.x1), x1=Math.max(b.x0,b.x1), y0=Math.min(b.y0,b.y1), y1=Math.max(b.y0,b.y1);
+    if(!b.sub && !set.size){ const p=items[this.gPrimary(k)]; if(p) set.add(p); }
+    for(const it of items){ if(!this.gDrawn(k,it)) continue; const p=this.gPos(k,it); if(p.x<x0||p.x>x1||p.y<y0||p.y>y1) continue; if(b.sub) set.delete(it); else set.add(it); }
+    if(b.sub && !set.size){ if(k==='obj') this.selObj=-1; else this.selRow=-1; }
+    this.fixPrimary(k); }
+  deselect(k){ this.gSet(k).clear(); if(k==='obj') this.selObj=-1; else this.selRow=-1; this.setPrimary(k,-1); }
+  // drag one member = move the whole group by the same offset, stopped as a block at the map edge
+  startGroupDrag(k,wx,wy){ this.dragGroup={k,wx0:wx,wy0:wy,items:this.group(k).map(it=>({it,p:this.gPos(k,it)}))}; }
+  moveGroup(wx,wy){
+    const d=this.dragGroup, b=this.bounds, k=d.k, eps=k==='obj'?0.01:1; if(!d.snap){ d.snap=true; this.pushUndo('move '+this.gName(k,d.items.length),k==='obj'?this.scopeArea():this.scopeRegen()); }
+    const minX=b.minx*TILE, minY=b.miny*TILE, maxX=(b.maxx+1)*TILE-eps, maxY=(b.maxy+1)*TILE-eps;
+    let dx=wx-d.wx0, dy=wy-d.wy0;
+    dx=Math.max(Math.max(...d.items.map(o=>minX-o.p.x)), Math.min(Math.min(...d.items.map(o=>maxX-o.p.x)), dx));
+    dy=Math.max(Math.max(...d.items.map(o=>minY-o.p.y)), Math.min(Math.min(...d.items.map(o=>maxY-o.p.y)), dy));
+    for(const o of d.items){ if(k==='obj'){ o.it.x=Math.round((o.p.x+dx)*100); o.it.y=-Math.round((o.p.y+dy)*100); } else { o.it.x=Math.round(o.p.x+dx); o.it.y=Math.round(o.p.y+dy); } }
+    if(k==='obj') this.fillObjForm(); else this.fillRowForm();
+  }
+  // a form field shows the value every selected item shares, and stays blank where they differ (blank = keep on Update)
+  common(items,key){ if(!items.length) return null; const v=items[0][key]; return items.every(it=>it[key]===v)?v:''; }
+  fillRowForm(){ const g=this.group('row'); const F={type:this._t,vnum:this._v,x:this._x,y:this._y,sx:this._sx,sy:this._sy,dir:this._d,resp:this._r,perc:this._p,count:this._c};
+    if(!g.length){ if(this._x)this._x.value=''; if(this._y)this._y.value='';   // nothing selected: the form is the template for the next spawn, so refill what a mixed group left blank
+      const D={type:'m',vnum:'101',sx:'0',sy:'0',dir:'0',resp:'1m',perc:'100',count:'1'}; for(const key of Object.keys(D)) if(F[key] && String(F[key].value).trim()==='') F[key].value=D[key]; return; }
+    for(const key of Object.keys(F)) if(F[key]) F[key].value=this.common(g,key); }
+  fillObjForm(){ const g=this.group('obj'); for(const key of ['x','y','z','crc','yaw','pitch','roll','bias']){ const el=this.objField(key); if(el) el.value=g.length?this.common(g,key):''; } }
+
+  // ================= clipboard =================
+  // Copy / cut / paste the selection as plain text in the game's own file format — regen rows as regen.txt lines, objects as
+  // areadata.txt blocks — so it also pastes into a text editor, and text copied from a real file pastes into the map.
+  clipKind(){ const tab=this.state.mainTab; return tab==='regen'?'row':tab==='objects'?'obj':null; }
+  clipBusy(e){ const t=e.target, tag=(t&&t.tagName)||''; return this.state.empty||this.state.confirm||/^(INPUT|TEXTAREA|SELECT)$/.test(tag)||(t&&t.isContentEditable); }
+  onCopy(e,cut){
+    const k=this.clipKind(); if(!k||this.clipBusy(e)) return; if(!cut && String(window.getSelection?window.getSelection():'').trim()) return;   // real text selected: leave it to the browser
+    const g=this.group(k); if(!g.length) return;
+    const txt=k==='obj'?this.serializeAreadata(g):this.serializeRegen(g); this._clip={k,txt};
+    if(e.clipboardData){ e.clipboardData.setData('text/plain',txt); e.preventDefault(); }
+    this.setState({statusText:this.gName(k,g.length)+(cut?' cut':' copied')}); if(cut) this.deleteGroup(k);
+  }
+  onPaste(e){
+    const k=this.clipKind(); if(!k||this.clipBusy(e)) return;
+    let txt=e.clipboardData?e.clipboardData.getData('text/plain'):''; if(!txt && this._clip && this._clip.k===k) txt=this._clip.txt; if(!txt) return;
+    e.preventDefault(); this.pasteText(k,txt);
+  }
+  pasteText(k,txt){
+    const skippedBefore=this._regenSkipped||0; let items=k==='obj'?this.parseAreadata(txt):this.parseRegen(txt); this._regenSkipped=skippedBefore;
+    if(!items.length){ this.setState({statusText:k==='obj'?'clipboard has no areadata objects (Start Object … End Object blocks)':'clipboard has no regen rows'}); return; }
+    // where: the pasted block is centred on the mouse when it is over the map, else nudged 2 m off the originals
+    const P=items.map(it=>this.gPos(k,it)), minx=Math.min(...P.map(p=>p.x)), maxx=Math.max(...P.map(p=>p.x)), miny=Math.min(...P.map(p=>p.y)), maxy=Math.max(...P.map(p=>p.y));
+    const m=this.mouseW, b=this.bounds, eps=k==='obj'?0.01:1; let dx=2, dy=2; if(m&&m.inside){ dx=m.x-(minx+maxx)/2; dy=m.y-(miny+maxy)/2; }
+    dx=Math.max(b.minx*TILE-minx, Math.min((b.maxx+1)*TILE-eps-maxx, dx)); dy=Math.max(b.miny*TILE-miny, Math.min((b.maxy+1)*TILE-eps-maxy, dy));
+    if(k==='obj'){   // objects land in the sector under the pasted block when the map has it, else in the current one
+      const p3=n=>String(n).padStart(3,'0'), to=p3(Math.floor(((minx+maxx)/2+dx)/TILE))+p3(Math.floor(((miny+maxy)/2+dy)/TILE)), cur=this.state.oSector, dest=this.sectorList.includes(to)?to:cur; if(!dest){ this.setState({statusText:'no sector to paste into'}); return; }
+      this.pushUndo('paste '+this.gName(k,items.length),this.scopeArea(dest));
+      items.forEach((o,i)=>{ o.x=Math.round((P[i].x+dx)*100); o.y=-Math.round((P[i].y+dy)*100); });
+      if(dest!==cur){ this.selObjSet.clear(); this.setState({oSector:dest}); }
+      const list=(this.areadata[dest]=this.areadata[dest]||[]); list.push(...items); this.selObjSet.clear(); items.forEach(o=>this.selObjSet.add(o)); this.selObj=list.length-1; this.setPrimary('obj',this.selObj);
+    } else {
+      this.pushUndo('paste '+this.gName(k,items.length),this.scopeRegen());
+      items.forEach((r,i)=>{ r.x=Math.round(P[i].x+dx); r.y=Math.round(P[i].y+dy); });
+      const list=this.currentRows(); list.push(...items); this.selSet.clear(); items.forEach(r=>this.selSet.add(r)); this.selRow=list.length-1; this.setPrimary('row',this.selRow);
+    }
+    this.setState({statusText:this.gName(k,items.length)+' pasted'}); this.draw();
+  }
 
   // ================= undo / redo =================
   // Scoped snapshots: an entry copies only the regen files / sectors an edit touches, plus where it happened.
@@ -522,7 +623,7 @@ class Component extends DCLogic {
     if(this.undoStack.length>100) this.undoStack.shift();
     this.redoStack=[];
   }
-  clearHistory(){ this.undoStack=[]; this.redoStack=[]; }
+  clearHistory(){ this.undoStack=[]; this.redoStack=[]; this.selSet.clear(); this.selObjSet.clear(); }
   undo(){ this.applyHistory(this.undoStack,this.redoStack,'undo'); }
   redo(){ this.applyHistory(this.redoStack,this.undoStack,'redo'); }
   applyHistory(from,to,verb){
@@ -530,15 +631,11 @@ class Component extends DCLogic {
     const e=from.pop(); if(!e){ this.setState({statusText:'nothing to '+verb}); return; }
     to.push({label:e.label,t:0,coalesce:null,view:this.snapView(),scopes:e.scopes.map(sc=>this.snapScope(sc))});
     for(const sc of e.scopes){ if(sc.kind==='regen') this.regen[sc.key]=sc.data; else this.areadata[sc.key]=sc.data; }
-    const v=e.view; this.selRow=v.selRow; this.selObj=v.selObj;
+    const v=e.view; this.selRow=v.selRow; this.selObj=v.selObj; this.selSet.clear(); this.selObjSet.clear();
     this.setState({mainTab:v.mainTab,regenTab:v.regenTab,oSector:v.oSector,statusText:verb+': '+e.label});
     this.reselect(); setTimeout(()=>this.reselect(),0);   // again once a panel that was just switched to has mounted its fields
   }
-  reselect(){
-    if(this.state.mainTab==='regen'){ if(this.currentRows()[this.selRow]) this.selectRow(this.selRow); else { this.selRow=-1; if(this._x)this._x.value=''; if(this._y)this._y.value=''; this.refreshRows(); } }
-    else if(this.state.mainTab==='objects'){ if(this.curObjs()[this.selObj]) this.selectObj(this.selObj); else { this.selObj=-1; for(const k of ['x','y','z','crc','yaw','pitch','roll','bias']){ const el=this.objField(k); if(el) el.value=''; } this.refreshObjs(); } }
-    this.draw();
-  }
+  reselect(){ const k=this.state.mainTab==='regen'?'row':this.state.mainTab==='objects'?'obj':null; if(k){ if(this.gItems(k)[this.gPrimary(k)]) this.setPrimary(k,this.gPrimary(k)); else this.deselect(k); } this.draw(); }
 
   // ================= confirm =================
   askConfirm(msg, fn, opts){ this.pendingConfirm=fn; this.pendingNo=(opts&&opts.onNo)||null; this.setState({ menu:'', confirm:{ msg, title:(opts&&opts.title)||'Are you sure?', yes:(opts&&opts.yes)||'Delete', danger:!(opts&&opts.safe) } }); }
@@ -723,8 +820,9 @@ class Component extends DCLogic {
     const m=this.parseBlocks(txt);
     const n=m['objectcount']?parseInt(m['objectcount'][0])||0:0;
     const objs=[];
-    for(let i=0;i<n;i++){
-      const t=m['object'+String(i).padStart(3,'0')]; if(!t) continue;
+    const names=n?Array.from({length:n},(_,i)=>'object'+String(i).padStart(3,'0')):Object.keys(m).filter(k=>/^object\d+$/.test(k)).sort();   // no ObjectCount (clipboard fragment): take the blocks that are there
+    for(const name of names){
+      const t=m[name]; if(!t) continue;
       const o={ x:+t[0]||0, y:+t[1]||0, z:+t[2]||0, crc:(parseInt(t[3])>>>0)||0, yaw:0, pitch:0, roll:0, bias:0, portals:[] };
       if(t.length>4){ const r=String(t[4]).split('#'); if(r.length===3){ o.yaw=+r[0]||0; o.pitch=+r[1]||0; o.roll=+r[2]||0; } else o.roll=+t[4]||0; }
       if(t.length>5) o.bias=+t[5]||0;
@@ -1389,10 +1487,10 @@ class Component extends DCLogic {
       const rows=this.currentRows(); const ms=(this.props.markerScale ?? 1)*7/this.zoom;
       const col=MARK_COLOR[this.state.regenTab]||'#e05555';
       rows.forEach((r,i)=>{ if(r.type[0]==='e'||r.type[0]==='s') return;
-        const cx=r.x, cy=r.y; ctx.fillStyle=(i===this.selRow)?'#ffffff':col;
+        const cx=r.x, cy=r.y, sel=(i===this.selRow||this.selSet.has(r)); ctx.fillStyle=sel?'#ffffff':col;
         ctx.beginPath(); ctx.moveTo(cx,cy-ms); ctx.lineTo(cx+ms,cy); ctx.lineTo(cx,cy+ms); ctx.lineTo(cx-ms,cy); ctx.closePath(); ctx.fill();
         ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1/this.zoom; ctx.stroke();
-        if(r.sx>0||r.sy>0){ ctx.strokeStyle=(i===this.selRow)?'#ffffff':col; ctx.lineWidth=1/this.zoom; ctx.strokeRect(cx-r.sx,cy-r.sy,r.sx*2,r.sy*2); }
+        if(r.sx>0||r.sy>0){ ctx.strokeStyle=sel?'#ffffff':col; ctx.lineWidth=1/this.zoom; ctx.strokeRect(cx-r.sx,cy-r.sy,r.sx*2,r.sy*2); }
       });
       const hs=3.5/this.zoom; ctx.lineWidth=1/this.zoom;
       for(const h of this.rangeHandles()){ ctx.fillStyle='#ffffff'; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.fillRect(h.x-hs,h.y-hs,hs*2,hs*2); ctx.strokeRect(h.x-hs,h.y-hs,hs*2,hs*2); }
@@ -1401,13 +1499,16 @@ class Component extends DCLogic {
       const rad=(this.props.markerScale ?? 1)*4/this.zoom;
       for(const c of Object.keys(this.areadata)){
         const objs=this.areadata[c]; if(!objs) continue;
-        objs.forEach((o,i)=>{ const px=o.x/100, py=(-o.y)/100; const sel=(c===this.state.oSector && i===this.selObj);
+        objs.forEach((o,i)=>{ const px=o.x/100, py=(-o.y)/100; const sel=(c===this.state.oSector && (i===this.selObj||this.selObjSet.has(o)));
           ctx.fillStyle=sel?'#ffffff':(c===this.state.oSector?'#6ad0e0':'#3d7f8a');
           ctx.beginPath(); ctx.arc(px,py,rad,0,6.2832); ctx.fill();
           ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1/this.zoom; ctx.stroke();
         });
       }
     }
+    if(this.box){ const b=this.box, col=b.sub?'224,96,74':'201,162,75';
+      ctx.fillStyle='rgba('+col+',.12)'; ctx.strokeStyle='rgba('+col+',.95)'; ctx.lineWidth=1/this.zoom; ctx.setLineDash([5/this.zoom,4/this.zoom]);
+      ctx.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0); ctx.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0); ctx.setLineDash([]); }
   }
   currentRows(){ return this.regen[this.state.regenTab]||[]; }
   curObjs(){ return this.areadata[this.state.oSector]||[]; }
@@ -1417,7 +1518,7 @@ class Component extends DCLogic {
   // Range handles of the selected spawn: edge midpoints set Sx or Sy, corners set both (the range is symmetric around the point).
   // An axis only gets handles once its half-range is drawn larger than the diamond marker, so a handle never sits on the marker.
   rangeHandles(){
-    const r=this.currentRows()[this.selRow]; if(!r||this.state.mainTab!=='regen'||r.type[0]==='e'||r.type[0]==='s') return [];
+    const r=this.currentRows()[this.selRow]; if(!r||this.isMulti('row')||this.state.mainTab!=='regen'||r.type[0]==='e'||r.type[0]==='s') return [];
     const ms=(this.props.markerScale ?? 1)*7/this.zoom, hx=r.sx>ms, hy=r.sy>ms, out=[];
     if(hx){ out.push({x:r.x+r.sx,y:r.y,ax:'x',cur:'ew-resize'},{x:r.x-r.sx,y:r.y,ax:'x',cur:'ew-resize'}); }
     if(hy){ out.push({x:r.x,y:r.y+r.sy,ax:'y',cur:'ns-resize'},{x:r.x,y:r.y-r.sy,ax:'y',cur:'ns-resize'}); }
@@ -1434,28 +1535,39 @@ class Component extends DCLogic {
     return -1;
   }
   onDown(e){
-    this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null; this.dragObj=null; this.dragHandle=null;
+    this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null; this.dragObj=null; this.dragHandle=null; this.dragGroup=null; this.box=null;
     if(e.button!==0||this.state.empty) return;
     const r=this.canvas.getBoundingClientRect(); const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
-    if(this.state.mainTab==='regen'){
+    const tab=this.state.mainTab, k=tab==='regen'?'row':tab==='objects'?'obj':null; if(!k) return;
+    if(e.ctrlKey||e.metaKey){   // Ctrl = group selection: click toggles one item, drag from empty map draws a box (Alt = take out)
+      this.down.ctrl=true; let i=-1; if(k==='row') i=this.hitSpawn(wx,wy); else { const h=this.hitObj(wx,wy,true); if(h) i=h.i; }
+      if(i>=0) this.toggleSel(k,i); else this.box={k,x0:wx,y0:wy,x1:wx,y1:wy,sub:e.altKey};
+      return;
+    }
+    if(k==='row'){
       if(e.shiftKey) return;   // shift = force place on top of a marker
-      const h=this.hitHandle(wx,wy); if(h){ this.dragHandle={row:this.currentRows()[this.selRow],ax:h.ax,cur:h.cur}; return; }
+      const h=this.isMulti('row')?null:this.hitHandle(wx,wy); if(h){ this.dragHandle={row:this.currentRows()[this.selRow],ax:h.ax,cur:h.cur}; return; }
       const i=this.hitSpawn(wx,wy); if(i<0) return;
-      const row=this.currentRows()[i]; this.dragRow={row,dx:row.x-wx,dy:row.y-wy};
+      const row=this.currentRows()[i];
+      if(this.isMulti('row') && this.selSet.has(row)){ this.selRow=i; this.startGroupDrag('row',wx,wy); this.setPrimary('row',i); return; }
+      this.dragRow={row,dx:row.x-wx,dy:row.y-wy};
       this.selectRow(i);
-    } else if(this.state.mainTab==='objects'){
+    } else {
       const h=this.hitObj(wx,wy); if(!h) return;
-      const o=this.areadata[h.c][h.i]; this.dragObj={o,dx:o.x/100-wx,dy:(-o.y)/100-wy};
+      const o=this.areadata[h.c][h.i];
+      if(h.c===this.state.oSector && this.isMulti('obj') && this.selObjSet.has(o)){ this.selObj=h.i; this.startGroupDrag('obj',wx,wy); this.setPrimary('obj',h.i); return; }
+      this.dragObj={o,dx:o.x/100-wx,dy:(-o.y)/100-wy};
       this.selectObj(h.i,h.c);
     }
   }
   // object marker under world point: selected wins, then the current sector (topmost), then any other sector
-  hitObj(wx,wy){
+  hitObj(wx,wy,curOnly){
     const rad=Math.max((this.props.markerScale ?? 1)*4,6)/this.zoom, cur=this.state.oSector;
     const hit=o=>o && Math.hypot(wx-o.x/100, wy+o.y/100)<=rad;
     const mine=this.areadata[cur]||[];
     if(hit(mine[this.selObj])) return {c:cur,i:this.selObj};
     for(let i=mine.length-1;i>=0;i--) if(hit(mine[i])) return {c:cur,i};
+    if(curOnly) return null;
     const keys=Object.keys(this.areadata);
     for(let k=keys.length-1;k>=0;k--){ const c=keys[k]; if(c===cur) continue; const objs=this.areadata[c]||[]; for(let i=objs.length-1;i>=0;i--) if(hit(objs[i])) return {c,i}; }
     return null;
@@ -1465,7 +1577,11 @@ class Component extends DCLogic {
     const r=this.canvas.getBoundingClientRect(); const inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
     if(this.down){ const dx=e.clientX-this.down.x,dy=e.clientY-this.down.y; if(Math.abs(dx)+Math.abs(dy)>3) this.moved=true;
       if(this.moved){
-        if(this.dragHandle){
+        const wxm=(e.clientX-r.left-this.ox)/this.zoom, wym=(e.clientY-r.top-this.oy)/this.zoom;
+        if(this.box){ this.box.x1=wxm; this.box.y1=wym; }
+        else if(this.dragGroup){ this.moveGroup(wxm,wym); }
+        else if(this.down.ctrl){ /* Ctrl+click on a marker: no pan, no drag */ }
+        else if(this.dragHandle){
           const d=this.dragHandle; if(!d.snap){ d.snap=true; this.pushUndo('resize spawn range',this.scopeRegen()); }
           const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
           if(d.ax!=='y'){ d.row.sx=Math.max(1,Math.round(Math.abs(wx-d.row.x))); if(this._sx)this._sx.value=d.row.sx; }
@@ -1488,30 +1604,36 @@ class Component extends DCLogic {
     }
     if(!this.down){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
       const hh=(inside && tab==='regen' && !e.shiftKey)?this.hitHandle(wx,wy):null;
-      this.canvas.style.cursor=hh?hh.cur:(inside && ((tab==='regen' && !e.shiftKey && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?'grab':''; }
+      const ctrlBox=inside && (e.ctrlKey||e.metaKey) && (tab==='regen'||tab==='objects');
+      this.canvas.style.cursor=hh&&!ctrlBox?hh.cur:(inside && ((tab==='regen' && !e.shiftKey && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?(ctrlBox?'pointer':'grab'):(ctrlBox?'crosshair':''); }
+    this.mouseW={x:(e.clientX-r.left-this.ox)/this.zoom,y:(e.clientY-r.top-this.oy)/this.zoom,inside};
     if(inside && this.coordEl){ const mx=e.clientX-r.left,my=e.clientY-r.top; const ax=Math.floor((mx-this.ox)/this.zoom), ay=Math.floor((my-this.oy)/this.zoom); this.coordEl.textContent='x '+ax+' · y '+ay; }
   }
   onUp(e){
-    if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn; this.down=null;
+    if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn, ctrlDown=!!this.down.ctrl; this.down=null;
+    if(this.box){ const b=this.box; this.box=null; if(wasMoved) this.boxSel(b.k,b); this.draw(); return; }
+    if(this.dragGroup){ const d=this.dragGroup; this.dragGroup=null; if(wasMoved){ this.setState({statusText:this.gName(d.k,d.items.length)+' moved'}); if(d.k==='obj') this.refreshObjs(); else this.refreshRows(); } return; }
     if(this.dragHandle){ const d=this.dragHandle; this.dragHandle=null; if(wasMoved){ this.setState({statusText:'spawn range set to Sx '+d.row.sx+' · Sy '+d.row.sy}); this.refreshRows(); } return; }
     if(this.dragRow){ const d=this.dragRow; this.dragRow=null; if(wasMoved){ this.setState({statusText:'spawn moved to '+d.row.x+', '+d.row.y}); this.refreshRows(); } return; }
     if(this.dragObj){ const d=this.dragObj; this.dragObj=null; if(wasMoved){ this.setState({statusText:'object moved to '+d.o.x+', '+d.o.y}); this.refreshObjs(); this.offerSectorMove(d.o); } return; }
-    if(wasMoved||this.state.empty||btn===2) return;   // right click never places/moves
+    if(wasMoved||this.state.empty||btn===2||ctrlDown) return;   // right click never places/moves; neither does a Ctrl+click
     const r=this.canvas.getBoundingClientRect(); if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) return;
     const mx=e.clientX-r.left,my=e.clientY-r.top;
-    if(this.state.mainTab==='regen'){ this.placeSpawn(Math.round((mx-this.ox)/this.zoom), Math.round((my-this.oy)/this.zoom)); return; }
-    // objects tab: a click on empty map does nothing — objects move by dragging their marker only
+    // with a group selected, a click on empty map only drops the group (it never places a spawn)
+    if(this.state.mainTab==='regen'){ if(this.isMulti('row')){ this.deselect('row'); this.gStatus('row'); return; } this.placeSpawn(Math.round((mx-this.ox)/this.zoom), Math.round((my-this.oy)/this.zoom)); return; }
+    // objects tab: a click on empty map never moves anything — objects move by dragging their marker only
+    if(this.state.mainTab==='objects' && this.isMulti('obj')){ this.deselect('obj'); this.gStatus('obj'); }
   }
   placeSpawn(x,y){
     const b=this.bounds;
     const minX=b.minx*TILE, minY=b.miny*TILE, maxX=(b.maxx+1)*TILE, maxY=(b.maxy+1)*TILE;
     if(x<minX||y<minY||x>=maxX||y>=maxY){ this.setState({statusText:'click inside the map to place a spawn'}); return; }
-    const type=this._t?this._t.value:'m';
+    const type=(this._t&&this._t.value)||'m';
     const row={ type, x, y, sx:+(this._sx?this._sx.value:0)||0, sy:+(this._sy?this._sy.value:0)||0,
       dir:+(this._d?this._d.value:0)||0, resp:(this._r?this._r.value:'1m')||'1m', perc:(this._p?this._p.value:'100')||'100',
       count:+(this._c?this._c.value:1)||1, vnum:+(this._v?this._v.value:0)||0 };
     this.pushUndo('place spawn',this.scopeRegen());
-    this.currentRows().push(row); this.selRow=this.currentRows().length-1;
+    this.currentRows().push(row); this.selRow=this.currentRows().length-1; this.selSet.clear(); this.selSet.add(row);
     if(this._x)this._x.value=x; if(this._y)this._y.value=y;
     this.refreshRows(); this.draw();
   }
@@ -1541,12 +1663,12 @@ class Component extends DCLogic {
   tabConvert(){ this.setState({mainTab:'convert'}); this.draw(); }
   tabRegen(){ this.setState({mainTab:'regen'}); this.draw(); }
   tabObjects(){ this.setState({mainTab:'objects'}); this.refreshObjs(); this.draw(); }
-  setRegenTab(k){ this.selRow=-1; this.setState({regenTab:k}); this.refreshRows(); this.draw(); }
+  setRegenTab(k){ this.selRow=-1; this.selSet.clear(); this.setState({regenTab:k}); this.refreshRows(); this.draw(); }
   toggleHighlight(){ const nv=!this.state.highlight; this.setState({highlight:nv}); if(nv) this.ensureHighlight(this.jobId).then(()=>this.draw()); else this.draw(); }
   refreshRows(){ this.setState({rev:this.state.rev+1}); this.checkDirty(); if(this.emptyRowsEl) this.emptyRowsEl.style.display=this.currentRows().length?'none':'block'; }
   refreshObjs(){ this.setState({rev:this.state.rev+1}); this.checkObjDirty(); if(this.emptyObjEl) this.emptyObjEl.style.display=this.curObjs().length?'none':'block'; }
   // second click on the same row within 400ms = focus it on the map
-  clickRow(i){ const t=Date.now(), dbl=(this._lastRowClick && this._lastRowClick.i===i && t-this._lastRowClick.t<400); this._lastRowClick=dbl?null:{i,t}; this.selectRow(i); if(dbl) this.focusRow(i); }
+  clickRow(i,e){ if(e&&(e.ctrlKey||e.metaKey)){ this.toggleSel('row',i); return; } if(e&&e.shiftKey){ this.rangeSel('row',i); return; } const t=Date.now(), dbl=(this._lastRowClick && this._lastRowClick.i===i && t-this._lastRowClick.t<400); this._lastRowClick=dbl?null:{i,t}; this.selectRow(i); if(dbl) this.focusRow(i); }
   // center on the spawn; zoom in (never out) until ~2 sectors span the view
   focusRow(i){
     const r=this.currentRows()[i], cv=this.canvas; if(!r||!cv||r.type[0]==='e'||r.type[0]==='s') return;
@@ -1554,36 +1676,54 @@ class Component extends DCLogic {
     this.ox=cv.width/2-r.x*this.zoom; this.oy=cv.height/2-r.y*this.zoom;
     this.updateZoom(); this.draw();
   }
-  selectRow(i){ this.selRow=i; const r=this.currentRows()[i]; if(r){ if(this._t)this._t.value=r.type; if(this._v)this._v.value=r.vnum; if(this._x)this._x.value=r.x; if(this._y)this._y.value=r.y; if(this._sx)this._sx.value=r.sx; if(this._sy)this._sy.value=r.sy; if(this._d)this._d.value=r.dir; if(this._r)this._r.value=r.resp; if(this._p)this._p.value=r.perc; if(this._c)this._c.value=r.count; } this.refreshRows(); this.draw(); }
+  selectRow(i,keepGroup){ this.selRow=i; if(!keepGroup){ this.selSet.clear(); const r=this.currentRows()[i]; if(r) this.selSet.add(r); } this.fillRowForm(); this.refreshRows(); this.draw(); }
   // what Update would write to row r, from the current form values
-  formVals(r){ const nx=this._x?parseInt(this._x.value):NaN, ny=this._y?parseInt(this._y.value):NaN;
-    return { type:this._t?this._t.value:r.type, vnum:+(this._v?this._v.value:r.vnum)||0, x:isNaN(nx)?r.x:nx, y:isNaN(ny)?r.y:ny,
-      sx:+(this._sx?this._sx.value:0)||0, sy:+(this._sy?this._sy.value:0)||0, dir:+(this._d?this._d.value:0)||0,
-      resp:(this._r?this._r.value:r.resp)||'1m', perc:(this._p?this._p.value:r.perc)||'100', count:+(this._c?this._c.value:1)||1 }; }
+  // a blank (or non-numeric) field keeps the row's own value — that is what lets one Update edit a whole group
+  formVals(r){ const raw=el=>el?String(el.value).trim():'', num=(el,cur,def)=>{ const t=raw(el); return (t===''||isNaN(+t))?(cur!=null?cur:def):+t; };
+    return { type:raw(this._t)||r.type||'m', vnum:num(this._v,r.vnum,0)||0, x:Math.trunc(num(this._x,r.x,0)), y:Math.trunc(num(this._y,r.y,0)),
+      sx:num(this._sx,r.sx,0), sy:num(this._sy,r.sy,0), dir:num(this._d,r.dir,0),
+      resp:raw(this._r)||r.resp||'1m', perc:raw(this._p)||r.perc||'100', count:num(this._c,r.count,1)||1 }; }
+  rowDiffers(r){ const v=this.formVals(r); return Object.keys(v).some(k=>String(v[k])!==String(r[k])); }
   // form differs from the selected row → Update button lights up
-  checkDirty(){ const r=this.currentRows()[this.selRow]; let d=false; if(r){ const v=this.formVals(r); d=Object.keys(v).some(k=>String(v[k])!==String(r[k])); } if(d!==this.state.dirty) this.setState({dirty:d}); this.checkResp(); }
+  checkDirty(){ const d=this.group('row').some(r=>this.rowDiffers(r)); if(d!==this.state.dirty) this.setState({dirty:d}); this.checkResp(); }
   // respawn field holds a tag the server would misread → warn inline (never blocks)
-  checkResp(){ const t=this._r?rowTraps(this.formVals(this.currentRows()[this.selRow]||{})):[]; const w=t.length?{sev:t[0].sev,msg:t[0].msg+(t.length>1?'  (+'+(t.length-1)+' more)':''),fields:[].concat(...t.map(x=>x.fields))}:null; const cur=this.state.respWarn; if((w&&w.msg)!==(cur&&cur.msg)) this.setState({respWarn:w}); }
+  checkResp(){ const g=this.group('row'); let w=null;
+    if(this._r){ const per=(g.length?g:[{}]).map(r=>rowTraps(this.formVals(r))), bad=per.filter(t=>t.length), all=[].concat(...bad).sort((a,b)=>(a.sev==='red'?0:1)-(b.sev==='red'?0:1));
+      if(all.length){ const kinds=new Set(all.map(x=>x.msg)).size; w={sev:all[0].sev,msg:(g.length>1?bad.length+' of '+g.length+' selected: ':'')+all[0].msg+(kinds>1?'  (+'+(kinds-1)+' more)':''),fields:[...new Set([].concat(...all.map(x=>x.fields)))]}; } }
+    const cur=this.state.respWarn; if((w&&w.msg)!==(cur&&cur.msg)) this.setState({respWarn:w}); }
   countRespTraps(rows){ return (rows||[]).filter(r=>rowTraps(r).length).length; }
   trapNote(n){ return n?' — ⚠ '+n+' row'+(n>1?'s':'')+' the server would misread or never spawn':''; }
-  updateRow(){ if(this.selRow<0){ this.setState({statusText:'select a row to update'}); return; } const r=this.currentRows()[this.selRow]; if(!r) return; const v=this.formVals(r); if(Object.keys(v).some(k=>String(v[k])!==String(r[k]))) this.pushUndo('edit spawn',this.scopeRegen(),'row:'+this.uid(r)); Object.assign(r,v); this.setState({statusText:'row updated'}); this.refreshRows(); this.draw(); }
-  deleteRow(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); const r=this.currentRows()[i]; if(!r) return; this.askConfirm('Delete this '+r.type+' spawn'+(r.vnum?' (vnum '+r.vnum+')':'')+'?',()=>{ this.pushUndo('delete spawn',this.scopeRegen()); this.currentRows().splice(i,1); if(this.selRow>=i) this.selRow=-1; this.refreshRows(); this.draw(); },{title:'Delete spawn'}); }
+  updateRow(){ const g=this.group('row'); if(!g.length){ this.setState({statusText:'select a row to update'}); return; }
+    if(g.some(r=>this.rowDiffers(r))) this.pushUndo(g.length>1?'edit '+this.gName('row',g.length):'edit spawn',this.scopeRegen(),g.length>1?'rows:'+g.length:'row:'+this.uid(g[0]));
+    for(const r of g) Object.assign(r,this.formVals(r));
+    this.fillRowForm(); this.setState({statusText:g.length>1?this.gName('row',g.length)+' updated':'row updated'}); this.refreshRows(); this.draw(); }
+  deleteRow(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); const r=this.currentRows()[i]; if(!r) return; this.askConfirm('Delete this '+r.type+' spawn'+(r.vnum?' (vnum '+r.vnum+')':'')+'?',()=>{ this.pushUndo('delete spawn',this.scopeRegen()); const keep=this.currentRows()[this.selRow]; this.currentRows().splice(i,1); this.selSet.delete(r); this.selRow=keep&&keep!==r?this.currentRows().indexOf(keep):-1; this.fixPrimary('row'); this.draw(); },{title:'Delete spawn'}); }
+  // Del with a group selected: one prompt, one undo step
+  deleteGroup(k){ const g=this.group(k), n=g.length; if(!n) return; if(n===1){ if(k==='obj') this.deleteObjRow(this.selObj); else this.deleteRow(this.selRow); return; }
+    this.askConfirm('Delete the '+this.gName(k,n)+' selected?',()=>{ const kill=new Set(g); this.pushUndo('delete '+this.gName(k,n),k==='obj'?this.scopeArea():this.scopeRegen());
+      if(k==='obj') this.areadata[this.state.oSector]=this.curObjs().filter(o=>!kill.has(o)); else this.regen[this.state.regenTab]=this.currentRows().filter(r=>!kill.has(r));
+      this.deselect(k); this.setState({statusText:this.gName(k,n)+' deleted'}); },{title:'Delete '+this.gName(k,n)}); }
 
   // ---- objects ----
-  onSectorPick(e){ this.selObj=-1; this.setState({oSector:e.target.value}); this.refreshObjs(); this.draw(); }
+  onSectorPick(e){ this.selObj=-1; this.selObjSet.clear(); this.setState({oSector:e.target.value}); this.fillObjForm(); this.refreshObjs(); this.draw(); }
   // sector given = marker clicked on the map in another sector: switch to it
-  selectObj(i,sector){ if(sector && sector!==this.state.oSector) this.setState({oSector:sector}); this.selObj=i; const o=this.curObjs()[i]; if(o) for(const k of ['x','y','z','crc','yaw','pitch','roll','bias']){ const el=this.objField(k); if(el) el.value=o[k]; } this.refreshObjs(); this.draw(); }
+  selectObj(i,sector,keepGroup){ if(sector && sector!==this.state.oSector){ this.selObjSet.clear(); this.setState({oSector:sector}); } this.selObj=i; if(!keepGroup){ this.selObjSet.clear(); const o=this.curObjs()[i]; if(o) this.selObjSet.add(o); } this.fillObjForm(); this.refreshObjs(); this.draw(); }
   // second click on the same row within 400ms = focus it on the map
-  clickObjRow(i){ const t=Date.now(), dbl=(this._lastObjClick && this._lastObjClick.i===i && t-this._lastObjClick.t<400); this._lastObjClick=dbl?null:{i,t}; this.selectObj(i); if(dbl) this.focusObj(i); }
+  clickObjRow(i,e){ if(e&&(e.ctrlKey||e.metaKey)){ this.toggleSel('obj',i); return; } if(e&&e.shiftKey){ this.rangeSel('obj',i); return; } const t=Date.now(), dbl=(this._lastObjClick && this._lastObjClick.i===i && t-this._lastObjClick.t<400); this._lastObjClick=dbl?null:{i,t}; this.selectObj(i); if(dbl) this.focusObj(i); }
   focusObj(i){ const o=this.curObjs()[i], cv=this.canvas; if(!o||!cv) return; this.zoom=Math.max(this.zoom, Math.min(40, Math.min(cv.width,cv.height)/(TILE*2))); this.ox=cv.width/2-(o.x/100)*this.zoom; this.oy=cv.height/2-(-o.y/100)*this.zoom; this.updateZoom(); this.draw(); }
   // what Update would write to object o; a blank or non-numeric field keeps the current value
   objFormVals(o){ const out={}; for(const k of ['x','y','z','yaw','pitch','roll','bias']){ const el=this.objField(k), v=el?parseFloat(el.value):NaN; out[k]=isNaN(v)?o[k]:v; } const c=this._ocrc?parseInt(this._ocrc.value):NaN; out.crc=isNaN(c)?o.crc:(c>>>0); return out; }
   // form differs from the selected object → Update lights up; and warn when the client would drop or misplace it
-  checkObjDirty(){ const o=this.curObjs()[this.selObj]; let d=false, w=null; if(o){ const v=this.objFormVals(o); d=Object.keys(v).some(k=>v[k]!==o[k]); const t=objTraps(v,this.state.oSector); if(t.length) w={sev:t[0].sev,msg:t[0].msg+(t.length>1?'  (+'+(t.length-1)+' more)':''),fields:[].concat(...t.map(x=>x.fields))}; }
+  checkObjDirty(){ const g=this.group('obj'); let w=null; const d=g.some(o=>{ const v=this.objFormVals(o); return Object.keys(v).some(k=>v[k]!==o[k]); });
+    const bad=g.map(o=>objTraps(this.objFormVals(o),this.state.oSector)).filter(t=>t.length), all=[].concat(...bad).sort((a,b)=>(a.sev==='red'?0:1)-(b.sev==='red'?0:1));
+    if(all.length){ const kinds=new Set(all.map(x=>x.msg)).size; w={sev:all[0].sev,msg:(g.length>1?bad.length+' of '+g.length+' selected: ':'')+all[0].msg+(kinds>1?'  (+'+(kinds-1)+' more)':''),fields:[...new Set([].concat(...all.map(x=>x.fields)))]}; }
     if(d!==this.state.objDirty) this.setState({objDirty:d}); const cur=this.state.objWarn; if((w&&w.msg)!==(cur&&cur.msg)) this.setState({objWarn:w}); }
   countObjTraps(sectors){ return sectors.reduce((n,c)=>n+(this.areadata[c]||[]).filter(o=>objTraps(o,c).length).length,0); }
   objTrapNote(n){ return n?' — ⚠ '+n+' object'+(n>1?'s':'')+' the client would drop or misplace':''; }
-  updateObj(){ const o=this.curObjs()[this.selObj]; if(!o){ this.setState({statusText:'select an object to update'}); return; } const v=this.objFormVals(o); if(Object.keys(v).some(k=>v[k]!==o[k])) this.pushUndo('edit object',this.scopeArea(),'obj:'+this.uid(o)); Object.assign(o,v); this.setState({statusText:'object updated'}); this.refreshObjs(); this.draw(); this.offerSectorMove(o); }
+  updateObj(){ const g=this.group('obj'); if(!g.length){ this.setState({statusText:'select an object to update'}); return; }
+    if(g.some(o=>{ const v=this.objFormVals(o); return Object.keys(v).some(k=>v[k]!==o[k]); })) this.pushUndo(g.length>1?'edit '+this.gName('obj',g.length):'edit object',this.scopeArea(),g.length>1?'objs:'+g.length:'obj:'+this.uid(g[0]));
+    for(const o of g) Object.assign(o,this.objFormVals(o));
+    this.fillObjForm(); this.setState({statusText:g.length>1?this.gName('obj',g.length)+' updated':'object updated'}); this.refreshObjs(); this.draw(); if(g.length===1) this.offerSectorMove(g[0]); }
   // the object now lies in another sector: offer to move its record to that sector's areadata.txt.
   // Asked once per excursion — answering No keeps it quiet until the object is back inside its own sector.
   offerSectorMove(o){
@@ -1600,14 +1740,14 @@ class Component extends DCLogic {
     },{title:'Move to sector '+to+'?', yes:'Move', safe:true, onNo:()=>kept.add(o)});
   }
   addObj(){ const c=this.state.oSector; if(!c){ this.setState({statusText:'no sector'}); return; } const ax=+c.slice(0,3),ay=+c.slice(3,6); const o={x:(ax*256+128)*100,y:-(ay*256+128)*100,z:0,crc:0,yaw:0,pitch:0,roll:0,bias:0,portals:[]}; this.pushUndo('add object',this.scopeArea(c)); (this.areadata[c]=this.areadata[c]||[]).push(o); this.selObj=this.areadata[c].length-1; this.setState({statusText:'object added at the sector center — set CRC, then drag its marker to move it'}); this.selectObj(this.selObj); }
-  deleteObjRow(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); const o=this.curObjs()[i]; if(!o) return; this.askConfirm('Delete object #'+i+' (CRC '+o.crc+') from sector '+this.state.oSector+'?',()=>{ this.pushUndo('delete object',this.scopeArea()); this.curObjs().splice(i,1); if(this.selObj>=i) this.selObj=-1; this.refreshObjs(); this.draw(); },{title:'Delete object'}); }
+  deleteObjRow(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); const o=this.curObjs()[i]; if(!o) return; this.askConfirm('Delete object #'+i+' (CRC '+o.crc+') from sector '+this.state.oSector+'?',()=>{ this.pushUndo('delete object',this.scopeArea()); const keep=this.curObjs()[this.selObj]; this.curObjs().splice(i,1); this.selObjSet.delete(o); this.selObj=keep&&keep!==o?this.curObjs().indexOf(keep):-1; this.fixPrimary('obj'); this.draw(); },{title:'Delete object'}); }
   exportAreadata(){ const c=this.state.oSector; if(!c) return; this.download('areadata_'+c+'.txt', new Blob([this.serializeAreadata(this.curObjs())],{type:'text/plain'})); this.setState({statusText:'exported areadata_'+c+'.txt'+this.objTrapNote(this.countObjTraps([c]))}); }
 
   // ================= import / export =================
   importRegen(){ this.regenInput.click(); }
-  async onRegenInput(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; this._regenSkipped=0; const parsed=this.parseRegen(await f.text()); this.pushUndo('import '+REGEN_FILES[this.state.regenTab],this.scopeRegen()); this.regen[this.state.regenTab]=parsed; this.selRow=-1; this.refreshRows(); this.draw(); e.target.value=''; this.setState({statusText:'imported '+this.currentRows().length+' spawn(s)'+this.skippedNote()}); }
+  async onRegenInput(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; this._regenSkipped=0; const parsed=this.parseRegen(await f.text()); this.pushUndo('import '+REGEN_FILES[this.state.regenTab],this.scopeRegen()); this.regen[this.state.regenTab]=parsed; this.selSet.clear(); this.selRow=-1; this.refreshRows(); this.draw(); e.target.value=''; this.setState({statusText:'imported '+this.currentRows().length+' spawn(s)'+this.skippedNote()}); }
   skippedNote(){ const n=this._regenSkipped||0; return n?' — skipped '+n+' row'+(n>1?'s':'')+' with an unknown type letter':''; }
-  resetRegen(){ const tab=this.state.regenTab; const n=this.currentRows().length; if(!n){ this.regen[tab]=[]; this.refreshRows(); return; } this.askConfirm('Remove all '+n+' spawn(s) from '+REGEN_FILES[tab]+'?',()=>{ this.pushUndo('reset '+REGEN_FILES[tab],[{kind:'regen',key:tab}]); this.regen[tab]=[]; this.selRow=-1; this.refreshRows(); this.draw(); this.setState({statusText:REGEN_FILES[tab]+' reset'}); },{title:'Reset '+REGEN_FILES[tab],yes:'Reset all'}); }
+  resetRegen(){ const tab=this.state.regenTab; const n=this.currentRows().length; if(!n){ this.regen[tab]=[]; this.refreshRows(); return; } this.askConfirm('Remove all '+n+' spawn(s) from '+REGEN_FILES[tab]+'?',()=>{ this.pushUndo('reset '+REGEN_FILES[tab],[{kind:'regen',key:tab}]); this.regen[tab]=[]; this.selRow=-1; this.selSet.clear(); this.refreshRows(); this.draw(); this.setState({statusText:REGEN_FILES[tab]+' reset'}); },{title:'Reset '+REGEN_FILES[tab],yes:'Reset all'}); }
   exportRegen(){ const txt=this.serializeRegen(this.currentRows()); this.download(REGEN_FILES[this.state.regenTab], new Blob([txt],{type:'text/plain'})); this.setState({statusText:'exported '+REGEN_FILES[this.state.regenTab]+this.trapNote(this.countRespTraps(this.currentRows()))}); }
   async exportLayerPNG(){
     if(!this.sectorList.length) return;
@@ -1641,7 +1781,9 @@ class Component extends DCLogic {
     const ut=this.undoStack[this.undoStack.length-1], rt=this.redoStack[this.redoStack.length-1];
     const E=[
       this.mkItem('Undo'+(ut?' · '+ut.label:'')+'   Ctrl+Z',()=>this.undo()),
-      this.mkItem('Redo'+(rt?' · '+rt.label:'')+'   Ctrl+Y',()=>this.redo())
+      this.mkItem('Redo'+(rt?' · '+rt.label:'')+'   Ctrl+Y',()=>this.redo()),
+      this.mkItem('Select all   Ctrl+A',()=>{ const k=this.clipKind(); if(k&&has) this.selectAll(k); }),
+      this.mkItem('Copy / Cut / Paste:  Ctrl+C · Ctrl+X · Ctrl+V',()=>this.setState({statusText:'use Ctrl+C, Ctrl+X and Ctrl+V on the map — browsers only hand the clipboard to real key presses'}))
     ];
     const M=[
       ...LAYER_DEFS.map(([k,label])=>this.mkItem('Layer: '+label,()=>this.setLayer(k),{check:st.layer===k})),
@@ -1685,8 +1827,8 @@ class Component extends DCLogic {
       return {
       respText:mark('resp')+r.resp, respTitle:tip, respStyle:cell('resp',58), vnumText:mark('vnum')+r.vnum, vnumStyle:cell('vnum',66), sxStyle:cell('sx',30), syStyle:cell('sy',30),
       type:r.type, vnum:r.vnum, x:r.x, y:r.y, resp:r.resp, sx:r.sx, sy:r.sy, dir:r.dir, perc:r.perc, count:r.count,
-      onClick:()=>this.clickRow(i), onDelete:(e)=>this.deleteRow(i,e),
-      style:`display:flex;cursor:pointer;font-size:10.5px;border-bottom:1px solid #241a11;color:#d8c9a8;background:${i===this.selRow?'#3a2c1a':(i%2?'#171009':'transparent')}`
+      onClick:(e)=>this.clickRow(i,e), onDelete:(e)=>this.deleteRow(i,e),
+      style:`display:flex;cursor:pointer;font-size:10.5px;border-bottom:1px solid #241a11;color:#d8c9a8;background:${i===this.selRow?'#3a2c1a':this.selSet.has(r)?'#2e2214':(i%2?'#171009':'transparent')};user-select:none`
     }; });
     const uTop=this.undoStack[this.undoStack.length-1], rTop=this.redoStack[this.redoStack.length-1];
     const histBtn=on=>`border:1px solid ${on?'#4a3820':'#2c2115'};background:${on?'#241a11':'transparent'};color:${on?'#d8c9a8':'#5a4a30'};border-radius:6px;padding:5px 10px;font:500 12px 'IBM Plex Sans';cursor:${on?'pointer':'default'};white-space:nowrap`;
@@ -1698,8 +1840,8 @@ class Component extends DCLogic {
     const objRows=this.curObjs().map((o,i)=>{ const t=objTraps(o,st.oSector), w=t[0]; return {
       crcText:(w?'⚠ ':'')+o.crc, warnTitle:t.map(x=>x.msg).join(' · '), crcStyle:'width:104px;padding:5px 6px'+(w?';font-weight:600;color:'+(w.sev==='red'?'#e0604a':'#e0a93a'):''),
       idx:i, crc:o.crc, cell:Math.round(o.x/100)+' · '+Math.round(-o.y/100),
-      onClick:()=>this.clickObjRow(i), onDelete:(e)=>this.deleteObjRow(i,e),
-      style:`display:flex;cursor:pointer;font-size:10.5px;border-bottom:1px solid #241a11;color:#d8c9a8;background:${i===this.selObj?'#3a2c1a':(i%2?'#171009':'transparent')}`
+      onClick:(e)=>this.clickObjRow(i,e), onDelete:(e)=>this.deleteObjRow(i,e),
+      style:`display:flex;cursor:pointer;font-size:10.5px;border-bottom:1px solid #241a11;color:#d8c9a8;background:${i===this.selObj?'#3a2c1a':this.selObjSet.has(o)?'#2e2214':(i%2?'#171009':'transparent')};user-select:none`
     }; });
     const ow=st.objWarn, objCol=ow?(ow.sev==='red'?'#e0604a':'#e0a93a'):'#3a2c1a';
     const oStyle=k=>{ const bad=ow&&ow.fields.includes(k); return `width:100%;background:#120d08;border:1px solid ${bad?objCol:'#3a2c1a'};border-radius:4px;padding:6px 8px;color:${bad?objCol:'#d8c9a8'};text-align:center`; };
