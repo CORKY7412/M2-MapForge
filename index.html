@@ -212,7 +212,10 @@
             <div ref="{{ emptyRowsRef }}" class="mono" style="padding:14px;color:#5a4a30;font-size:11px;text-align:center">no spawns in this file</div>
           </div>
 
-          <div style="padding:10px 12px;display:flex;gap:6px;flex:none">
+          <div style="padding:10px 12px 0;flex:none">
+            <button onClick="{{ loadRegenFolder }}" title="Pick the server-side map folder: regen.txt, boss.txt, stone.txt and npc.txt are all loaded at once" style="width:100%;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:5px;padding:7px;font:500 11px 'IBM Plex Sans';cursor:pointer">Load regen folder… <span style="color:#8a744c">regen · boss · stone · npc</span></button>
+          </div>
+          <div style="padding:6px 12px 10px;display:flex;gap:6px;flex:none">
             <button onClick="{{ importRegen }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:5px;padding:8px;font:500 11px 'IBM Plex Sans';cursor:pointer">Import</button>
             <button onClick="{{ updateRow }}" style="{{ updateBtnStyle }}">{{ updateLabel }}</button>
             <button onClick="{{ resetRegen }}" style="flex:none;border:1px solid #4a3820;background:#241a11;color:#b5573f;border-radius:5px;padding:8px 10px;font:500 11px 'IBM Plex Sans';cursor:pointer">Reset</button>
@@ -325,6 +328,7 @@
 
   <input ref="{{ inputRef }}" type="file" webkitdirectory="" directory="" multiple="" onChange="{{ onInput }}" style="display:none">
   <input ref="{{ regenInputRef }}" type="file" accept=".txt" onChange="{{ onRegenInput }}" style="display:none">
+  <input ref="{{ regenDirInputRef }}" type="file" webkitdirectory="" directory="" multiple="" onChange="{{ onRegenDirInput }}" style="display:none">
   <input ref="{{ namesInputRef }}" type="file" accept=".txt" onChange="{{ onNamesInput }}" style="display:none">
   <input ref="{{ pngInputRef }}" type="file" accept="image/png,image/*" onChange="{{ onPngInput }}" style="display:none">
   <input ref="{{ serverAttrInputRef }}" type="file" onChange="{{ onServerAttrInput }}" style="display:none">
@@ -426,6 +430,7 @@ class Component extends DCLogic {
   inputRef = el => this.input = el;
   regenInputRef = el => this.regenInput = el;
   namesInputRef = el => this.namesInput = el;
+  regenDirInputRef = el => this.regenDirInput = el;
   pngInputRef = el => this.pngInput = el;
   serverAttrInputRef = el => this.serverAttrInput = el;
   tsInputRef = el => this.tsInput = el;
@@ -599,6 +604,31 @@ class Component extends DCLogic {
       const D={type:'m',vnum:'101',sx:'0',sy:'0',dir:'0',resp:'1m',perc:'100',count:'1'}; for(const key of Object.keys(D)) if(F[key] && String(F[key].value).trim()==='') F[key].value=D[key]; return; }
     for(const key of Object.keys(F)) if(F[key]) F[key].value=this.common(g,key); }
   fillObjForm(){ const g=this.group('obj'); for(const key of ['x','y','z','crc','yaw','pitch','roll','bias']){ const el=this.objField(key); if(el) el.value=g.length?this.common(g,key):''; } }
+
+  // ================= regen folder =================
+  // Client maps often ship without spawn files, so load all four at once from the server-side map folder. Only the top level of the
+  // picked folder is read; a file that is not there leaves the current one untouched. One undo step.
+  async loadRegenFolder(){
+    if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
+    if(window.showDirectoryPicker){
+      try{ const dir=await window.showDirectoryPicker(); const files={}; for await(const [name,h] of dir.entries()) if(h.kind==='file') files[name.toLowerCase()]=await h.getFile(); await this.applyRegenFolder(files,dir.name); }
+      catch(e){ if(e && e.name!=='AbortError') this.regenDirInput.click(); }
+    } else this.regenDirInput.click();
+  }
+  async onRegenDirInput(e){ const fl=e.target.files; if(!fl||!fl.length) return; const files={}; let folder='';
+    for(const f of fl){ const parts=(f.webkitRelativePath||f.name).split('/'); if(parts.length>2) continue; if(parts.length===2) folder=parts[0]; files[parts[parts.length-1].toLowerCase()]=f; }
+    e.target.value=''; await this.applyRegenFolder(files,folder); }
+  async applyRegenFolder(files,folder){
+    const found=Object.keys(REGEN_FILES).filter(k=>files[REGEN_FILES[k]]), missing=Object.keys(REGEN_FILES).filter(k=>!files[REGEN_FILES[k]]).map(k=>REGEN_FILES[k]);
+    if(!found.length){ this.setState({statusText:'no regen.txt / boss.txt / stone.txt / npc.txt in '+(folder||'that folder')+' — pick the server-side map folder itself'}); return; }
+    const parsed={}; this._regenSkipped=0; for(const k of found) parsed[k]=this.parseRegen(this.decodeText(await files[REGEN_FILES[k]].arrayBuffer()));
+    this.pushUndo('load regen folder'+(folder?' '+folder:''),found.map(key=>({kind:'regen',key})));
+    for(const k of found) this.regen[k]=parsed[k];
+    this.selRow=-1; this.selSet.clear(); if(!found.includes(this.state.regenTab)) this.setState({regenTab:found[0]}); if(this.state.mainTab!=='regen') this.setState({mainTab:'regen'});
+    const n=v=>Number(v).toLocaleString('en-US'), bad=found.reduce((a,k)=>a+this.countRespTraps(this.regen[k]),0);
+    this.setState({statusText:'loaded '+found.map(k=>REGEN_FILES[k]+' ('+n(parsed[k].length)+')').join(', ')+(folder?' from '+folder:'')+(missing.length?' · not found, left as is: '+missing.join(', '):'')+this.skippedNote()+this.trapNote(bad)});
+    this.fillRowForm(); this.refreshRows(); this.draw();
+  }
 
   // ================= mob names (optional) =================
   // Regen › Load mob_names.txt… — a `vnum<TAB>name` list. Purely cosmetic: names show in the spawn list, under the Vnum field, next to
@@ -1883,6 +1913,7 @@ class Component extends DCLogic {
     const st=this.state, has=!st.empty;
     const F=[
       this.mkItem('Open map folder…',()=>this.openFolder()),
+      this.mkItem('Load regen folder…',()=>this.loadRegenFolder()),
       this.mkItem('Merge maps…',()=>this.openMerge()),
       this.mkItem('Export map (.zip)',()=>this.exportZip()),
       this.mkItem('Close map',()=>{ if(has) this.askConfirm('Close the current map? Unsaved edits (regen, objects, imports) will be lost.',()=>this.clearMap(),{title:'Close map',yes:'Close'}); },{danger:true})
@@ -1910,7 +1941,8 @@ class Component extends DCLogic {
     const R=[
       this.mkItem('Open Regen tab',()=>this.tabRegen(),{check:st.mainTab==='regen'}),
       ...Object.keys(REGEN_FILES).map(k=>this.mkItem('File: '+REGEN_FILES[k],()=>{ this.tabRegen(); this.setRegenTab(k); },{check:st.regenTab===k})),
-      this.mkItem('Import .txt…',()=>{ this.tabRegen(); this.importRegen(); }),
+      this.mkItem('Load regen folder… (all four files)',()=>this.loadRegenFolder()),
+      this.mkItem('Import .txt… (current file only)',()=>{ this.tabRegen(); this.importRegen(); }),
       this.mkItem('Export current file',()=>this.exportRegen()),
       this.mkItem('Reset current file',()=>{ this.tabRegen(); this.resetRegen(); },{danger:true}),
       this.mkItem(st.mobNames?'Mob names: '+st.mobNames.toLocaleString('en-US')+' loaded · load another…':'Load mob_names.txt…',()=>this.namesInput.click(),{check:!!st.mobNames}),
@@ -1986,7 +2018,7 @@ class Component extends DCLogic {
       highlightStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,
       statusText:st.statusText,
       iMapName:info.name, iDims:info.dims, iSectors:info.sectors, iBase:info.base, iCell:info.cell, iHeight:info.height, iView:info.view, iTex:info.tex, iEnv:info.env,
-      openFolder:()=>this.openFolder(), onInput:(e)=>this.onInput(e), onRegenInput:(e)=>this.onRegenInput(e), onNamesInput:(e)=>this.onNamesInput(e), onPngInput:(e)=>this.onPngInput(e),
+      openFolder:()=>this.openFolder(), onInput:(e)=>this.onInput(e), onRegenInput:(e)=>this.onRegenInput(e), onNamesInput:(e)=>this.onNamesInput(e), onRegenDirInput:(e)=>this.onRegenDirInput(e), loadRegenFolder:()=>this.loadRegenFolder(), onPngInput:(e)=>this.onPngInput(e),
       serverAttrInputRef:this.serverAttrInputRef, onServerAttrInput:(e)=>this.onServerAttrInput(e),
       toggleHighlight:()=>this.toggleHighlight(), tabConvert:()=>this.tabConvert(), tabRegen:()=>this.tabRegen(), tabObjects:()=>this.tabObjects(),
       zoomIn:()=>this.zoomIn(), zoomOut:()=>this.zoomOut(), fitView:()=>this.fitView(),
@@ -1999,7 +2031,7 @@ class Component extends DCLogic {
       updateObjBtnStyle:`flex:1;border:1px solid ${st.objDirty?'#c9a24b':'#4a3820'};background:${st.objDirty?'#c9a24b':'#241a11'};color:${st.objDirty?'#1a1209':'#c9b567'};border-radius:5px;padding:8px;font:${st.objDirty?600:500} 11px 'IBM Plex Sans';cursor:pointer`,
       onSectorPick:(e)=>this.onSectorPick(e), addObj:()=>this.addObj(), updateObj:()=>this.updateObj(), exportAreadata:()=>this.exportAreadata(),
       startResize:(e)=>this.startResize(e), inspectorRef:this.inspectorRef,
-      rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, namesInputRef:this.namesInputRef, pngInputRef:this.pngInputRef,
+      rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, namesInputRef:this.namesInputRef, regenDirInputRef:this.regenDirInputRef, pngInputRef:this.pngInputRef,
       coordRef:this.coordRef, zoomRef:this.zoomRef, layerInfoRef:this.layerInfoRef, emptyRowsRef:this.emptyRowsRef, emptyObjRef:this.emptyObjRef, dropHintRef:this.dropHintRef, oSectorRef:this.oSectorRef,
       fType:this.fType, fVnum:this.fVnum, fSx:this.fSx, fSy:this.fSy, fDir:this.fDir, fResp:this.fResp, fPerc:this.fPerc, fCount:this.fCount, fX:this.fX, fY:this.fY,
       vnumNameOn:!!st.vnumName, vnumName:st.vnumName, nameHeadStyle:nameCol,

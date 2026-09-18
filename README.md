@@ -41,6 +41,7 @@ All 8 `attr.atr` bit flags are color-coded. Base layer shows the dominant flag p
 ### Regen Creator
 Load, place, edit and export server spawn files — `regen.txt`, `boss.txt`, `stone.txt`, `npc.txt`:
 
+- **Load regen folder…** (button on the Regen tab, also under **File** and **Regen**) picks a folder and loads `regen.txt`, `boss.txt`, `stone.txt` and `npc.txt` from it in one go. Client maps often ship without spawn files, so point it at the server-side map folder. Only the top level of the folder is read; a file that is not there leaves the current one untouched, and the whole load is one undo step.
 - Click the map to place a spawn using the current form values (type, vnum, sx/sy, dir, respawn, percent, count).
 - Drag a marker to move it (clicking a marker selects its row). **Shift**+click places a new spawn even on top of an existing marker.
 - The selected spawn's range shows white handles: drag an edge to set Sx or Sy, a corner to set both (the range stays centered on the spawn point). An axis only gets handles once its half-range is drawn larger than the diamond marker, so zoom in if they are missing; a point spawn (Sx = Sy = 0) has none — give it a range in the form first.
