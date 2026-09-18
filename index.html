@@ -217,7 +217,7 @@
                 <option value="{{ S.value }}">{{ S.label }}</option>
               </sc-for>
             </select>
-            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Objects plot at (x, −y). Select one, then click the map to move it. Fields are cm (map-local).</div>
+            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Objects plot at (x, −y). Click a marker to select it · drag it to move · with one selected, click empty map (or <b style="color:#d8c9a8">Shift</b>+click anywhere) to move it there · <b style="color:#d8c9a8">Enter</b> = Update · <b style="color:#d8c9a8">↑↓</b> step fields · <b style="color:#d8c9a8">Del</b> deletes · <b style="color:#d8c9a8">Esc</b> deselects. Fields are cm (map-local).</div>
           </div>
 
           <div style="flex:1;overflow:auto;margin:0 12px;border:1px solid #3a2c1a;border-radius:6px;background:#120d08;min-height:60px">
@@ -226,7 +226,7 @@
             </div>
             <sc-for list="{{ objRows }}" as="O" hint-placeholder-count="0">
               <div onClick="{{ O.onClick }}" class="mono" style="{{ O.style }}">
-                <span style="width:40px;padding:5px 6px">{{ O.idx }}</span><span style="width:104px;padding:5px 6px">{{ O.crc }}</span><span style="flex:1;padding:5px 6px">{{ O.cell }}</span><span onClick="{{ O.onDelete }}" style="width:30px;padding:5px 6px;color:#b5573f;cursor:pointer;text-align:center">&times;</span>
+                <span style="width:40px;padding:5px 6px">{{ O.idx }}</span><span title="{{ O.warnTitle }}" style="{{ O.crcStyle }}">{{ O.crcText }}</span><span style="flex:1;padding:5px 6px">{{ O.cell }}</span><span onClick="{{ O.onDelete }}" style="width:30px;padding:5px 6px;color:#b5573f;cursor:pointer;text-align:center">&times;</span>
               </div>
             </sc-for>
             <div ref="{{ emptyObjRef }}" class="mono" style="padding:14px;color:#5a4a30;font-size:11px;text-align:center">no objects in this sector</div>
@@ -234,24 +234,27 @@
 
           <div style="padding:10px 12px 4px;flex:none">
             <div style="display:flex;gap:7px;margin-bottom:7px">
-              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">X (cm)</div><input ref="{{ oX }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
-              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Y (cm)</div><input ref="{{ oY }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
-              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Z (cm)</div><input ref="{{ oZ }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">X (cm)</div><div class="spin"><input ref="{{ oX }}" class="mono" style="{{ oXStyle }}"><div class="spin-btns"><button onClick="{{ xObjUp }}" title="+10 cm (Shift 100)">▲</button><button onClick="{{ xObjDown }}" title="−10 cm (Shift 100)">▼</button></div></div></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Y (cm)</div><div class="spin"><input ref="{{ oY }}" class="mono" style="{{ oYStyle }}"><div class="spin-btns"><button onClick="{{ yObjUp }}" title="+10 cm (Shift 100)">▲</button><button onClick="{{ yObjDown }}" title="−10 cm (Shift 100)">▼</button></div></div></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Z (cm)</div><div class="spin"><input ref="{{ oZ }}" class="mono" style="{{ oZStyle }}"><div class="spin-btns"><button onClick="{{ zObjUp }}" title="+10 cm (Shift 100)">▲</button><button onClick="{{ zObjDown }}" title="−10 cm (Shift 100)">▼</button></div></div></div>
             </div>
             <div style="display:flex;gap:7px;margin-bottom:7px">
-              <div style="flex:2"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Property CRC</div><input ref="{{ oCrc }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
-              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Bias</div><input ref="{{ oBias }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:2"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Property CRC</div><input ref="{{ oCrc }}" class="mono" style="{{ oCrcStyle }}"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Bias</div><div class="spin"><input ref="{{ oBias }}" class="mono" style="{{ oBiasStyle }}"><div class="spin-btns"><button onClick="{{ biasObjUp }}" title="+10 cm (Shift 100)">▲</button><button onClick="{{ biasObjDown }}" title="−10 cm (Shift 100)">▼</button></div></div></div>
             </div>
             <div style="display:flex;gap:7px">
-              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Yaw</div><input ref="{{ oYaw }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
-              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Pitch</div><input ref="{{ oPitch }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
-              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Roll</div><input ref="{{ oRoll }}" class="mono" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Yaw</div><div class="spin"><input ref="{{ oYaw }}" class="mono" style="{{ oYawStyle }}"><div class="spin-btns"><button onClick="{{ yawObjUp }}" title="+1° (Shift 10°)">▲</button><button onClick="{{ yawObjDown }}" title="−1° (Shift 10°)">▼</button></div></div></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Pitch</div><div class="spin"><input ref="{{ oPitch }}" class="mono" style="{{ oPitchStyle }}"><div class="spin-btns"><button onClick="{{ pitchObjUp }}" title="+1° (Shift 10°)">▲</button><button onClick="{{ pitchObjDown }}" title="−1° (Shift 10°)">▼</button></div></div></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Roll</div><div class="spin"><input ref="{{ oRoll }}" class="mono" style="{{ oRollStyle }}"><div class="spin-btns"><button onClick="{{ rollObjUp }}" title="+1° (Shift 10°)">▲</button><button onClick="{{ rollObjDown }}" title="−1° (Shift 10°)">▼</button></div></div></div>
             </div>
           </div>
 
+          <sc-if value="{{ objWarnOn }}" hint-placeholder-val="{{ false }}">
+            <div class="mono" style="{{ objWarnStyle }}">⚠ {{ objWarnMsg }}</div>
+          </sc-if>
           <div style="padding:6px 12px 10px;display:flex;gap:6px;flex:none">
             <button onClick="{{ addObj }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:5px;padding:8px;font:500 11px 'IBM Plex Sans';cursor:pointer">Add</button>
-            <button onClick="{{ updateObj }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#c9b567;border-radius:5px;padding:8px;font:500 11px 'IBM Plex Sans';cursor:pointer">Update</button>
+            <button onClick="{{ updateObj }}" style="{{ updateObjBtnStyle }}">{{ updateObjLabel }}</button>
             <button onClick="{{ exportAreadata }}" style="flex:1;border:1px solid #6b501f;background:linear-gradient(#d9b845,#a5802e);color:#2a1d09;border-radius:5px;padding:8px;font:600 11px 'IBM Plex Sans';cursor:pointer">Export .txt</button>
           </div>
         </div>
@@ -322,6 +325,22 @@ function serverRegenSecs(text){ let time=0,tmp=0; for(const c of String(text)){ 
 function fmtSecs(t){ return t<=0?'0':[['h',3600],['m',60],['s',1]].map(([u,n])=>{ const v=Math.floor(t/n); t-=v*n; return v?v+u:''; }).join(''); }
 const RESP_MAX_SAFE=20000*3600, RESP_CEILING=85899000, _respTrapCache=new Map();
 // null when the tag is safe, else {sev:'red'|'amber', msg}
+// ---- areadata objects: records the client would drop or misplace (docs/mapformat/areadata-txt.md) ----
+// [] when fine, else [{sev:'red'|'amber', msg, fields:[...]}], worst first
+function objTraps(o, sector){
+  const w=[]; if(!o) return w;
+  if(!(o.crc>>>0)) w.push({sev:'red',msg:'CRC 0 is not a registered property — the client drops this object on load',fields:['crc']});
+  if(/^\d{6}$/.test(sector||'')){
+    const S=TILE*100, ax=+sector.slice(0,3), ay=+sector.slice(3,6), tx=o.x, ty=-o.y;
+    if(tx<ax*S||tx>(ax+1)*S||ty<ay*S||ty>(ay+1)*S){
+      const fx=Math.floor(tx/S), fy=Math.floor(ty/S), p=n=>String(n).padStart(3,'0');
+      w.push({sev:'amber',msg:(fx<0||fy<0||fx>999||fy>999)?'position is outside the map':'position lies in sector '+p(fx)+p(fy)+' but is stored in the areadata.txt of '+sector,fields:['x','y']});
+    }
+  }
+  const fr=['yaw','pitch','roll'].filter(k=>o[k]%1!==0);
+  if(fr.length) w.push({sev:'amber',msg:'client truncates rotation to whole degrees ('+fr.map(k=>k+' '+o[k]+' → '+Math.trunc(o[k])).join(', ')+')',fields:fr});
+  return w;
+}
 function respTrap(text){
   const k=String(text); if(_respTrapCache.has(k)) return _respTrapCache.get(k);
   const t=k.trim(), secs=serverRegenSecs(t), q='"'+t+'"'; let w=null;
@@ -360,7 +379,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null,
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null,
     mergeOpen:false, mergeMsg:'', mergeInfo:[null,null,null,null]
   };
   pendingConfirm = null;
@@ -427,8 +446,24 @@ class Component extends DCLogic {
     }
     if(this.selRow>=0) this.updateRow(); else this.checkDirty();
   }
-  oX=el=>this._ox=el; oY=el=>this._oy=el; oZ=el=>this._oz=el; oCrc=el=>this._ocrc=el;
-  oYaw=el=>this._oyaw=el; oPitch=el=>this._opitch=el; oRoll=el=>this._oroll=el; oBias=el=>this._obias=el;
+  oX=el=>this._ox=this.bindObjField(el,'x'); oY=el=>this._oy=this.bindObjField(el,'y'); oZ=el=>this._oz=this.bindObjField(el,'z'); oCrc=el=>this._ocrc=this.bindObjField(el);
+  oYaw=el=>this._oyaw=this.bindObjField(el,'yaw'); oPitch=el=>this._opitch=this.bindObjField(el,'pitch'); oRoll=el=>this._oroll=this.bindObjField(el,'roll'); oBias=el=>this._obias=this.bindObjField(el,'bias');
+  // object form field: Enter = Update; spin fields step with ArrowUp/ArrowDown
+  bindObjField(el,spinKey){
+    if(el && !el._bound){ el._bound=true; el.addEventListener('input',()=>this.checkObjDirty()); el.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){ if(this.state.confirm) return; e.preventDefault(); this.updateObj(); }
+      else if(spinKey && (e.key==='ArrowUp'||e.key==='ArrowDown')){ e.preventDefault(); this.nudgeObj(spinKey,e.key==='ArrowUp'?1:-1,e); }
+    }); }
+    return el;
+  }
+  objField(key){ return this[({x:'_ox',y:'_oy',z:'_oz',crc:'_ocrc',yaw:'_oyaw',pitch:'_opitch',roll:'_oroll',bias:'_obias'})[key]]; }
+  // x/y/z/bias step 10 cm (Shift 100); yaw/pitch/roll step 1° (Shift 10°) and wrap at 360
+  nudgeObj(key,dir,e){
+    const el=this.objField(key); if(!el) return; const rot=(key==='yaw'||key==='pitch'||key==='roll'), big=!!(e&&e.shiftKey), o=this.curObjs()[this.selObj];
+    let v=parseFloat(el.value); if(isNaN(v)){ if(!o) return; v=+o[key]||0; }
+    v+=dir*(rot?(big?10:1):(big?100:10)); if(rot) v=((v%360)+360)%360;
+    el.value=Math.round(v*1e6)/1e6; if(o) this.updateObj(); else this.checkObjDirty();
+  }
 
   componentDidMount() {
     const cv = this.canvas, view = this.view;
@@ -443,9 +478,11 @@ class Component extends DCLogic {
     view.addEventListener('drop', e => this.onDrop(e));
     this._docDown = e => { if(this.state.menu && this.menuBar && !this.menuBar.contains(e.target)) this.setState({menu:''}); };
     window.addEventListener('mousedown', this._docDown, true);
-    this._keyDown = e => { if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.mainTab==='regen' && this.selRow>=0 && !this.dragRow){ this.selRow=-1; if(this._x)this._x.value=''; if(this._y)this._y.value=''; this.refreshRows(); this.draw(); } }
+    this._keyDown = e => { if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.mainTab==='regen' && this.selRow>=0 && !this.dragRow){ this.selRow=-1; if(this._x)this._x.value=''; if(this._y)this._y.value=''; this.refreshRows(); this.draw(); }
+        else if(this.state.mainTab==='objects' && this.selObj>=0 && !this.dragObj){ this.selObj=-1; for(const k of ['x','y','z','crc','yaw','pitch','roll','bias']){ const el=this.objField(k); if(el) el.value=''; } this.refreshObjs(); this.draw(); } }
       else if(e.key==='Enter' && this.state.confirm){ e.preventDefault(); if(!e.repeat) this.confirmYes(); }
-      else if(e.key==='Delete' && this.state.mainTab==='regen' && this.selRow>=0 && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteRow(this.selRow); } };
+      else if(e.key==='Delete' && this.state.mainTab==='regen' && this.selRow>=0 && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteRow(this.selRow); }
+      else if(e.key==='Delete' && this.state.mainTab==='objects' && this.curObjs()[this.selObj] && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteObjRow(this.selObj); } };
     window.addEventListener('keydown', this._keyDown);
   }
   componentWillUnmount(){ this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); }
@@ -460,7 +497,7 @@ class Component extends DCLogic {
   run(fn){ this.setState({menu:''}); if(fn) fn(); }
   gridOn(){ return this.state.showGrid!==null ? this.state.showGrid : (this.props.showSectorGrid ?? true); }
   toggleGrid(){ this.setState({ showGrid:!this.gridOn(), menu:'' }); this.draw(); }
-  clearMap(){ this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.setState({ empty:true, dirty:false, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
+  clearMap(){ this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.setState({ empty:true, dirty:false, objDirty:false, objWarn:null, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
   attrExport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.exportLayerPNG(),120); }
   attrImport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.importPng(),120); }
 
@@ -645,13 +682,15 @@ class Component extends DCLogic {
   }
   serializeAreadata(objs){
     let out='AreaDataFile\r\n\r\n';
+    // fields are read by position, so every one must be a finite number — a NaN or blank would shift the ones after it
+    const f=v=>{ const n=+v; return (isFinite(n)?n:0).toFixed(6); };
     objs.forEach((o,i)=>{
       out+='Start Object'+String(i).padStart(3,'0')+'\r\n';
-      out+='\t'+o.x.toFixed(6)+' '+o.y.toFixed(6)+' '+o.z.toFixed(6)+'\r\n';
+      out+='\t'+f(o.x)+' '+f(o.y)+' '+f(o.z)+'\r\n';
       out+='\t'+((o.crc>>>0))+'\r\n';
-      out+='\t'+(o.yaw||0).toFixed(6)+'#'+(o.pitch||0).toFixed(6)+'#'+(o.roll||0).toFixed(6)+'\r\n';
-      out+='\t'+(o.bias||0).toFixed(6)+'\r\n';
-      if(o.portals&&o.portals.length&&o.portals[0]) out+='\t'+o.portals.join(' ')+'\r\n';
+      out+='\t'+f(o.yaw)+'#'+f(o.pitch)+'#'+f(o.roll)+'\r\n';
+      out+='\t'+f(o.bias)+'\r\n';
+      if(o.portals&&o.portals.length&&o.portals[0]) out+='\t'+o.portals.map(p=>Math.trunc(+p)||0).join(' ')+'\r\n';
       out+='End Object\r\n\r\n';
     });
     out+='ObjectCount '+objs.length+'\r\n';
@@ -883,7 +922,7 @@ class Component extends DCLogic {
     }
     const blob=this.buildZip(entries);
     this.download(root+'.zip', blob);
-    this.setState({statusText:'exported '+entries.length+' files → '+root+'.zip'+this.trapNote(Object.keys(REGEN_FILES).reduce((n,k)=>n+this.countRespTraps(this.regen[k]),0))});
+    this.setState({statusText:'exported '+entries.length+' files → '+root+'.zip'+this.trapNote(Object.keys(REGEN_FILES).reduce((n,k)=>n+this.countRespTraps(this.regen[k]),0))+this.objTrapNote(this.countObjTraps(Object.keys(this.areadata)))});
   }
 
   // ================= merge maps =================
@@ -1329,12 +1368,29 @@ class Component extends DCLogic {
     return -1;
   }
   onDown(e){
-    this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null;
-    if(e.button!==0||this.state.empty||this.state.mainTab!=='regen'||e.shiftKey) return;   // shift = force place on top
+    this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null; this.dragObj=null;
+    if(e.button!==0||this.state.empty||e.shiftKey) return;   // shift = force place / force move on top of a marker
     const r=this.canvas.getBoundingClientRect(); const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
-    const i=this.hitSpawn(wx,wy); if(i<0) return;
-    const row=this.currentRows()[i]; this.dragRow={row,dx:row.x-wx,dy:row.y-wy};
-    this.selectRow(i);
+    if(this.state.mainTab==='regen'){
+      const i=this.hitSpawn(wx,wy); if(i<0) return;
+      const row=this.currentRows()[i]; this.dragRow={row,dx:row.x-wx,dy:row.y-wy};
+      this.selectRow(i);
+    } else if(this.state.mainTab==='objects'){
+      const h=this.hitObj(wx,wy); if(!h) return;
+      const o=this.areadata[h.c][h.i]; this.dragObj={o,dx:o.x/100-wx,dy:(-o.y)/100-wy};
+      this.selectObj(h.i,h.c);
+    }
+  }
+  // object marker under world point: selected wins, then the current sector (topmost), then any other sector
+  hitObj(wx,wy){
+    const rad=Math.max((this.props.markerScale ?? 1)*4,6)/this.zoom, cur=this.state.oSector;
+    const hit=o=>o && Math.hypot(wx-o.x/100, wy+o.y/100)<=rad;
+    const mine=this.areadata[cur]||[];
+    if(hit(mine[this.selObj])) return {c:cur,i:this.selObj};
+    for(let i=mine.length-1;i>=0;i--) if(hit(mine[i])) return {c:cur,i};
+    const keys=Object.keys(this.areadata);
+    for(let k=keys.length-1;k>=0;k--){ const c=keys[k]; if(c===cur) continue; const objs=this.areadata[c]||[]; for(let i=objs.length-1;i>=0;i--) if(hit(objs[i])) return {c,i}; }
+    return null;
   }
   onMove(e){
     if(this.state.empty){ return; }
@@ -1347,16 +1403,24 @@ class Component extends DCLogic {
           d.row.x=Math.min((b.maxx+1)*TILE-1,Math.max(b.minx*TILE,Math.round(wx+d.dx)));
           d.row.y=Math.min((b.maxy+1)*TILE-1,Math.max(b.miny*TILE,Math.round(wy+d.dy)));
           if(this._x)this._x.value=d.row.x; if(this._y)this._y.value=d.row.y;
+        } else if(this.dragObj){
+          const d=this.dragObj, b=this.bounds;
+          const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
+          d.o.x=Math.min((b.maxx+1)*TILE*100-1,Math.max(b.minx*TILE*100,Math.round((wx+d.dx)*100)));
+          d.o.y=-Math.min((b.maxy+1)*TILE*100-1,Math.max(b.miny*TILE*100,Math.round((wy+d.dy)*100)));
+          if(this._ox)this._ox.value=d.o.x; if(this._oy)this._oy.value=d.o.y;
         } else { this.ox=this.down.ox+dx; this.oy=this.down.oy+dy; }
         this.draw();
       }
     }
-    if(!this.down) this.canvas.style.cursor=(this.state.mainTab==='regen' && inside && !e.shiftKey &&this.hitSpawn((e.clientX-r.left-this.ox)/this.zoom,(e.clientY-r.top-this.oy)/this.zoom)>=0)?'grab':'';
+    if(!this.down){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
+      this.canvas.style.cursor=(inside && !e.shiftKey && ((tab==='regen' && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?'grab':''; }
     if(inside && this.coordEl){ const mx=e.clientX-r.left,my=e.clientY-r.top; const ax=Math.floor((mx-this.ox)/this.zoom), ay=Math.floor((my-this.oy)/this.zoom); this.coordEl.textContent='x '+ax+' · y '+ay; }
   }
   onUp(e){
     if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn; this.down=null;
     if(this.dragRow){ const d=this.dragRow; this.dragRow=null; if(wasMoved){ this.setState({statusText:'spawn moved to '+d.row.x+', '+d.row.y}); this.refreshRows(); } return; }
+    if(this.dragObj){ const d=this.dragObj; this.dragObj=null; if(wasMoved){ this.setState({statusText:'object moved to '+d.o.x+', '+d.o.y}); this.refreshObjs(); } return; }
     if(wasMoved||this.state.empty||btn===2) return;   // right click never places/moves
     const r=this.canvas.getBoundingClientRect(); if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) return;
     const mx=e.clientX-r.left,my=e.clientY-r.top;
@@ -1410,7 +1474,7 @@ class Component extends DCLogic {
   setRegenTab(k){ this.selRow=-1; this.setState({regenTab:k}); this.refreshRows(); this.draw(); }
   toggleHighlight(){ const nv=!this.state.highlight; this.setState({highlight:nv}); if(nv) this.ensureHighlight(this.jobId).then(()=>this.draw()); else this.draw(); }
   refreshRows(){ this.setState({rev:this.state.rev+1}); this.checkDirty(); if(this.emptyRowsEl) this.emptyRowsEl.style.display=this.currentRows().length?'none':'block'; }
-  refreshObjs(){ this.setState({rev:this.state.rev+1}); if(this.emptyObjEl) this.emptyObjEl.style.display=this.curObjs().length?'none':'block'; }
+  refreshObjs(){ this.setState({rev:this.state.rev+1}); this.checkObjDirty(); if(this.emptyObjEl) this.emptyObjEl.style.display=this.curObjs().length?'none':'block'; }
   // second click on the same row within 400ms = focus it on the map
   clickRow(i){ const t=Date.now(), dbl=(this._lastRowClick && this._lastRowClick.i===i && t-this._lastRowClick.t<400); this._lastRowClick=dbl?null:{i,t}; this.selectRow(i); if(dbl) this.focusRow(i); }
   // center on the spawn; zoom in (never out) until ~2 sectors span the view
@@ -1437,11 +1501,22 @@ class Component extends DCLogic {
 
   // ---- objects ----
   onSectorPick(e){ this.selObj=-1; this.setState({oSector:e.target.value}); this.refreshObjs(); this.draw(); }
-  selectObj(i){ this.selObj=i; const o=this.curObjs()[i]; if(o){ if(this._ox)this._ox.value=o.x; if(this._oy)this._oy.value=o.y; if(this._oz)this._oz.value=o.z; if(this._ocrc)this._ocrc.value=o.crc; if(this._oyaw)this._oyaw.value=o.yaw; if(this._opitch)this._opitch.value=o.pitch; if(this._oroll)this._oroll.value=o.roll; if(this._obias)this._obias.value=o.bias; } this.refreshObjs(); this.draw(); }
-  updateObj(){ const o=this.curObjs()[this.selObj]; if(!o){ this.setState({statusText:'select an object to update'}); return; } o.x=+(this._ox.value)||0; o.y=+(this._oy.value)||0; o.z=+(this._oz.value)||0; o.crc=(parseInt(this._ocrc.value)>>>0)||0; o.yaw=+(this._oyaw.value)||0; o.pitch=+(this._opitch.value)||0; o.roll=+(this._oroll.value)||0; o.bias=+(this._obias.value)||0; this.setState({statusText:'object updated'}); this.refreshObjs(); this.draw(); }
-  addObj(){ const c=this.state.oSector; if(!c){ this.setState({statusText:'no sector'}); return; } const ax=+c.slice(0,3),ay=+c.slice(3,6); const o={x:(ax*256+128)*100,y:-(ay*256+128)*100,z:0,crc:0,yaw:0,pitch:0,roll:0,bias:0,portals:[]}; (this.areadata[c]=this.areadata[c]||[]).push(o); this.selObj=this.areadata[c].length-1; this.setState({statusText:'object added — set CRC, then click map to move'}); this.selectObj(this.selObj); }
+  // sector given = marker clicked on the map in another sector: switch to it
+  selectObj(i,sector){ if(sector && sector!==this.state.oSector) this.setState({oSector:sector}); this.selObj=i; const o=this.curObjs()[i]; if(o) for(const k of ['x','y','z','crc','yaw','pitch','roll','bias']){ const el=this.objField(k); if(el) el.value=o[k]; } this.refreshObjs(); this.draw(); }
+  // second click on the same row within 400ms = focus it on the map
+  clickObjRow(i){ const t=Date.now(), dbl=(this._lastObjClick && this._lastObjClick.i===i && t-this._lastObjClick.t<400); this._lastObjClick=dbl?null:{i,t}; this.selectObj(i); if(dbl) this.focusObj(i); }
+  focusObj(i){ const o=this.curObjs()[i], cv=this.canvas; if(!o||!cv) return; this.zoom=Math.max(this.zoom, Math.min(40, Math.min(cv.width,cv.height)/(TILE*2))); this.ox=cv.width/2-(o.x/100)*this.zoom; this.oy=cv.height/2-(-o.y/100)*this.zoom; this.updateZoom(); this.draw(); }
+  // what Update would write to object o; a blank or non-numeric field keeps the current value
+  objFormVals(o){ const out={}; for(const k of ['x','y','z','yaw','pitch','roll','bias']){ const el=this.objField(k), v=el?parseFloat(el.value):NaN; out[k]=isNaN(v)?o[k]:v; } const c=this._ocrc?parseInt(this._ocrc.value):NaN; out.crc=isNaN(c)?o.crc:(c>>>0); return out; }
+  // form differs from the selected object → Update lights up; and warn when the client would drop or misplace it
+  checkObjDirty(){ const o=this.curObjs()[this.selObj]; let d=false, w=null; if(o){ const v=this.objFormVals(o); d=Object.keys(v).some(k=>v[k]!==o[k]); const t=objTraps(v,this.state.oSector); if(t.length) w={sev:t[0].sev,msg:t[0].msg+(t.length>1?'  (+'+(t.length-1)+' more)':''),fields:[].concat(...t.map(x=>x.fields))}; }
+    if(d!==this.state.objDirty) this.setState({objDirty:d}); const cur=this.state.objWarn; if((w&&w.msg)!==(cur&&cur.msg)) this.setState({objWarn:w}); }
+  countObjTraps(sectors){ return sectors.reduce((n,c)=>n+(this.areadata[c]||[]).filter(o=>objTraps(o,c).length).length,0); }
+  objTrapNote(n){ return n?' — ⚠ '+n+' object'+(n>1?'s':'')+' the client would drop or misplace':''; }
+  updateObj(){ const o=this.curObjs()[this.selObj]; if(!o){ this.setState({statusText:'select an object to update'}); return; } Object.assign(o,this.objFormVals(o)); this.setState({statusText:'object updated'}); this.refreshObjs(); this.draw(); }
+  addObj(){ const c=this.state.oSector; if(!c){ this.setState({statusText:'no sector'}); return; } const ax=+c.slice(0,3),ay=+c.slice(3,6); const o={x:(ax*256+128)*100,y:-(ay*256+128)*100,z:0,crc:0,yaw:0,pitch:0,roll:0,bias:0,portals:[]}; (this.areadata[c]=this.areadata[c]||[]).push(o); this.selObj=this.areadata[c].length-1; this.setState({statusText:'object added — set CRC, then drag it or click the map to move'}); this.selectObj(this.selObj); }
   deleteObjRow(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); const o=this.curObjs()[i]; if(!o) return; this.askConfirm('Delete object #'+i+' (CRC '+o.crc+') from sector '+this.state.oSector+'?',()=>{ this.curObjs().splice(i,1); if(this.selObj>=i) this.selObj=-1; this.refreshObjs(); this.draw(); },{title:'Delete object'}); }
-  exportAreadata(){ const c=this.state.oSector; if(!c) return; this.download('areadata_'+c+'.txt', new Blob([this.serializeAreadata(this.curObjs())],{type:'text/plain'})); }
+  exportAreadata(){ const c=this.state.oSector; if(!c) return; this.download('areadata_'+c+'.txt', new Blob([this.serializeAreadata(this.curObjs())],{type:'text/plain'})); this.setState({statusText:'exported areadata_'+c+'.txt'+this.objTrapNote(this.countObjTraps([c]))}); }
 
   // ================= import / export =================
   importRegen(){ this.regenInput.click(); }
@@ -1523,11 +1598,15 @@ class Component extends DCLogic {
     const respCol=st.respWarn?(st.respWarn.sev==='red'?'#e0604a':'#e0a93a'):'#3a2c1a';
     const layerLabel=(LAYER_DEFS.find(l=>l[0]===st.layer)||['','—'])[1];
     const sectorOpts=this.sectorList.map(c=>({ value:c, label:c+'  ('+(this.areadata[c]?this.areadata[c].length:0)+' obj)' }));
-    const objRows=this.curObjs().map((o,i)=>({
+    const objRows=this.curObjs().map((o,i)=>{ const t=objTraps(o,st.oSector), w=t[0]; return {
+      crcText:(w?'⚠ ':'')+o.crc, warnTitle:t.map(x=>x.msg).join(' · '), crcStyle:'width:104px;padding:5px 6px'+(w?';font-weight:600;color:'+(w.sev==='red'?'#e0604a':'#e0a93a'):''),
       idx:i, crc:o.crc, cell:Math.round(o.x/100)+' · '+Math.round(-o.y/100),
-      onClick:()=>this.selectObj(i), onDelete:(e)=>this.deleteObjRow(i,e),
+      onClick:()=>this.clickObjRow(i), onDelete:(e)=>this.deleteObjRow(i,e),
       style:`display:flex;cursor:pointer;font-size:10.5px;border-bottom:1px solid #241a11;color:#d8c9a8;background:${i===this.selObj?'#3a2c1a':(i%2?'#171009':'transparent')}`
-    }));
+    }; });
+    const ow=st.objWarn, objCol=ow?(ow.sev==='red'?'#e0604a':'#e0a93a'):'#3a2c1a';
+    const oStyle=k=>{ const bad=ow&&ow.fields.includes(k); return `width:100%;background:#120d08;border:1px solid ${bad?objCol:'#3a2c1a'};border-radius:4px;padding:6px 8px;color:${bad?objCol:'#d8c9a8'};text-align:center`; };
+    const objSpin={}; for(const k of ['x','y','z','bias','yaw','pitch','roll']){ objSpin[k+'ObjUp']=e=>this.nudgeObj(k,1,e); objSpin[k+'ObjDown']=e=>this.nudgeObj(k,-1,e); }
     return {
       layers, subtabs, rows, sectorOpts, objRows, layerName:layerLabel, oSectorVal:st.oSector,
       menus, menuBarRef:this.menuBarRef,
@@ -1557,6 +1636,11 @@ class Component extends DCLogic {
       zoomIn:()=>this.zoomIn(), zoomOut:()=>this.zoomOut(), fitView:()=>this.fitView(),
       importRegen:()=>this.importRegen(), resetRegen:()=>this.resetRegen(), exportRegen:()=>this.exportRegen(), updateRow:()=>this.updateRow(),
       exportLayerPNG:()=>this.exportLayerPNG(), importPng:()=>this.importPng(), exportZip:()=>this.exportZip(),
+      ...objSpin, oXStyle:oStyle('x'), oYStyle:oStyle('y'), oZStyle:oStyle('z'), oCrcStyle:oStyle('crc'), oBiasStyle:oStyle('bias'), oYawStyle:oStyle('yaw'), oPitchStyle:oStyle('pitch'), oRollStyle:oStyle('roll'),
+      objWarnOn:!!ow, objWarnMsg:ow?ow.msg:'',
+      objWarnStyle:`margin:0 12px 2px;padding:5px 7px;font-size:10.5px;line-height:1.4;border-radius:4px;border:1px solid ${objCol};color:${objCol};background:#1b100b;flex:none`,
+      updateObjLabel:st.objDirty?'Update *':'Update',
+      updateObjBtnStyle:`flex:1;border:1px solid ${st.objDirty?'#c9a24b':'#4a3820'};background:${st.objDirty?'#c9a24b':'#241a11'};color:${st.objDirty?'#1a1209':'#c9b567'};border-radius:5px;padding:8px;font:${st.objDirty?600:500} 11px 'IBM Plex Sans';cursor:pointer`,
       onSectorPick:(e)=>this.onSectorPick(e), addObj:()=>this.addObj(), updateObj:()=>this.updateObj(), exportAreadata:()=>this.exportAreadata(),
       startResize:(e)=>this.startResize(e), inspectorRef:this.inspectorRef,
       rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, pngInputRef:this.pngInputRef,

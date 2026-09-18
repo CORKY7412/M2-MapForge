@@ -84,6 +84,22 @@ for (let i = 0; i < count; i++) {
 }
 ```
 
+## What MapForge does
+
+**Warnings.** Every object is checked, without ever blocking an edit or an export:
+
+| Severity | Condition | Why |
+|---|---|---|
+| Red | CRC is 0 | Not a registered property, so the record is dropped on load (field table, index 3). MapForge cannot see the `property/` tree, so any *other* unregistered CRC goes undetected |
+| Amber | Position outside the sector whose `areadata.txt` holds the record | The warning names the sector the position actually lies in (or says it is outside the map, which is also what a positive stored `y` means). Large models placed on a sector edge in real maps can trip this legitimately |
+| Amber | Fractional yaw / pitch / roll | The client reads rotation with `atoi`, so `12.5` becomes `12` |
+
+The warning shows under the object form (with the offending fields outlined), as a `⚠` on the affected rows of the object list (hover for the reasons), and as a count in the status bar after exporting an `areadata.txt` or the map ZIP.
+
+**Export.** Fields are addressed purely by position, so a blank or `NaN` would shift everything after it. Every numeric field is therefore forced to a finite number (falling back to 0) and written in the `%f` form, rotation always keeps the `a#b#c` shape — which also sidesteps the yaw `substr` defect — portal IDs are written as integers, and records are renumbered `Object000…` contiguously with a matching `ObjectCount`.
+
+**Editing.** Dragging a marker or clicking the map only changes `x` / `y`; it never moves the record to another sector's file, which is exactly the case the amber position warning is for.
+
 ## Pitfalls
 
 - Keys are case-insensitive (parser lowercases); `End Object`'s trailing word is ignored — only `End` matters.
