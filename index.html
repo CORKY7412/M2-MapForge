@@ -171,6 +171,9 @@
               </div>
               <div style="width:96px"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Vnum</div><input ref="{{ fVnum }}" class="mono" defaultValue="101" style="{{ fVnumStyle }}"></div>
             </div>
+            <sc-if value="{{ vnumNameOn }}" hint-placeholder-val="{{ false }}">
+              <div class="mono" style="margin:-3px 0 8px;font-size:10.5px;color:#c9b567;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ vnumName }}</div>
+            </sc-if>
             <div style="display:flex;gap:7px;margin-bottom:8px">
               <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">X</div><div class="spin"><input ref="{{ fX }}" class="mono" defaultValue="" placeholder="—" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"><div class="spin-btns"><button onClick="{{ xUp }}" title="+1 (Shift +10)">▲</button><button onClick="{{ xDown }}" title="−1 (Shift −10)">▼</button></div></div></div>
               <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Y</div><div class="spin"><input ref="{{ fY }}" class="mono" defaultValue="" placeholder="—" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"><div class="spin-btns"><button onClick="{{ yUp }}" title="+1 (Shift +10)">▲</button><button onClick="{{ yDown }}" title="−1 (Shift −10)">▼</button></div></div></div>
@@ -199,11 +202,11 @@
 
           <div style="flex:1;overflow:auto;margin:0 12px;border:1px solid #3a2c1a;border-radius:6px;background:#120d08">
             <div class="mono" style="display:flex;position:sticky;top:0;background:#241a11;color:#8a744c;font-size:10px;border-bottom:1px solid #3a2c1a">
-              <span style="width:36px;padding:5px 6px">Type</span><span style="width:66px;padding:5px 6px">Vnum</span><span style="width:42px;padding:5px 6px">X</span><span style="width:42px;padding:5px 6px">Y</span><span style="width:58px;padding:5px 6px">Resp</span><span style="width:30px;padding:5px 6px">Sx</span><span style="width:30px;padding:5px 6px">Sy</span><span style="width:28px;padding:5px 6px">Dir</span><span style="width:34px;padding:5px 6px">%</span><span style="width:36px;padding:5px 6px">Cnt</span><span style="width:30px;padding:5px 6px"></span>
+              <span style="width:36px;padding:5px 6px">Type</span><span style="width:66px;padding:5px 6px">Vnum</span><span style="width:42px;padding:5px 6px">X</span><span style="width:42px;padding:5px 6px">Y</span><span style="width:58px;padding:5px 6px">Resp</span><span style="width:30px;padding:5px 6px">Sx</span><span style="width:30px;padding:5px 6px">Sy</span><span style="width:28px;padding:5px 6px">Dir</span><span style="width:34px;padding:5px 6px">%</span><span style="width:36px;padding:5px 6px">Cnt</span><span style="width:30px;padding:5px 6px"></span><span style="{{ nameHeadStyle }}">Name</span>
             </div>
             <sc-for list="{{ rows }}" as="R" hint-placeholder-count="0">
               <div onClick="{{ R.onClick }}" class="mono" style="{{ R.style }}">
-                <span style="width:36px;padding:5px 6px">{{ R.type }}</span><span title="{{ R.respTitle }}" style="{{ R.vnumStyle }}">{{ R.vnumText }}</span><span style="width:42px;padding:5px 6px">{{ R.x }}</span><span style="width:42px;padding:5px 6px">{{ R.y }}</span><span title="{{ R.respTitle }}" style="{{ R.respStyle }}">{{ R.respText }}</span><span title="{{ R.respTitle }}" style="{{ R.sxStyle }}">{{ R.sx }}</span><span title="{{ R.respTitle }}" style="{{ R.syStyle }}">{{ R.sy }}</span><span style="width:28px;padding:5px 6px">{{ R.dir }}</span><span style="width:34px;padding:5px 6px">{{ R.perc }}</span><span style="width:36px;padding:5px 6px">{{ R.count }}</span><span onClick="{{ R.onDelete }}" style="width:30px;padding:5px 6px;color:#b5573f;cursor:pointer;text-align:center">&times;</span>
+                <span style="width:36px;padding:5px 6px">{{ R.type }}</span><span title="{{ R.respTitle }}" style="{{ R.vnumStyle }}">{{ R.vnumText }}</span><span style="width:42px;padding:5px 6px">{{ R.x }}</span><span style="width:42px;padding:5px 6px">{{ R.y }}</span><span title="{{ R.respTitle }}" style="{{ R.respStyle }}">{{ R.respText }}</span><span title="{{ R.respTitle }}" style="{{ R.sxStyle }}">{{ R.sx }}</span><span title="{{ R.respTitle }}" style="{{ R.syStyle }}">{{ R.sy }}</span><span style="width:28px;padding:5px 6px">{{ R.dir }}</span><span style="width:34px;padding:5px 6px">{{ R.perc }}</span><span style="width:36px;padding:5px 6px">{{ R.count }}</span><span onClick="{{ R.onDelete }}" style="width:30px;padding:5px 6px;color:#b5573f;cursor:pointer;text-align:center">&times;</span><span style="{{ R.nameStyle }}">{{ R.name }}</span>
               </div>
             </sc-for>
             <div ref="{{ emptyRowsRef }}" class="mono" style="padding:14px;color:#5a4a30;font-size:11px;text-align:center">no spawns in this file</div>
@@ -322,6 +325,7 @@
 
   <input ref="{{ inputRef }}" type="file" webkitdirectory="" directory="" multiple="" onChange="{{ onInput }}" style="display:none">
   <input ref="{{ regenInputRef }}" type="file" accept=".txt" onChange="{{ onRegenInput }}" style="display:none">
+  <input ref="{{ namesInputRef }}" type="file" accept=".txt" onChange="{{ onNamesInput }}" style="display:none">
   <input ref="{{ pngInputRef }}" type="file" accept="image/png,image/*" onChange="{{ onPngInput }}" style="display:none">
   <input ref="{{ serverAttrInputRef }}" type="file" onChange="{{ onServerAttrInput }}" style="display:none">
   <input ref="{{ tsInputRef }}" type="file" accept=".txt" onChange="{{ onTsInput }}" style="display:none">
@@ -403,7 +407,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true,
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mobNames:0, vnumName:'',
     mergeOpen:false, mergeMsg:'', mergeInfo:[null,null,null,null]
   };
   pendingConfirm = null;
@@ -421,6 +425,7 @@ class Component extends DCLogic {
   viewRef = el => this.view = el;
   inputRef = el => this.input = el;
   regenInputRef = el => this.regenInput = el;
+  namesInputRef = el => this.namesInput = el;
   pngInputRef = el => this.pngInput = el;
   serverAttrInputRef = el => this.serverAttrInput = el;
   tsInputRef = el => this.tsInput = el;
@@ -595,6 +600,18 @@ class Component extends DCLogic {
     for(const key of Object.keys(F)) if(F[key]) F[key].value=this.common(g,key); }
   fillObjForm(){ const g=this.group('obj'); for(const key of ['x','y','z','crc','yaw','pitch','roll','bias']){ const el=this.objField(key); if(el) el.value=g.length?this.common(g,key):''; } }
 
+  // ================= mob names (optional) =================
+  // Regen › Load mob_names.txt… — a `vnum<TAB>name` list. Purely cosmetic: names show in the spawn list, under the Vnum field, next to
+  // selected markers and in the stats panel. Only mob rows are named (m / ma / s); for g / r rows the vnum column is a group id.
+  mobNames=new Map();
+  decodeText(buf){ try{ return new TextDecoder('utf-8',{fatal:true}).decode(buf); }catch(e){ return new TextDecoder('windows-1252').decode(buf); } }   // these files are often in a legacy codepage
+  parseMobNames(txt){ const m=new Map(); for(const line of txt.split(/\r?\n/)){ const p=line.split('\t'); const v=parseInt(p[0]); const name=(p[1]||'').trim(); if(v>0 && String(v)===p[0].trim() && name) m.set(v,name); } return m; }
+  async onNamesInput(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; e.target.value=''; const m=this.parseMobNames(this.decodeText(await f.arrayBuffer()));
+    if(!m.size){ this.setState({statusText:'no names found in '+f.name+' — expected lines of vnum<TAB>name'}); return; }
+    this.mobNames=m; this.setState({mobNames:m.size,statusText:'loaded '+m.size.toLocaleString('en-US')+' mob names from '+f.name}); this.refreshRows(); this.draw(); }
+  unloadMobNames(){ this.mobNames=new Map(); this.setState({mobNames:0,vnumName:'',statusText:'mob names unloaded'}); this.refreshRows(); this.draw(); }
+  mobName(type,vnum){ return (this.mobNames.size && /^[ms]/.test(type||''))?(this.mobNames.get(+vnum)||''):''; }
+
   // ================= stats panel =================
   // Tools › Stats panel (off by default): counts for every regen file, the current file's types / top vnums / warnings, and the objects.
   toggleStats(){ this.setState({stats:!this.state.stats}); }
@@ -609,7 +626,7 @@ class Component extends DCLogic {
     const bad=this.countRespTraps(cur); T('warnings: '+n(bad)+(bad?'  ⚠':''));
     H(file+' · top vnums'); const byV=new Map(); for(const r of cur){ if(r.type[0]==='e') continue; const k=r.type+' '+r.vnum, e=byV.get(k)||{rows:0,count:0}; e.rows++; e.count+=(+r.count||0); byV.set(k,e); }
     const top=[...byV.entries()].sort((a,b)=>b[1].count-a[1].count||b[1].rows-a[1].rows).slice(0,10);
-    if(!top.length) T('—'); for(const [k,e] of top) T(pad(k,12)+' '+pad(n(e.rows)+' rows',10)+' Σ '+n(e.count));
+    if(!top.length) T('—'); for(const [k,e] of top){ const [ty,vn]=k.split(' '), nm=this.mobName(ty,vn); T(pad(k,12)+' '+pad(n(e.rows)+' rows',10)+' Σ '+pad(n(e.count),7)+(nm?' '+nm:'')); }
     if(byV.size>10) D('… '+n(byV.size-10)+' more');
     H('Objects'); const secs=Object.keys(this.areadata), withObj=secs.filter(c=>(this.areadata[c]||[]).length), crc=new Map(); let total=0;
     for(const c of secs) for(const o of this.areadata[c]||[]){ total++; crc.set(o.crc,(crc.get(o.crc)||0)+1); }
@@ -1566,6 +1583,10 @@ class Component extends DCLogic {
           ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(hx-dv.x*hw*1.6-dv.y*hw,hy-dv.y*hw*1.6+dv.x*hw); ctx.lineTo(hx-dv.x*hw*1.6+dv.y*hw,hy-dv.y*hw*1.6-dv.x*hw); ctx.closePath(); ctx.fill(); }
         if(r.sx>0||r.sy>0){ ctx.strokeStyle=sel?'#ffffff':col; ctx.lineWidth=1/this.zoom; ctx.strokeRect(cx-r.sx,cy-r.sy,r.sx*2,r.sy*2); }
       });
+      if(this.mobNames.size){ let shown=0; const fs=11/this.zoom; ctx.font='500 '+fs+"px 'IBM Plex Sans',sans-serif"; ctx.textBaseline='middle';
+        rows.forEach((r,i)=>{ if(shown>=40||r.type[0]==='e'||r.type[0]==='s'||!(i===this.selRow||this.selSet.has(r))) return; const nm=this.mobName(r.type,r.vnum); if(!nm) return; shown++;
+          const tx=r.x+ms*1.6, ty=r.y-ms*1.6; ctx.lineWidth=3/this.zoom; ctx.strokeStyle='rgba(18,13,8,.9)'; ctx.strokeText(nm,tx,ty); ctx.fillStyle='#f3e2b0'; ctx.fillText(nm,tx,ty); });
+        ctx.textBaseline='alphabetic'; }
       const hs=3.5/this.zoom; ctx.lineWidth=1/this.zoom;
       for(const h of this.rangeHandles()){ ctx.fillStyle='#ffffff'; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.fillRect(h.x-hs,h.y-hs,hs*2,hs*2); ctx.strokeRect(h.x-hs,h.y-hs,hs*2,hs*2); }
     }
@@ -1763,7 +1784,7 @@ class Component extends DCLogic {
       resp:raw(this._r)||r.resp||'1m', perc:raw(this._p)||r.perc||'100', count:num(this._c,r.count,1)||1 }; }
   rowDiffers(r){ const v=this.formVals(r); return Object.keys(v).some(k=>String(v[k])!==String(r[k])); }
   // form differs from the selected row → Update button lights up
-  checkDirty(){ const d=this.group('row').some(r=>this.rowDiffers(r)); if(d!==this.state.dirty) this.setState({dirty:d}); this.checkResp(); }
+  checkDirty(){ const d=this.group('row').some(r=>this.rowDiffers(r)); if(d!==this.state.dirty) this.setState({dirty:d}); const nm=this.mobName(this._t?this._t.value:'m',this._v?this._v.value:0); if(nm!==this.state.vnumName) this.setState({vnumName:nm}); this.checkResp(); }
   // respawn field holds a tag the server would misread → warn inline (never blocks)
   checkResp(){ const g=this.group('row'); let w=null;
     if(this._r){ const per=(g.length?g:[{}]).map(r=>rowTraps(this.formVals(r))), bad=per.filter(t=>t.length), all=[].concat(...bad).sort((a,b)=>(a.sev==='red'?0:1)-(b.sev==='red'?0:1));
@@ -1881,7 +1902,9 @@ class Component extends DCLogic {
       ...Object.keys(REGEN_FILES).map(k=>this.mkItem('File: '+REGEN_FILES[k],()=>{ this.tabRegen(); this.setRegenTab(k); },{check:st.regenTab===k})),
       this.mkItem('Import .txt…',()=>{ this.tabRegen(); this.importRegen(); }),
       this.mkItem('Export current file',()=>this.exportRegen()),
-      this.mkItem('Reset current file',()=>{ this.tabRegen(); this.resetRegen(); },{danger:true})
+      this.mkItem('Reset current file',()=>{ this.tabRegen(); this.resetRegen(); },{danger:true}),
+      this.mkItem(st.mobNames?'Mob names: '+st.mobNames.toLocaleString('en-US')+' loaded · load another…':'Load mob_names.txt… (optional)',()=>this.namesInput.click(),{check:!!st.mobNames}),
+      ...(st.mobNames?[this.mkItem('Unload mob names',()=>this.unloadMobNames())]:[])
     ];
     const U=[
       this.mkItem('Direction arrows on point spawns',()=>{ this.setState({dirArrows:!st.dirArrows}); this.draw(); },{check:st.dirArrows}),
@@ -1902,10 +1925,12 @@ class Component extends DCLogic {
     const cf=st.confirm||{};
     const layers=LAYER_DEFS.map(([k,label])=>({ key:k, label, style:this.chipStyle(st.layer===k), onClick:()=>this.setLayer(k) }));
     const subtabs=Object.keys(REGEN_FILES).map(k=>({ key:k, label:REGEN_FILES[k], style:this.subStyle(st.regenTab===k), onClick:()=>this.setRegenTab(k) }));
+    const nameCol=this.mobNames.size?'width:150px;padding:5px 6px;color:#c9b567;white-space:nowrap;overflow:hidden;text-overflow:ellipsis':'display:none';
     const rows=this.currentRows().map((r,i)=>{ const t=rowTraps(r), tip=t.map(x=>x.msg).join(' · ');
       const cell=(k,width)=>{ const w=t.find(x=>x.fields.includes(k)); return 'width:'+width+'px;padding:5px 6px'+(w?';font-weight:600;color:'+(w.sev==='red'?'#e0604a':'#e0a93a'):''); };
       const mark=k=>t.some(x=>x.fields.includes(k))?'⚠':'';
       return {
+      name:this.mobName(r.type,r.vnum), nameStyle:nameCol,
       respText:mark('resp')+r.resp, respTitle:tip, respStyle:cell('resp',58), vnumText:mark('vnum')+r.vnum, vnumStyle:cell('vnum',66), sxStyle:cell('sx',30), syStyle:cell('sy',30),
       type:r.type, vnum:r.vnum, x:r.x, y:r.y, resp:r.resp, sx:r.sx, sy:r.sy, dir:r.dir, perc:r.perc, count:r.count,
       onClick:(e)=>this.clickRow(i,e), onDelete:(e)=>this.deleteRow(i,e),
@@ -1950,7 +1975,7 @@ class Component extends DCLogic {
       highlightStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,
       statusText:st.statusText,
       iMapName:info.name, iDims:info.dims, iSectors:info.sectors, iBase:info.base, iCell:info.cell, iHeight:info.height, iView:info.view, iTex:info.tex, iEnv:info.env,
-      openFolder:()=>this.openFolder(), onInput:(e)=>this.onInput(e), onRegenInput:(e)=>this.onRegenInput(e), onPngInput:(e)=>this.onPngInput(e),
+      openFolder:()=>this.openFolder(), onInput:(e)=>this.onInput(e), onRegenInput:(e)=>this.onRegenInput(e), onNamesInput:(e)=>this.onNamesInput(e), onPngInput:(e)=>this.onPngInput(e),
       serverAttrInputRef:this.serverAttrInputRef, onServerAttrInput:(e)=>this.onServerAttrInput(e),
       toggleHighlight:()=>this.toggleHighlight(), tabConvert:()=>this.tabConvert(), tabRegen:()=>this.tabRegen(), tabObjects:()=>this.tabObjects(),
       zoomIn:()=>this.zoomIn(), zoomOut:()=>this.zoomOut(), fitView:()=>this.fitView(),
@@ -1963,9 +1988,10 @@ class Component extends DCLogic {
       updateObjBtnStyle:`flex:1;border:1px solid ${st.objDirty?'#c9a24b':'#4a3820'};background:${st.objDirty?'#c9a24b':'#241a11'};color:${st.objDirty?'#1a1209':'#c9b567'};border-radius:5px;padding:8px;font:${st.objDirty?600:500} 11px 'IBM Plex Sans';cursor:pointer`,
       onSectorPick:(e)=>this.onSectorPick(e), addObj:()=>this.addObj(), updateObj:()=>this.updateObj(), exportAreadata:()=>this.exportAreadata(),
       startResize:(e)=>this.startResize(e), inspectorRef:this.inspectorRef,
-      rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, pngInputRef:this.pngInputRef,
+      rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, namesInputRef:this.namesInputRef, pngInputRef:this.pngInputRef,
       coordRef:this.coordRef, zoomRef:this.zoomRef, layerInfoRef:this.layerInfoRef, emptyRowsRef:this.emptyRowsRef, emptyObjRef:this.emptyObjRef, dropHintRef:this.dropHintRef, oSectorRef:this.oSectorRef,
       fType:this.fType, fVnum:this.fVnum, fSx:this.fSx, fSy:this.fSy, fDir:this.fDir, fResp:this.fResp, fPerc:this.fPerc, fCount:this.fCount, fX:this.fX, fY:this.fY,
+      vnumNameOn:!!st.vnumName, vnumName:st.vnumName, nameHeadStyle:nameCol,
       statsOn:!!st.stats&&!st.empty, statsLines:(st.stats&&!st.empty)?this.statsLines():[],
       undo:()=>this.undo(), redo:()=>this.redo(),
       undoTitle:(uTop?'Undo: '+uTop.label:'Nothing to undo')+'  (Ctrl+Z)', redoTitle:(rTop?'Redo: '+rTop.label:'Nothing to redo')+'  (Ctrl+Y)',
