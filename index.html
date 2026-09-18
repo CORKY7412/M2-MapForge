@@ -381,6 +381,12 @@ const RESP_MAX_SAFE=20000*3600, RESP_CEILING=85899000, _respTrapCache=new Map();
 // 3 east … 8 south-west — i.e. counter-clockwise as seen on the map. Checked against server-side NPC placements; should a source differ, change DIR_BASE
 // (angle of dir 1, measured from south) or DIR_SIGN (+1 counter-clockwise on the map, -1 clockwise).
 const DIR_BASE=0, DIR_SIGN=1;
+// Objects turn around the vertical axis with `roll` (degrees). The arrow uses the same footing as the spawn arrows above — 0° points
+// south (down on the map) and the angle grows counter-clockwise — which is how the client turns characters; it is NOT checked in game
+// for objects, and a model's own "front" is up to whoever built it, so read the arrow as the rotation, not as a door. OBJ_ROT_BASE /
+// OBJ_ROT_SIGN flip it without touching the spawn arrows.
+const OBJ_ROT_BASE=0, OBJ_ROT_SIGN=1;
+function rollVector(roll){ const r=+roll; if(!isFinite(r)) return null; const a=(OBJ_ROT_BASE+OBJ_ROT_SIGN*r)*Math.PI/180; return {x:Math.sin(a),y:Math.cos(a)}; }
 function dirVector(dir){ const d=Math.trunc(+dir); if(!(d>=1&&d<=8)) return null; const a=(DIR_BASE+DIR_SIGN*(d-1)*45)*Math.PI/180; return {x:Math.sin(a),y:Math.cos(a)}; }
 // ---- regen rows: everything that makes a line misread or never spawn. [] when fine, else [{sev,msg,fields}], red first ----
 function rowTraps(r){
@@ -1962,6 +1968,13 @@ class Component extends DCLogic {
           ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1/this.zoom; ctx.stroke();
         });
       }
+      // heading of the selected object(s): an arrow from the marker along its roll (Tools › Direction arrows switches it off)
+      if(this.state.dirArrows){ const cur=this.areadata[this.state.oSector]||[], z=this.zoom;
+        cur.forEach((o,i)=>{ if(!(i===this.selObj||this.selObjSet.has(o))) return; const v=rollVector(o.roll); if(!v) return;
+          const px=o.x/100, py=(-o.y)/100, a0=rad*1.25, a1=rad*4.2, hx=px+v.x*a1, hy=py+v.y*a1, hw=rad*0.95;
+          for(const pass of [0,1]){ ctx.strokeStyle=pass?'#ffffff':'rgba(0,0,0,.75)'; ctx.fillStyle=ctx.strokeStyle; ctx.lineWidth=(pass?1.8:3.6)/z;   // dark underlay keeps it readable on bright ground
+            ctx.beginPath(); ctx.moveTo(px+v.x*a0,py+v.y*a0); ctx.lineTo(hx-v.x*hw,hy-v.y*hw); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(hx-v.x*hw*1.7-v.y*hw,hy-v.y*hw*1.7+v.x*hw); ctx.lineTo(hx-v.x*hw*1.7+v.y*hw,hy-v.y*hw*1.7-v.x*hw); ctx.closePath(); ctx.fill(); if(!pass) ctx.stroke(); } }); }
     }
     if(this.box){ const b=this.box, col=b.sub?'224,96,74':'201,162,75';
       ctx.fillStyle='rgba('+col+',.12)'; ctx.strokeStyle='rgba('+col+',.95)'; ctx.lineWidth=1/this.zoom; ctx.setLineDash([5/this.zoom,4/this.zoom]);
@@ -2282,7 +2295,7 @@ class Component extends DCLogic {
     ];
     const U=[
       this.mkItem('Mob names on the map (needs mob_names.txt)',()=>{ this.setState({mapNames:!st.mapNames}); this.draw(); },{check:st.mapNames}),
-      this.mkItem('Direction arrows on point spawns',()=>{ this.setState({dirArrows:!st.dirArrows}); this.draw(); },{check:st.dirArrows}),
+      this.mkItem('Direction arrows (point spawns, selected objects)',()=>{ this.setState({dirArrows:!st.dirArrows}); this.draw(); },{check:st.dirArrows}),
       this.mkItem('Stats panel',()=>{ if(has) this.toggleStats(); },{check:st.stats}),
       this.mkItem('Ruler (1 px = 1 m)',()=>{ if(has) this.toggleRuler(); },{check:st.ruler}),
       this.mkItem('Converter tab',()=>this.tabConvert(),{check:st.mainTab==='convert'}),
