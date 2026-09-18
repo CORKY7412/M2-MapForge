@@ -181,7 +181,7 @@
             <sc-if value="{{ respWarnOn }}" hint-placeholder-val="{{ false }}">
               <div class="mono" style="{{ respWarnStyle }}">⚠ {{ respWarnMsg }}</div>
             </sc-if>
-            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Click the map to place · drag a marker to move it · drag the white handles on its range to set Sx/Sy · <b style="color:#d8c9a8">Ctrl</b>+click adds/removes a marker from the selection, <b style="color:#d8c9a8">Ctrl</b>+drag boxes (+<b style="color:#d8c9a8">Alt</b> removes), <b style="color:#d8c9a8">Ctrl+A</b> all · <b style="color:#d8c9a8">Shift</b>+click to place on top of one · click a row to load it here, edit, then <b style="color:#c9b567">Update</b> or <b style="color:#d8c9a8">Enter</b> · <b style="color:#d8c9a8">↑↓</b> step the numeric fields (Shift ×10).</div>
+            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Click the map to place · drag a marker to move it · drag the white handles on its range to set Sx/Sy · <b style="color:#d8c9a8">Ctrl</b>+click adds/removes a marker from the selection, <b style="color:#d8c9a8">Ctrl</b>+drag boxes (+<b style="color:#d8c9a8">Alt</b> removes), <b style="color:#d8c9a8">Ctrl+A</b> all · arrow keys nudge the selection (Shift = bigger step) · <b style="color:#d8c9a8">Shift</b>+click to place on top of one · click a row to load it here, edit, then <b style="color:#c9b567">Update</b> or <b style="color:#d8c9a8">Enter</b> · <b style="color:#d8c9a8">↑↓</b> step the numeric fields (Shift ×10).</div>
           </div>
 
           <div style="display:flex;gap:4px;padding:0 12px 8px;flex:none">
@@ -221,7 +221,7 @@
                 <option value="{{ S.value }}">{{ S.label }}</option>
               </sc-for>
             </select>
-            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Objects plot at (x, −y). Click a marker to select it · drag it to move (clicking the map never moves an object) · <b style="color:#d8c9a8">Ctrl</b>+click adds/removes a marker from the selection, <b style="color:#d8c9a8">Ctrl</b>+drag boxes (+<b style="color:#d8c9a8">Alt</b> removes), <b style="color:#d8c9a8">Ctrl+A</b> all · <b style="color:#d8c9a8">Enter</b> = Update · <b style="color:#d8c9a8">↑↓</b> step fields · <b style="color:#d8c9a8">Del</b> deletes · <b style="color:#d8c9a8">Esc</b> deselects. Fields are cm (map-local).</div>
+            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Objects plot at (x, −y). Click a marker to select it · drag it to move (clicking the map never moves an object) · <b style="color:#d8c9a8">Ctrl</b>+click adds/removes a marker from the selection, <b style="color:#d8c9a8">Ctrl</b>+drag boxes (+<b style="color:#d8c9a8">Alt</b> removes), <b style="color:#d8c9a8">Ctrl+A</b> all · arrow keys nudge the selection (Shift = bigger step) · <b style="color:#d8c9a8">Enter</b> = Update · <b style="color:#d8c9a8">↑↓</b> step fields · <b style="color:#d8c9a8">Del</b> deletes · <b style="color:#d8c9a8">Esc</b> deselects. Fields are cm (map-local).</div>
           </div>
 
           <div style="flex:1;overflow:auto;margin:0 12px;border:1px solid #3a2c1a;border-radius:6px;background:#120d08;min-height:60px">
@@ -508,6 +508,8 @@ class Component extends DCLogic {
       }
       if((e.ctrlKey||e.metaKey) && !e.altKey && e.key.toLowerCase()==='a' && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'') && !this.state.empty && !this.state.confirm && (this.state.mainTab==='regen'||this.state.mainTab==='objects')){
         e.preventDefault(); this.selectAll(this.state.mainTab==='regen'?'row':'obj'); return; }
+      if(/^Arrow(Up|Down|Left|Right)$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !this.state.empty && !this.state.confirm && !this.state.menu && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){
+        const k=this.clipKind(); if(k && this.group(k).length){ e.preventDefault(); this.arrowNudge(k,e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0,e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:0,e.shiftKey); return; } }
       if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.mainTab==='regen' && this.group('row').length && !this.dragRow && !this.dragHandle && !this.dragGroup){ this.deselect('row'); }
         else if(this.state.mainTab==='objects' && this.group('obj').length && !this.dragObj && !this.dragGroup){ this.deselect('obj'); } }
       else if(e.key==='Enter' && this.state.confirm){ e.preventDefault(); if(!e.repeat) this.confirmYes(); }
@@ -559,6 +561,19 @@ class Component extends DCLogic {
     dy=Math.max(Math.max(...d.items.map(o=>minY-o.p.y)), Math.min(Math.min(...d.items.map(o=>maxY-o.p.y)), dy));
     for(const o of d.items){ if(k==='obj'){ o.it.x=Math.round((o.p.x+dx)*100); o.it.y=-Math.round((o.p.y+dy)*100); } else { o.it.x=Math.round(o.p.x+dx); o.it.y=Math.round(o.p.y+dy); } }
     if(k==='obj') this.fillObjForm(); else this.fillRowForm();
+  }
+  // Arrow keys on the map (focus outside the form): move the selection one step on screen — spawns 1 m (Shift 10), objects 10 cm (Shift 100).
+  // The selection moves as a block and stops at the map edge; a run of key presses is one undo step.
+  arrowNudge(k,sx,sy,big){
+    const g=this.group(k); if(!g.length) return; const b=this.bounds, eps=k==='obj'?0.01:1, step=k==='obj'?(big?1:0.1):(big?10:1);
+    const P=g.map(it=>this.gPos(k,it)), minX=b.minx*TILE, minY=b.miny*TILE, maxX=(b.maxx+1)*TILE-eps, maxY=(b.maxy+1)*TILE-eps;
+    const dx=Math.max(Math.max(...P.map(p=>minX-p.x)), Math.min(Math.min(...P.map(p=>maxX-p.x)), sx*step));
+    const dy=Math.max(Math.max(...P.map(p=>minY-p.y)), Math.min(Math.min(...P.map(p=>maxY-p.y)), sy*step));
+    if(!dx&&!dy) return;
+    this.pushUndo('move '+this.gName(k,g.length),k==='obj'?this.scopeArea():this.scopeRegen(),'arrow:'+k+':'+g.map(it=>this.uid(it)).join(','));
+    g.forEach((it,i)=>{ if(k==='obj'){ it.x=Math.round((P[i].x+dx)*100); it.y=-Math.round((P[i].y+dy)*100); } else { it.x=Math.round(P[i].x+dx); it.y=Math.round(P[i].y+dy); } });
+    if(k==='obj'){ this.fillObjForm(); this.refreshObjs(); } else { this.fillRowForm(); this.refreshRows(); }
+    this.draw(); if(k==='obj' && g.length===1) this.offerSectorMove(g[0]);
   }
   // a form field shows the value every selected item shares, and stays blank where they differ (blank = keep on Update)
   common(items,key){ if(!items.length) return null; const v=items[0][key]; return items.every(it=>it[key]===v)?v:''; }
