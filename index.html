@@ -377,13 +377,23 @@ class Component extends DCLogic {
     }); }
     return el;
   }
+  // respawn stepper: the typed text is left alone until stepped; a step rewrites it as proper h/m/s
+  // (120s +1 -> 2m1s, 120s -1 -> 1m59s) and never writes 0s/0m/0h parts. Steps by the smallest unit present,
+  // borrowing from a smaller one instead of hitting 0 (1m -1 -> 59s, 1h -1 -> 59m) — a time of 0 disables the spawn.
+  stepResp(val,step){
+    const s=String(val).trim().toLowerCase(), SEC={s:1,m:60,h:3600}, ORDER=['h','m','s'];
+    if(!/^(\d+[smh])*(\d+)?$/.test(s) || !s) return null;
+    let orig=0, low=0; for(const m of s.matchAll(/(\d+)([smh]?)/g)){ const u=m[2]||'s'; orig+=parseInt(m[1])*SEC[u]; low=Math.max(low,ORDER.indexOf(u)); }   // bare digits = seconds
+    let total=orig+step*SEC[ORDER[low]];
+    while(total<=0 && low<2){ low++; total=orig+step*SEC[ORDER[low]]; }
+    total=Math.max(1,total);
+    return ORDER.map(u=>{ const n=Math.floor(total/SEC[u]); total-=n*SEC[u]; return n?n+u:''; }).join('');
+  }
   nudge(key,dir,e){
     const el=this[({dir:'_d',resp:'_r',perc:'_p'})[key]||('_'+key)]; if(!el) return;
     const step=dir*((e&&e.shiftKey)?10:1), pos=(key==='x'||key==='y');
     if(key==='resp'){
-      // step the last number, keep its s/m/h suffix as typed (120s -> 121s, 1h30m -> 1h31m); 0 disables a spawn, so stop at 1
-      const m=/^(.*?)(\d+)(\D*)$/.exec(String(el.value).trim()); if(!m) return;
-      el.value=m[1]+Math.max(1,parseInt(m[2])+step)+m[3];
+      const nv=this.stepResp(el.value,step); if(nv==null) return; el.value=nv;
     } else {
       let v=parseInt(el.value); if(isNaN(v)){ if(pos) return; v=0; }
       v+=step;
