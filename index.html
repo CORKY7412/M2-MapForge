@@ -181,7 +181,7 @@
             <sc-if value="{{ respWarnOn }}" hint-placeholder-val="{{ false }}">
               <div class="mono" style="{{ respWarnStyle }}">⚠ {{ respWarnMsg }}</div>
             </sc-if>
-            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Click the map to place · drag a marker to move it · <b style="color:#d8c9a8">Shift</b>+click to place on top of one · click a row to load it here, edit, then <b style="color:#c9b567">Update</b> or <b style="color:#d8c9a8">Enter</b> · <b style="color:#d8c9a8">↑↓</b> step the numeric fields (Shift ×10).</div>
+            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Click the map to place · drag a marker to move it · drag the white handles on its range to set Sx/Sy · <b style="color:#d8c9a8">Shift</b>+click to place on top of one · click a row to load it here, edit, then <b style="color:#c9b567">Update</b> or <b style="color:#d8c9a8">Enter</b> · <b style="color:#d8c9a8">↑↓</b> step the numeric fields (Shift ×10).</div>
           </div>
 
           <div style="display:flex;gap:4px;padding:0 12px 8px;flex:none">
@@ -496,7 +496,7 @@ class Component extends DCLogic {
         if(typing||this.state.empty||this.state.confirm) return;
         e.preventDefault(); if(e.key.toLowerCase()==='y'||e.shiftKey) this.redo(); else this.undo(); return;
       }
-      if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.mainTab==='regen' && this.selRow>=0 && !this.dragRow){ this.selRow=-1; if(this._x)this._x.value=''; if(this._y)this._y.value=''; this.refreshRows(); this.draw(); }
+      if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.mainTab==='regen' && this.selRow>=0 && !this.dragRow && !this.dragHandle){ this.selRow=-1; if(this._x)this._x.value=''; if(this._y)this._y.value=''; this.refreshRows(); this.draw(); }
         else if(this.state.mainTab==='objects' && this.selObj>=0 && !this.dragObj){ this.selObj=-1; for(const k of ['x','y','z','crc','yaw','pitch','roll','bias']){ const el=this.objField(k); if(el) el.value=''; } this.refreshObjs(); this.draw(); } }
       else if(e.key==='Enter' && this.state.confirm){ e.preventDefault(); if(!e.repeat) this.confirmYes(); }
       else if(e.key==='Delete' && this.state.mainTab==='regen' && this.selRow>=0 && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteRow(this.selRow); }
@@ -1394,6 +1394,8 @@ class Component extends DCLogic {
         ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=1/this.zoom; ctx.stroke();
         if(r.sx>0||r.sy>0){ ctx.strokeStyle=(i===this.selRow)?'#ffffff':col; ctx.lineWidth=1/this.zoom; ctx.strokeRect(cx-r.sx,cy-r.sy,r.sx*2,r.sy*2); }
       });
+      const hs=3.5/this.zoom; ctx.lineWidth=1/this.zoom;
+      for(const h of this.rangeHandles()){ ctx.fillStyle='#ffffff'; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.fillRect(h.x-hs,h.y-hs,hs*2,hs*2); ctx.strokeRect(h.x-hs,h.y-hs,hs*2,hs*2); }
     }
     if(this.state.mainTab==='objects'){
       const rad=(this.props.markerScale ?? 1)*4/this.zoom;
@@ -1412,6 +1414,17 @@ class Component extends DCLogic {
 
   // ================= interaction =================
   onWheel(e){ e.preventDefault(); if(this.state.empty) return; const r=this.canvas.getBoundingClientRect(); const mx=e.clientX-r.left,my=e.clientY-r.top; const f=e.deltaY<0?1.12:1/1.12; const nz=Math.min(40,Math.max(0.02,this.zoom*f)); this.ox=mx-(mx-this.ox)*(nz/this.zoom); this.oy=my-(my-this.oy)*(nz/this.zoom); this.zoom=nz; this.updateZoom(); this.draw(); }
+  // Range handles of the selected spawn: edge midpoints set Sx or Sy, corners set both (the range is symmetric around the point).
+  // An axis only gets handles once its half-range is drawn larger than the diamond marker, so a handle never sits on the marker.
+  rangeHandles(){
+    const r=this.currentRows()[this.selRow]; if(!r||this.state.mainTab!=='regen'||r.type[0]==='e'||r.type[0]==='s') return [];
+    const ms=(this.props.markerScale ?? 1)*7/this.zoom, hx=r.sx>ms, hy=r.sy>ms, out=[];
+    if(hx){ out.push({x:r.x+r.sx,y:r.y,ax:'x',cur:'ew-resize'},{x:r.x-r.sx,y:r.y,ax:'x',cur:'ew-resize'}); }
+    if(hy){ out.push({x:r.x,y:r.y+r.sy,ax:'y',cur:'ns-resize'},{x:r.x,y:r.y-r.sy,ax:'y',cur:'ns-resize'}); }
+    if(hx&&hy) for(const [dx,dy] of [[1,1],[-1,-1],[1,-1],[-1,1]]) out.push({x:r.x+dx*r.sx,y:r.y+dy*r.sy,ax:'xy',cur:dx===dy?'nwse-resize':'nesw-resize'});
+    return out;
+  }
+  hitHandle(wx,wy){ const rad=7/this.zoom; let best=null,bd=rad; for(const h of this.rangeHandles()){ const d=Math.max(Math.abs(wx-h.x),Math.abs(wy-h.y)); if(d<=bd && (!best||h.ax==='xy'||d<bd)){ best=h; bd=d; } } return best; }
   // spawn marker under world point: selected row wins, else topmost (last drawn)
   hitSpawn(wx,wy){
     const rows=this.currentRows(); const ms=(this.props.markerScale ?? 1)*7/this.zoom;
@@ -1421,11 +1434,12 @@ class Component extends DCLogic {
     return -1;
   }
   onDown(e){
-    this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null; this.dragObj=null;
+    this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null; this.dragObj=null; this.dragHandle=null;
     if(e.button!==0||this.state.empty) return;
     const r=this.canvas.getBoundingClientRect(); const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
     if(this.state.mainTab==='regen'){
       if(e.shiftKey) return;   // shift = force place on top of a marker
+      const h=this.hitHandle(wx,wy); if(h){ this.dragHandle={row:this.currentRows()[this.selRow],ax:h.ax,cur:h.cur}; return; }
       const i=this.hitSpawn(wx,wy); if(i<0) return;
       const row=this.currentRows()[i]; this.dragRow={row,dx:row.x-wx,dy:row.y-wy};
       this.selectRow(i);
@@ -1451,7 +1465,12 @@ class Component extends DCLogic {
     const r=this.canvas.getBoundingClientRect(); const inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
     if(this.down){ const dx=e.clientX-this.down.x,dy=e.clientY-this.down.y; if(Math.abs(dx)+Math.abs(dy)>3) this.moved=true;
       if(this.moved){
-        if(this.dragRow){
+        if(this.dragHandle){
+          const d=this.dragHandle; if(!d.snap){ d.snap=true; this.pushUndo('resize spawn range',this.scopeRegen()); }
+          const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
+          if(d.ax!=='y'){ d.row.sx=Math.max(1,Math.round(Math.abs(wx-d.row.x))); if(this._sx)this._sx.value=d.row.sx; }
+          if(d.ax!=='x'){ d.row.sy=Math.max(1,Math.round(Math.abs(wy-d.row.y))); if(this._sy)this._sy.value=d.row.sy; }
+        } else if(this.dragRow){
           const d=this.dragRow, b=this.bounds; if(!d.snap){ d.snap=true; this.pushUndo('move spawn',this.scopeRegen()); }
           const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
           d.row.x=Math.min((b.maxx+1)*TILE-1,Math.max(b.minx*TILE,Math.round(wx+d.dx)));
@@ -1468,11 +1487,13 @@ class Component extends DCLogic {
       }
     }
     if(!this.down){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
-      this.canvas.style.cursor=(inside && ((tab==='regen' && !e.shiftKey && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?'grab':''; }
+      const hh=(inside && tab==='regen' && !e.shiftKey)?this.hitHandle(wx,wy):null;
+      this.canvas.style.cursor=hh?hh.cur:(inside && ((tab==='regen' && !e.shiftKey && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?'grab':''; }
     if(inside && this.coordEl){ const mx=e.clientX-r.left,my=e.clientY-r.top; const ax=Math.floor((mx-this.ox)/this.zoom), ay=Math.floor((my-this.oy)/this.zoom); this.coordEl.textContent='x '+ax+' · y '+ay; }
   }
   onUp(e){
     if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn; this.down=null;
+    if(this.dragHandle){ const d=this.dragHandle; this.dragHandle=null; if(wasMoved){ this.setState({statusText:'spawn range set to Sx '+d.row.sx+' · Sy '+d.row.sy}); this.refreshRows(); } return; }
     if(this.dragRow){ const d=this.dragRow; this.dragRow=null; if(wasMoved){ this.setState({statusText:'spawn moved to '+d.row.x+', '+d.row.y}); this.refreshRows(); } return; }
     if(this.dragObj){ const d=this.dragObj; this.dragObj=null; if(wasMoved){ this.setState({statusText:'object moved to '+d.o.x+', '+d.o.y}); this.refreshObjs(); this.offerSectorMove(d.o); } return; }
     if(wasMoved||this.state.empty||btn===2) return;   // right click never places/moves
