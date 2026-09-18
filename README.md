@@ -65,7 +65,7 @@ Per-sector `areadata.txt` editor:
 - Export `areadata.txt` (also bundled in the map ZIP).
 
 ### Export / import
-- **Export map (.zip)** — re-zips every original file verbatim and rewrites the files you edited (regen/boss/stone/npc, areadata, generated `server_attr`, imported layers). Uses a built-in ZIP writer + CRC32, no external library.
+- **Export map (.zip)** — saved as `<mapname>-YYYYMMDD-HHMMSS.zip` (local time), so every export keeps its own file; the folder inside is still plain `<mapname>`. Re-zips every original file verbatim and rewrites the files you edited (regen/boss/stone/npc, areadata, generated `server_attr`, imported layers). Uses a built-in ZIP writer + CRC32, no external library.
 - **Export PNG** — renders the whole current layer to a full-resolution PNG (cols×256 by rows×256).
 - **Import PNG** — decodes a full-map PNG back into the current layer's per-sector files. Minimap and tile round-trip losslessly / index-exact; height, shadow and attribute are approximate; water is not supported.
 

@@ -1159,9 +1159,14 @@ class Component extends DCLogic {
       const objs=this.areadata[c]; if(objs&&objs.length) entries.push({name:root+'/'+c+'/areadata.txt', data:enc.encode(this.serializeAreadata(objs))});
     }
     const blob=this.buildZip(entries);
-    this.download(root+'.zip', blob);
-    this.setState({statusText:'exported '+entries.length+' files → '+root+'.zip'+this.trapNote(Object.keys(REGEN_FILES).reduce((n,k)=>n+this.countRespTraps(this.regen[k]),0))+this.objTrapNote(this.countObjTraps(Object.keys(this.areadata)))});
+    // <mapname>-YYYYMMDD-HHMMSS.zip (local time): every export keeps its own file instead of piling up as "name (1).zip".
+    // The folder inside the archive is still plain <mapname>, so it extracts straight into a usable map folder.
+    const zipName=root+'-'+this.fileStamp()+'.zip';
+    this.download(zipName, blob);
+    this.setState({statusText:'exported '+entries.length+' files → '+zipName+this.trapNote(Object.keys(REGEN_FILES).reduce((n,k)=>n+this.countRespTraps(this.regen[k]),0))+this.objTrapNote(this.countObjTraps(Object.keys(this.areadata)))});
   }
+
+  fileStamp(d){ d=d||new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds()); }
 
   // ================= merge maps =================
   openMerge(){ this.setState({ menu:'', mergeOpen:true, mergeMsg:'' }); }
