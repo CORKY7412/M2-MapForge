@@ -337,7 +337,7 @@ function fmtSecs(t){ return t<=0?'0':[['h',3600],['m',60],['s',1]].map(([u,n])=>
 const RESP_MAX_SAFE=20000*3600, RESP_CEILING=85899000, _respTrapCache=new Map();
 // null when the tag is safe, else {sev:'red'|'amber', msg}
 // ---- regen dir column: 0 = random, 1..8 = (dir-1)*45°. Compass mapping follows the usual regen convention — 1 south, 2 south-east,
-// 3 east … 8 south-west — i.e. counter-clockwise as seen on the map. It is NOT verified against the client; to flip it, change DIR_BASE
+// 3 east … 8 south-west — i.e. counter-clockwise as seen on the map. Checked against server-side NPC placements; should a source differ, change DIR_BASE
 // (angle of dir 1, measured from south) or DIR_SIGN (+1 counter-clockwise on the map, -1 clockwise).
 const DIR_BASE=0, DIR_SIGN=1;
 function dirVector(dir){ const d=Math.trunc(+dir); if(!(d>=1&&d<=8)) return null; const a=(DIR_BASE+DIR_SIGN*(d-1)*45)*Math.PI/180; return {x:Math.sin(a),y:Math.cos(a)}; }

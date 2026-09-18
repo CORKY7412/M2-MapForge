@@ -21,7 +21,7 @@ Canonical header comment (written by tools, ignored by parser):
 | 3 | `sx` | int | **Half-range** in X (radius, not a start coord, despite the name) |
 | 4 | `sy` | int | **Half-range** in Y |
 | 5 | `z` | byte | Z-section — passed only through the point-spawn path (`SpawnMob` Z); ranged/group/anywhere spawns ignore it. 0 = ground |
-| 6 | `dir` | byte | Facing: `0` = random (one of 8×45°); `1..8` → angle `(dir-1) * 45°`. Only applied to point spawns |
+| 6 | `dir` | byte | Facing: `0` = random (one of 8×45°); `1..8` → angle `(dir-1) * 45°`. On the map this runs counter-clockwise from south: `1` S, `2` SE, `3` E, `4` NE, `5` N, `6` NW, `7` W, `8` SW (checked against server-side NPC placements, not read from source). Very old client-side regen files used a flipped direction convention, so do not take those as a reference — the server mapping here is the one that counts. Only applied to point spawns |
 | 7 | `time` | duration | Respawn interval: digits + `s`/`m`/`h` suffixes, additive (`1h30m` = 5400 s). Digits **without a suffix are discarded** (`regen.cpp:187-217`), and `time == 0` disables the line completely — not even the initial spawn happens (`regen.cpp:766`). Always write a suffix |
 | 8 | `percent` | int | **Parsed and discarded** — the server ignores this column entirely (`regen.cpp:222-224`) |
 | 9 | `count` | int | Max simultaneous spawns from this line |

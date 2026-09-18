@@ -83,7 +83,7 @@ Hold **Ctrl** (**Cmd** on macOS) to work on several spawns or objects at once; p
 ### Tools
 Optional helpers under the **Tools** menu. The ruler and the stats panel are off until you switch them on.
 
-- **Direction arrows** (the one helper that is on by default): point spawns with Dir 1–8 get a small arrow showing where they face; Dir 0 (random) and spawns with a range get none, since the server only applies Dir to point spawns. The compass mapping follows the usual regen convention — 1 south, 2 south-east, 3 east … 8 south-west — and is not verified against the client; `DIR_BASE` / `DIR_SIGN` at the top of the script flip it.
+- **Direction arrows** (the one helper that is on by default): point spawns with Dir 1–8 get a small arrow showing where they face; Dir 0 (random) and spawns with a range get none, since the server only applies Dir to point spawns. Dir runs counter-clockwise on the map from south — 1 south, 2 south-east, 3 east, 4 north-east, 5 north, 6 north-west, 7 west, 8 south-west — checked against server-side NPC placements.
 - **Stats panel**: an overlay in the top-left of the map with rows and summed `count` for every regen file, the current file by type with its warning count and top 10 vnums, and the objects (total, sectors used, distinct and most-used CRCs, warnings). A group row counts its groups, not the mobs inside them.
 - **Ruler**: click two points on the map to measure the distance in meters, with Δx / Δy (map units are meters: 1 px of the map image = 1 m). A third click starts a new measurement, **Esc** clears it. While the ruler is on, clicks only measure — nothing is placed or selected — and dragging still pans.
 
