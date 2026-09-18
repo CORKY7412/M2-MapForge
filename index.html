@@ -444,7 +444,7 @@ class Component extends DCLogic {
   fX=el=>this._x=this.bindField(el,'x'); fY=el=>this._y=this.bindField(el,'y');
   // regen form field: Enter = Update; spin fields also step with ArrowUp/ArrowDown (Shift = 10)
   bindField(el,spinKey){
-    if(el && !el._bound){ el._bound=true; el.addEventListener('input',()=>this.checkDirty()); el.addEventListener('change',()=>this.checkDirty()); el.addEventListener('keydown',e=>{
+    if(el && !el._bound){ el._bound=true; clearTimeout(this._fillRowT); this._fillRowT=setTimeout(()=>{ this.fillRowForm(); this.checkDirty(); },0); el.addEventListener('input',()=>this.checkDirty()); el.addEventListener('change',()=>this.checkDirty()); el.addEventListener('keydown',e=>{
       if(e.key==='Enter'){ if(this.state.confirm) return; e.preventDefault(); this.updateRow(); }
       else if(spinKey && (e.key==='ArrowUp'||e.key==='ArrowDown')){ e.preventDefault(); this.nudge(spinKey,e.key==='ArrowUp'?1:-1,e); }
     }); }
@@ -485,7 +485,7 @@ class Component extends DCLogic {
   oYaw=el=>this._oyaw=this.bindObjField(el,'yaw'); oPitch=el=>this._opitch=this.bindObjField(el,'pitch'); oRoll=el=>this._oroll=this.bindObjField(el,'roll'); oBias=el=>this._obias=this.bindObjField(el,'bias');
   // object form field: Enter = Update; spin fields step with ArrowUp/ArrowDown
   bindObjField(el,spinKey){
-    if(el && !el._bound){ el._bound=true; el.addEventListener('input',()=>this.checkObjDirty()); el.addEventListener('keydown',e=>{
+    if(el && !el._bound){ el._bound=true; clearTimeout(this._fillObjT); this._fillObjT=setTimeout(()=>{ this.fillObjForm(); this.checkObjDirty(); },0); el.addEventListener('input',()=>this.checkObjDirty()); el.addEventListener('keydown',e=>{
       if(e.key==='Enter'){ if(this.state.confirm) return; e.preventDefault(); this.updateObj(); }
       else if(spinKey && (e.key==='ArrowUp'||e.key==='ArrowDown')){ e.preventDefault(); this.nudgeObj(spinKey,e.key==='ArrowUp'?1:-1,e); }
     }); }
@@ -1730,7 +1730,7 @@ class Component extends DCLogic {
     const type=(this._t&&this._t.value)||'m';
     const row={ type, x, y, sx:+(this._sx?this._sx.value:0)||0, sy:+(this._sy?this._sy.value:0)||0,
       dir:+(this._d?this._d.value:0)||0, resp:(this._r?this._r.value:'1m')||'1m', perc:(this._p?this._p.value:'100')||'100',
-      count:+(this._c?this._c.value:1)||1, vnum:+(this._v?this._v.value:0)||0 };
+      count:+(this._c?this._c.value:1)||1, vnum:+(this._v?this._v.value:0)||101 };
     this.pushUndo('place spawn',this.scopeRegen());
     this.currentRows().push(row); this.selRow=this.currentRows().length-1; this.selSet.clear(); this.selSet.add(row);
     if(this._x)this._x.value=x; if(this._y)this._y.value=y;
