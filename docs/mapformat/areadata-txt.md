@@ -98,7 +98,7 @@ The warning shows under the object form (with the offending fields outlined), as
 
 **Export.** Fields are addressed purely by position, so a blank or `NaN` would shift everything after it. Every numeric field is therefore forced to a finite number (falling back to 0) and written in the `%f` form, rotation always keeps the `a#b#c` shape — which also sidesteps the yaw `substr` defect — portal IDs are written as integers, and records are renumbered `Object000…` contiguously with a matching `ObjectCount`.
 
-**Editing.** Dragging a marker or clicking the map only changes `x` / `y`; it never moves the record to another sector's file, which is exactly the case the amber position warning is for.
+**Editing.** Objects move on the map by dragging their marker only (a click never relocates one). Dragging only changes `x` / `y`; it never moves the record to another sector's file, which is exactly the case the amber position warning is for.
 
 ## Pitfalls
 

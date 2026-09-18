@@ -217,7 +217,7 @@
                 <option value="{{ S.value }}">{{ S.label }}</option>
               </sc-for>
             </select>
-            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Objects plot at (x, −y). Click a marker to select it · drag it to move · with one selected, click empty map (or <b style="color:#d8c9a8">Shift</b>+click anywhere) to move it there · <b style="color:#d8c9a8">Enter</b> = Update · <b style="color:#d8c9a8">↑↓</b> step fields · <b style="color:#d8c9a8">Del</b> deletes · <b style="color:#d8c9a8">Esc</b> deselects. Fields are cm (map-local).</div>
+            <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Objects plot at (x, −y). Click a marker to select it · drag it to move (clicking the map never moves an object) · <b style="color:#d8c9a8">Enter</b> = Update · <b style="color:#d8c9a8">↑↓</b> step fields · <b style="color:#d8c9a8">Del</b> deletes · <b style="color:#d8c9a8">Esc</b> deselects. Fields are cm (map-local).</div>
           </div>
 
           <div style="flex:1;overflow:auto;margin:0 12px;border:1px solid #3a2c1a;border-radius:6px;background:#120d08;min-height:60px">
@@ -1369,9 +1369,10 @@ class Component extends DCLogic {
   }
   onDown(e){
     this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null; this.dragObj=null;
-    if(e.button!==0||this.state.empty||e.shiftKey) return;   // shift = force place / force move on top of a marker
+    if(e.button!==0||this.state.empty) return;
     const r=this.canvas.getBoundingClientRect(); const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
     if(this.state.mainTab==='regen'){
+      if(e.shiftKey) return;   // shift = force place on top of a marker
       const i=this.hitSpawn(wx,wy); if(i<0) return;
       const row=this.currentRows()[i]; this.dragRow={row,dx:row.x-wx,dy:row.y-wy};
       this.selectRow(i);
@@ -1414,7 +1415,7 @@ class Component extends DCLogic {
       }
     }
     if(!this.down){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
-      this.canvas.style.cursor=(inside && !e.shiftKey && ((tab==='regen' && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?'grab':''; }
+      this.canvas.style.cursor=(inside && ((tab==='regen' && !e.shiftKey && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?'grab':''; }
     if(inside && this.coordEl){ const mx=e.clientX-r.left,my=e.clientY-r.top; const ax=Math.floor((mx-this.ox)/this.zoom), ay=Math.floor((my-this.oy)/this.zoom); this.coordEl.textContent='x '+ax+' · y '+ay; }
   }
   onUp(e){
@@ -1425,13 +1426,7 @@ class Component extends DCLogic {
     const r=this.canvas.getBoundingClientRect(); if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) return;
     const mx=e.clientX-r.left,my=e.clientY-r.top;
     if(this.state.mainTab==='regen'){ this.placeSpawn(Math.round((mx-this.ox)/this.zoom), Math.round((my-this.oy)/this.zoom)); return; }
-    if(this.state.mainTab==='objects'){
-      const wx=(mx-this.ox)/this.zoom, wy=(my-this.oy)/this.zoom;
-      const objs=this.curObjs();
-      if(this.selObj>=0 && objs[this.selObj]){ objs[this.selObj].x=Math.round(wx*100); objs[this.selObj].y=-Math.round(wy*100); this.selectObj(this.selObj); }
-      else this.setState({statusText:'select an object first, then click to move it'});
-      return;
-    }
+    // objects tab: a click on empty map does nothing — objects move by dragging their marker only
   }
   placeSpawn(x,y){
     const b=this.bounds;
@@ -1514,7 +1509,7 @@ class Component extends DCLogic {
   countObjTraps(sectors){ return sectors.reduce((n,c)=>n+(this.areadata[c]||[]).filter(o=>objTraps(o,c).length).length,0); }
   objTrapNote(n){ return n?' — ⚠ '+n+' object'+(n>1?'s':'')+' the client would drop or misplace':''; }
   updateObj(){ const o=this.curObjs()[this.selObj]; if(!o){ this.setState({statusText:'select an object to update'}); return; } Object.assign(o,this.objFormVals(o)); this.setState({statusText:'object updated'}); this.refreshObjs(); this.draw(); }
-  addObj(){ const c=this.state.oSector; if(!c){ this.setState({statusText:'no sector'}); return; } const ax=+c.slice(0,3),ay=+c.slice(3,6); const o={x:(ax*256+128)*100,y:-(ay*256+128)*100,z:0,crc:0,yaw:0,pitch:0,roll:0,bias:0,portals:[]}; (this.areadata[c]=this.areadata[c]||[]).push(o); this.selObj=this.areadata[c].length-1; this.setState({statusText:'object added — set CRC, then drag it or click the map to move'}); this.selectObj(this.selObj); }
+  addObj(){ const c=this.state.oSector; if(!c){ this.setState({statusText:'no sector'}); return; } const ax=+c.slice(0,3),ay=+c.slice(3,6); const o={x:(ax*256+128)*100,y:-(ay*256+128)*100,z:0,crc:0,yaw:0,pitch:0,roll:0,bias:0,portals:[]}; (this.areadata[c]=this.areadata[c]||[]).push(o); this.selObj=this.areadata[c].length-1; this.setState({statusText:'object added at the sector center — set CRC, then drag its marker to move it'}); this.selectObj(this.selObj); }
   deleteObjRow(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); const o=this.curObjs()[i]; if(!o) return; this.askConfirm('Delete object #'+i+' (CRC '+o.crc+') from sector '+this.state.oSector+'?',()=>{ this.curObjs().splice(i,1); if(this.selObj>=i) this.selObj=-1; this.refreshObjs(); this.draw(); },{title:'Delete object'}); }
   exportAreadata(){ const c=this.state.oSector; if(!c) return; this.download('areadata_'+c+'.txt', new Blob([this.serializeAreadata(this.curObjs())],{type:'text/plain'})); this.setState({statusText:'exported areadata_'+c+'.txt'+this.objTrapNote(this.countObjTraps([c]))}); }
 
