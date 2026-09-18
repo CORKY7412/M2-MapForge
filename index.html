@@ -443,7 +443,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, mobNames:0, vnumName:'', wsList:[], wsCur:'', wsOff:'',
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, mobNames:0, namesHint:'', vnumName:'', wsList:[], wsCur:'', wsOff:'',
     mergeOpen:false, mergeMsg:'', mergeInfo:[null,null,null,null]
   };
   pendingConfirm = null;
@@ -648,7 +648,7 @@ class Component extends DCLogic {
   wsDb(){ if(!this._wsDb) this._wsDb=new Promise((res,rej)=>{ const q=indexedDB.open('mapforge',1); q.onupgradeneeded=()=>{ if(!q.result.objectStoreNames.contains('workspaces')) q.result.createObjectStore('workspaces',{keyPath:'id'}); }; q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); q.onblocked=()=>rej(new Error('database blocked')); }); return this._wsDb; }
   async wsTx(mode,fn){ const db=await this.wsDb(); return new Promise((res,rej)=>{ const tx=db.transaction('workspaces',mode), st=tx.objectStore('workspaces'); const q=fn(st); tx.oncomplete=()=>res(q&&q.result); tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error); }); }
   wsFail(e){ console.warn('workspaces unavailable',e); this._wsDb=null; this.setState({wsOff:'Workspaces are switched off: the browser refused its site storage ('+((e&&(e.name||e.message))||'unknown error')+'). Private windows, blocked site data or a page opened from file:// can cause this.'}); }
-  async wsRefresh(){ if(!this.wsCan()) return; try{ const all=(await this.wsTx('readonly',st=>st.getAll()))||[]; all.sort((a,b)=>(b.opened||0)-(a.opened||0)); this._ws=all; this.setState({wsList:all.map(w=>w.id)}); if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){ this.wsFail(e); } }
+  async wsRefresh(){ if(!this.wsCan()) return; try{ const raw=(await this.wsTx('readonly',st=>st.getAll()))||[], cfg=raw.find(r=>r.id==='__settings'); this._lastNames=(cfg&&cfg.namesLink)||null; const all=raw.filter(r=>!String(r.id).startsWith('__')); all.sort((a,b)=>(b.opened||0)-(a.opened||0)); this._ws=all; this.setState({wsList:all.map(w=>w.id)}); if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){ this.wsFail(e); } }
   wsGet(id){ return (this._ws||[]).find(w=>w.id===id); }
   async wsSave(w){ try{ await this.wsTx('readwrite',st=>st.put(w)); await this.wsRefresh(); }catch(e){ this.wsFail(e); } }
   wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight}; }
@@ -663,8 +663,24 @@ class Component extends DCLogic {
   // remember a linked source on the current workspace: kind = 'regen' ({dir} or {files:[…]}) or 'names' ({file})
   // Mob names stay loaded when another map is opened, so the file they came from (this._namesLink) is carried along and linked to that
   // map's workspace too — otherwise a workspace would only seem to have names when another one happened to be opened first.
-  async wsLinkNames(link){ this._namesLink=link||null; if(link) await this.wsLink('names',link); }
-  async wsCarryNames(w){ if(w && !w.names && this._namesLink && this.mobNames.size){ w.names=this._namesLink; return true; } return false; }
+  // The most recently loaded names file is also kept across restarts (this._lastNames, stored next to the workspaces), so a map
+  // that has no names of its own gets the last file you used even in a fresh browser session.
+  async wsSetLastNames(link){ this._lastNames=link||null; if(!this.wsCan()) return; try{ await this.wsTx('readwrite',st=>st.put({id:'__settings',namesLink:link||null})); }catch(e){} }
+  async wsLinkNames(link){ this._namesLink=link||null; if(link){ await this.wsSetLastNames(link); await this.wsLink('names',link); } }
+  // w has no names of its own: give it the ones in memory, or — nothing in memory — load the last file used. Returns true when w changed.
+  async wsCarryNames(w){
+    if(!w||w.names) return false;
+    if(this._namesLink && this.mobNames.size){ w.names=this._namesLink; return true; }
+    if(!this.mobNames.size && this._lastNames && this._lastNames.file){ if(await this.loadLastNames(true)){ w.names=this._namesLink; return true; } }
+    return false;
+  }
+  // quiet = called while a map is opening: if the browser wants a click before it grants access, leave a hint instead of failing
+  async loadLastNames(quiet){
+    const link=this._lastNames; if(!link||!link.file){ if(!quiet) this.setState({statusText:'no mob names file remembered yet'}); return false; }
+    try{ if(!await this.wsPerm(link.file)) throw new Error('permission was not given'); const before=this.mobNames; await this.loadNamesFile(await link.file.getFile()); if(this.mobNames===before) return false; this._namesLink=link; this.setState({namesHint:''});
+      if(!quiet){ const w=this.wsGet(this.state.wsCur); if(w&&!w.names){ w.names=link; await this.wsSave(w); } } return true; }
+    catch(e){ const gone=e&&e.name==='NotFoundError'; if(gone) await this.wsSetLastNames(null); this.setState({namesHint:gone?'':link.name, statusText:gone?'the last mob names file ('+link.name+') was moved or deleted':'last mob names ('+link.name+') not loaded yet — use Regen › Reload last mob names'}); return false; }
+  }
   async wsLink(kind,link){ const w=this.wsGet(this.state.wsCur); if(!w||!link) return; w[kind]=link; w.opened=Date.now(); await this.wsSave(w); }
   async wsSaveView(){ const w=this.wsGet(this.state.wsCur); if(!w||this.state.empty) return; w.view=this.wsView(); try{ await this.wsTx('readwrite',st=>st.put(w)); }catch(e){} }
   async wsPerm(handle){ if(!handle) return false; const o={mode:'read'}; if((await handle.queryPermission(o))==='granted') return true; return (await handle.requestPermission(o))==='granted'; }
@@ -681,7 +697,7 @@ class Component extends DCLogic {
       if(w.regen){ try{ const files={}; if(w.regen.dir){ if(await this.wsPerm(w.regen.dir)) for await(const [name,h] of w.regen.dir.entries()) if(h.kind==='file') files[name.toLowerCase()]=await h.getFile(); } else for(const f of w.regen.files||[]) if(await this.wsPerm(f.handle)) files[f.name.toLowerCase()]=await f.handle.getFile();
           if(Object.keys(files).length){ const tab=this.state.mainTab, rt=this.state.regenTab; await this.applyRegenFolder(files,w.regen.name||''); this.setState({mainTab:tab,regenTab:rt}); } else miss.push(w.regen.dir||(w.regen.files||[]).some(f=>f.handle)?'regens (moved or permission refused)':'regens (not linked yet — load them once)'); }catch(e){ miss.push('regens (moved or permission refused)'); } }
       if(!w.names) await this.wsCarryNames(w);
-      else { try{ if(await this.wsPerm(w.names.file)){ await this.loadNamesFile(await w.names.file.getFile()); this._namesLink=w.names; } else miss.push(w.names.file?'mob names (permission refused)':'mob names (not linked yet — load the file once)'); }catch(e){ miss.push('mob names (moved or deleted)'); } }
+      else { try{ if(await this.wsPerm(w.names.file)){ await this.loadNamesFile(await w.names.file.getFile()); this._namesLink=w.names; await this.wsSetLastNames(w.names); } else miss.push(w.names.file?'mob names (permission refused)':'mob names (not linked yet — load the file once)'); }catch(e){ miss.push('mob names (moved or deleted)'); } }
       this.clearHistory(); w.opened=Date.now(); await this.wsSave(w); this.refreshRows(); this.draw();
       this.setState({statusText:'workspace '+w.name+' loaded'+(miss.length?' · not loaded: '+miss.join(', '):'')});
     }catch(e){ console.error(e); this.setState({statusText:'could not open '+w.name+': '+((e&&e.name==='NotFoundError')?'the folder was moved or deleted':(e&&e.message)||e)}); }
@@ -776,7 +792,7 @@ class Component extends DCLogic {
   async loadNamesFile(f){ const m=this.parseMobNames(this.decodeText(await f.arrayBuffer()));
     if(!m.size){ this.setState({statusText:'no names found in '+f.name+' — expected lines of vnum<TAB>name'}); return; }
     this.mobNames=m; this.setState({mobNames:m.size,statusText:'loaded '+m.size.toLocaleString('en-US')+' mob names from '+f.name}); this.refreshRows(); this.draw(); }
-  unloadMobNames(){ this.mobNames=new Map(); this._namesLink=null; const w=this.wsGet(this.state.wsCur); if(w&&w.names){ delete w.names; this.wsSave(w); }   // unloading also takes the file off the open workspace
+  unloadMobNames(){ this.mobNames=new Map(); this._namesLink=null; this.wsSetLastNames(null); const w=this.wsGet(this.state.wsCur); if(w&&w.names){ delete w.names; this.wsSave(w); }   // unloading also takes the file off the open workspace
     this.setState({mobNames:0,vnumName:'',statusText:'mob names unloaded'+(w?' and unlinked from this workspace':'')}); this.refreshRows(); this.draw(); }
   mobName(type,vnum){ return (this.mobNames.size && /^[ms]/.test(type||''))?(this.mobNames.get(+vnum)||''):''; }
 
@@ -2181,7 +2197,7 @@ class Component extends DCLogic {
       this.mkItem('Export current file',()=>this.exportRegen()),
       this.mkItem('Reset current file',()=>{ this.tabRegen(); this.resetRegen(); },{danger:true}),
       this.mkItem(st.mobNames?'Mob names: '+st.mobNames.toLocaleString('en-US')+' loaded · load another…':'Load mob_names.txt…',()=>this.pickNamesFile(),{check:!!st.mobNames}),
-      ...(st.mobNames?[this.mkItem('Unload mob names',()=>this.unloadMobNames())]:[])
+      ...(st.mobNames?[this.mkItem('Unload mob names',()=>this.unloadMobNames())]:(this._lastNames&&this._lastNames.file?[this.mkItem('Reload last mob names ('+this._lastNames.name+')',()=>this.loadLastNames(false))]:[]))
     ];
     const U=[
       this.mkItem('Mob names on the map (needs mob_names.txt)',()=>{ this.setState({mapNames:!st.mapNames}); this.draw(); },{check:st.mapNames}),
