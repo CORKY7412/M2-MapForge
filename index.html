@@ -407,7 +407,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mobNames:0, vnumName:'',
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, mobNames:0, vnumName:'',
     mergeOpen:false, mergeMsg:'', mergeInfo:[null,null,null,null]
   };
   pendingConfirm = null;
@@ -1583,9 +1583,14 @@ class Component extends DCLogic {
           ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(hx-dv.x*hw*1.6-dv.y*hw,hy-dv.y*hw*1.6+dv.x*hw); ctx.lineTo(hx-dv.x*hw*1.6+dv.y*hw,hy-dv.y*hw*1.6-dv.x*hw); ctx.closePath(); ctx.fill(); }
         if(r.sx>0||r.sy>0){ ctx.strokeStyle=sel?'#ffffff':col; ctx.lineWidth=1/this.zoom; ctx.strokeRect(cx-r.sx,cy-r.sy,r.sx*2,r.sy*2); }
       });
-      if(this.mobNames.size){ let shown=0; const fs=11/this.zoom; ctx.font='500 '+fs+"px 'IBM Plex Sans',sans-serif"; ctx.textBaseline='middle';
-        rows.forEach((r,i)=>{ if(shown>=40||r.type[0]==='e'||r.type[0]==='s'||!(i===this.selRow||this.selSet.has(r))) return; const nm=this.mobName(r.type,r.vnum); if(!nm) return; shown++;
-          const tx=r.x+ms*1.6, ty=r.y-ms*1.6; ctx.lineWidth=3/this.zoom; ctx.strokeStyle='rgba(18,13,8,.9)'; ctx.strokeText(nm,tx,ty); ctx.fillStyle='#f3e2b0'; ctx.fillText(nm,tx,ty); });
+      // mob names next to every mob marker in view (selected ones brighter). Past NAME_CAP labels in view they would only smear
+      // into each other and slow the redraw, so only the selected ones are labelled until you zoom in.
+      if(this.mobNames.size && this.state.mapNames){ const NAME_CAP=400, cv=this.canvas, fs=11/this.zoom, pad=ms*3;
+        const vx0=-this.ox/this.zoom-pad, vy0=-this.oy/this.zoom-pad, vx1=(cv.width-this.ox)/this.zoom+pad, vy1=(cv.height-this.oy)/this.zoom+pad;
+        const vis=[]; rows.forEach((r,i)=>{ if(r.type[0]!=='m'||r.x<vx0||r.x>vx1||r.y<vy0||r.y>vy1) return; const nm=this.mobName(r.type,r.vnum); if(nm) vis.push({r,nm,sel:(i===this.selRow||this.selSet.has(r))}); });
+        const list=vis.length>NAME_CAP?vis.filter(v=>v.sel).slice(0,NAME_CAP):vis;
+        ctx.font='500 '+fs+"px 'IBM Plex Sans',sans-serif"; ctx.textBaseline='middle'; ctx.lineWidth=3/this.zoom; ctx.strokeStyle='rgba(18,13,8,.9)';
+        for(const v of list.sort((p,q)=>(p.sel?1:0)-(q.sel?1:0))){ const tx=v.r.x+ms*1.6, ty=v.r.y-ms*1.6; ctx.strokeText(v.nm,tx,ty); ctx.fillStyle=v.sel?'#ffffff':'#e6d3a1'; ctx.fillText(v.nm,tx,ty); }
         ctx.textBaseline='alphabetic'; }
       const hs=3.5/this.zoom; ctx.lineWidth=1/this.zoom;
       for(const h of this.rangeHandles()){ ctx.fillStyle='#ffffff'; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.fillRect(h.x-hs,h.y-hs,hs*2,hs*2); ctx.strokeRect(h.x-hs,h.y-hs,hs*2,hs*2); }
@@ -1903,10 +1908,11 @@ class Component extends DCLogic {
       this.mkItem('Import .txt…',()=>{ this.tabRegen(); this.importRegen(); }),
       this.mkItem('Export current file',()=>this.exportRegen()),
       this.mkItem('Reset current file',()=>{ this.tabRegen(); this.resetRegen(); },{danger:true}),
-      this.mkItem(st.mobNames?'Mob names: '+st.mobNames.toLocaleString('en-US')+' loaded · load another…':'Load mob_names.txt… (optional)',()=>this.namesInput.click(),{check:!!st.mobNames}),
+      this.mkItem(st.mobNames?'Mob names: '+st.mobNames.toLocaleString('en-US')+' loaded · load another…':'Load mob_names.txt…',()=>this.namesInput.click(),{check:!!st.mobNames}),
       ...(st.mobNames?[this.mkItem('Unload mob names',()=>this.unloadMobNames())]:[])
     ];
     const U=[
+      this.mkItem('Mob names on the map (needs mob_names.txt)',()=>{ this.setState({mapNames:!st.mapNames}); this.draw(); },{check:st.mapNames}),
       this.mkItem('Direction arrows on point spawns',()=>{ this.setState({dirArrows:!st.dirArrows}); this.draw(); },{check:st.dirArrows}),
       this.mkItem('Stats panel',()=>{ if(has) this.toggleStats(); },{check:st.stats}),
       this.mkItem('Ruler (1 px = 1 m)',()=>{ if(has) this.toggleRuler(); },{check:st.ruler}),
