@@ -80,10 +80,15 @@ Hold **Ctrl** (**Cmd** on macOS) to work on several spawns or objects at once; p
 - **Ctrl+C / Ctrl+X / Ctrl+V** copy, cut and paste the selection (one item or a group). The clipboard holds plain text in the game's own format — regen rows as `regen.txt` lines, objects as `areadata.txt` blocks — so it pastes into a text editor, and lines or blocks copied from a real file paste into the map. A paste is centred on the mouse when it is over the map (otherwise nudged 2 m off the originals), kept inside the map as a block, and becomes the new selection; objects land in the sector under the paste when the map has it. Copy then paste is also how you duplicate. Inside a form field the shortcuts act on the text as usual.
 - Range handles are hidden while a group is selected, and the move-to-another-sector prompt is only asked for single objects (the position warning still flags the rest).
 
+### Tools
+Optional helpers under the **Tools** menu, all off until you switch them on.
+
+- **Ruler**: click two points on the map to measure the distance in meters, with Δx / Δy (map units are meters: 1 px of the map image = 1 m). A third click starts a new measurement, **Esc** clears it. While the ruler is on, clicks only measure — nothing is placed or selected — and dragging still pans.
+
 ### Safety & UI
 - **Undo / redo** for every spawn and object edit — place, move, edit, delete, import or reset a regen file, add or delete an object, move an object to another sector. **Ctrl+Z** undoes, **Ctrl+Y** or **Ctrl+Shift+Z** redoes (also as **↶ Undo / ↷ Redo** buttons in the top bar and under the **Edit** menu; both name the next step). Up to 100 steps; a run of stepper presses on one item counts as one step. Undo jumps back to the tab, file and sector where the edit happened. While a form has unsaved typed text, Ctrl+Z is left to the text field. Layer imports, `server_attr` and map merges are not tracked, and loading or closing a map clears the history.
 - Confirmation modal on every destructive action (reset a regen file, delete a spawn/object, close map).
-- Working menu bar: **File · Edit · Map · Server Attr · Regen · Utility**.
+- Working menu bar: **File · Edit · Map · Server Attr · Regen · Tools**.
 - Resizable inspector sidebar.
 - Loads a folder via the picker **or** by drag-and-drop onto the viewport.
 

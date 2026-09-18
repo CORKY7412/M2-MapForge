@@ -391,7 +391,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null,
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false,
     mergeOpen:false, mergeMsg:'', mergeInfo:[null,null,null,null]
   };
   pendingConfirm = null;
@@ -510,7 +510,7 @@ class Component extends DCLogic {
         e.preventDefault(); this.selectAll(this.state.mainTab==='regen'?'row':'obj'); return; }
       if(/^Arrow(Up|Down|Left|Right)$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !this.state.empty && !this.state.confirm && !this.state.menu && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){
         const k=this.clipKind(); if(k && this.group(k).length){ e.preventDefault(); this.arrowNudge(k,e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0,e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:0,e.shiftKey); return; } }
-      if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.mainTab==='regen' && this.group('row').length && !this.dragRow && !this.dragHandle && !this.dragGroup){ this.deselect('row'); }
+      if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.ruler && this.rulerPts.length){ this.rulerPts=[]; this.rulerLive=null; this.draw(); } else if(this.state.mainTab==='regen' && this.group('row').length && !this.dragRow && !this.dragHandle && !this.dragGroup){ this.deselect('row'); }
         else if(this.state.mainTab==='objects' && this.group('obj').length && !this.dragObj && !this.dragGroup){ this.deselect('obj'); } }
       else if(e.key==='Enter' && this.state.confirm){ e.preventDefault(); if(!e.repeat) this.confirmYes(); }
       else if(e.key==='Delete' && this.state.mainTab==='regen' && this.group('row').length && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteGroup('row'); }
@@ -582,6 +582,24 @@ class Component extends DCLogic {
       const D={type:'m',vnum:'101',sx:'0',sy:'0',dir:'0',resp:'1m',perc:'100',count:'1'}; for(const key of Object.keys(D)) if(F[key] && String(F[key].value).trim()==='') F[key].value=D[key]; return; }
     for(const key of Object.keys(F)) if(F[key]) F[key].value=this.common(g,key); }
   fillObjForm(){ const g=this.group('obj'); for(const key of ['x','y','z','crc','yaw','pitch','roll','bias']){ const el=this.objField(key); if(el) el.value=g.length?this.common(g,key):''; } }
+
+  // ================= ruler =================
+  // Tools › Ruler (off by default). While it is on, a left click drops a point instead of placing / selecting: first click = start,
+  // second = end, a third starts over. Map units are meters (1 px of the map image = 1 m). Dragging still pans.
+  rulerPts=[]; rulerLive=null;
+  toggleRuler(){ const on=!this.state.ruler; this.rulerPts=[]; this.rulerLive=null; this.setState({ruler:on,statusText:on?'ruler on — click two points on the map · Esc clears · Tools › Ruler turns it off':'ruler off'}); this.draw(); }
+  rulerClick(wx,wy){ if(this.rulerPts.length>=2) this.rulerPts=[]; this.rulerPts.push({x:wx,y:wy}); this.rulerLive=null; if(this.rulerPts.length===2) this.setState({statusText:'distance: '+this.rulerText(this.rulerPts[0],this.rulerPts[1])}); this.draw(); }
+  rulerText(a,b){ const dx=b.x-a.x, dy=b.y-a.y; return Math.hypot(dx,dy).toFixed(1)+' m  (Δx '+Math.abs(dx).toFixed(1)+' · Δy '+Math.abs(dy).toFixed(1)+')'; }
+  drawRuler(ctx){
+    const a=this.rulerPts[0], b=this.rulerPts[1]||this.rulerLive; if(!this.state.ruler||!a) return; const z=this.zoom, t=5/z;
+    ctx.lineWidth=1.5/z; ctx.strokeStyle='#f3d98a'; ctx.fillStyle='#f3d98a';
+    const dot=p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,3/z,0,6.2832); ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=1/z; ctx.stroke(); ctx.strokeStyle='#f3d98a'; ctx.lineWidth=1.5/z; };
+    if(!b){ dot(a); return; }
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); dot(a); dot(b);
+    const txt=this.rulerText(a,b), fs=12/z; ctx.font='500 '+fs+"px 'IBM Plex Mono',monospace"; const w=ctx.measureText(txt).width, mx=(a.x+b.x)/2, my=(a.y+b.y)/2-t*2.2;
+    ctx.fillStyle='rgba(28,20,13,.9)'; ctx.fillRect(mx-w/2-t,my-fs*0.85,w+t*2,fs*1.45); ctx.strokeStyle='#4a3820'; ctx.lineWidth=1/z; ctx.strokeRect(mx-w/2-t,my-fs*0.85,w+t*2,fs*1.45);
+    ctx.fillStyle='#f3d98a'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,mx,my-fs*0.12); ctx.textAlign='start'; ctx.textBaseline='alphabetic';
+  }
 
   // ================= clipboard =================
   // Copy / cut / paste the selection as plain text in the game's own file format — regen rows as regen.txt lines, objects as
@@ -662,7 +680,7 @@ class Component extends DCLogic {
   run(fn){ this.setState({menu:''}); if(fn) fn(); }
   gridOn(){ return this.state.showGrid!==null ? this.state.showGrid : (this.props.showSectorGrid ?? true); }
   toggleGrid(){ this.setState({ showGrid:!this.gridOn(), menu:'' }); this.draw(); }
-  clearMap(){ this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.clearHistory(); this.setState({ empty:true, dirty:false, objDirty:false, objWarn:null, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
+  clearMap(){ this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.clearHistory(); this.rulerPts=[]; this.rulerLive=null; this.setState({ empty:true, ruler:false, dirty:false, objDirty:false, objWarn:null, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
   attrExport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.exportLayerPNG(),120); }
   attrImport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.importPng(),120); }
 
@@ -1524,6 +1542,7 @@ class Component extends DCLogic {
     if(this.box){ const b=this.box, col=b.sub?'224,96,74':'201,162,75';
       ctx.fillStyle='rgba('+col+',.12)'; ctx.strokeStyle='rgba('+col+',.95)'; ctx.lineWidth=1/this.zoom; ctx.setLineDash([5/this.zoom,4/this.zoom]);
       ctx.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0); ctx.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0); ctx.setLineDash([]); }
+    this.drawRuler(ctx);
   }
   currentRows(){ return this.regen[this.state.regenTab]||[]; }
   curObjs(){ return this.areadata[this.state.oSector]||[]; }
@@ -1553,6 +1572,7 @@ class Component extends DCLogic {
     this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null; this.dragObj=null; this.dragHandle=null; this.dragGroup=null; this.box=null;
     if(e.button!==0||this.state.empty) return;
     const r=this.canvas.getBoundingClientRect(); const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
+    if(this.state.ruler){ this.down.ruler=true; return; }   // ruler on: a click measures, a drag pans, nothing is selected or placed
     const tab=this.state.mainTab, k=tab==='regen'?'row':tab==='objects'?'obj':null; if(!k) return;
     if(e.ctrlKey||e.metaKey){   // Ctrl = group selection: click toggles one item, drag from empty map draws a box (Alt = take out)
       this.down.ctrl=true; let i=-1; if(k==='row') i=this.hitSpawn(wx,wy); else { const h=this.hitObj(wx,wy,true); if(h) i=h.i; }
@@ -1617,15 +1637,17 @@ class Component extends DCLogic {
         this.draw();
       }
     }
-    if(!this.down){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
+    if(!this.down && !this.state.ruler){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
       const hh=(inside && tab==='regen' && !e.shiftKey)?this.hitHandle(wx,wy):null;
       const ctrlBox=inside && (e.ctrlKey||e.metaKey) && (tab==='regen'||tab==='objects');
       this.canvas.style.cursor=hh&&!ctrlBox?hh.cur:(inside && ((tab==='regen' && !e.shiftKey && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?(ctrlBox?'pointer':'grab'):(ctrlBox?'crosshair':''); }
     this.mouseW={x:(e.clientX-r.left-this.ox)/this.zoom,y:(e.clientY-r.top-this.oy)/this.zoom,inside};
+    if(this.state.ruler){ if(!this.down) this.canvas.style.cursor=inside?'crosshair':''; if(this.rulerPts.length===1 && inside){ this.rulerLive={x:this.mouseW.x,y:this.mouseW.y}; if(!this.down) this.draw(); } }
     if(inside && this.coordEl){ const mx=e.clientX-r.left,my=e.clientY-r.top; const ax=Math.floor((mx-this.ox)/this.zoom), ay=Math.floor((my-this.oy)/this.zoom); this.coordEl.textContent='x '+ax+' · y '+ay; }
   }
   onUp(e){
-    if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn, ctrlDown=!!this.down.ctrl; this.down=null;
+    if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn, ctrlDown=!!this.down.ctrl, rulerDown=!!this.down.ruler; this.down=null;
+    if(rulerDown){ if(!wasMoved){ const rr=this.canvas.getBoundingClientRect(); if(e.clientX>=rr.left&&e.clientX<=rr.right&&e.clientY>=rr.top&&e.clientY<=rr.bottom) this.rulerClick((e.clientX-rr.left-this.ox)/this.zoom,(e.clientY-rr.top-this.oy)/this.zoom); } return; }
     if(this.box){ const b=this.box; this.box=null; if(wasMoved) this.boxSel(b.k,b); this.draw(); return; }
     if(this.dragGroup){ const d=this.dragGroup; this.dragGroup=null; if(wasMoved){ this.setState({statusText:this.gName(d.k,d.items.length)+' moved'}); if(d.k==='obj') this.refreshObjs(); else this.refreshRows(); } return; }
     if(this.dragHandle){ const d=this.dragHandle; this.dragHandle=null; if(wasMoved){ this.setState({statusText:'spawn range set to Sx '+d.row.sx+' · Sy '+d.row.sy}); this.refreshRows(); } return; }
@@ -1821,12 +1843,13 @@ class Component extends DCLogic {
       this.mkItem('Reset current file',()=>{ this.tabRegen(); this.resetRegen(); },{danger:true})
     ];
     const U=[
+      this.mkItem('Ruler (1 px = 1 m)',()=>{ if(has) this.toggleRuler(); },{check:st.ruler}),
       this.mkItem('Converter tab',()=>this.tabConvert(),{check:st.mainTab==='convert'}),
       this.mkItem('Objects (areadata) tab',()=>this.tabObjects(),{check:st.mainTab==='objects'}),
       this.mkItem('Export areadata .txt',()=>this.exportAreadata()),
       this.mkItem('About MapForge',()=>this.setState({statusText:'MapForge web · Metin2 map editor'}))
     ];
-    return [['file','File',F],['edit','Edit',E],['map','Map',M],['attr','Server Attr',A],['regen','Regen',R],['util','Utility',U]]
+    return [['file','File',F],['edit','Edit',E],['map','Map',M],['attr','Server Attr',A],['regen','Regen',R],['util','Tools',U]]
       .map(([key,label,items])=>({ key, label, items, open:st.menu===key, style:this.menuBtnStyle(st.menu===key), onClick:()=>this.toggleMenu(key) }));
   }
 
