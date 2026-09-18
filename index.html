@@ -153,6 +153,13 @@
             <button onClick="{{ exportLayerPNG }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:9px;font:500 12px 'IBM Plex Sans';cursor:pointer">Export PNG</button>
             <button onClick="{{ importPng }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:9px;font:500 12px 'IBM Plex Sans';cursor:pointer">Import PNG</button>
           </div>
+          <div style="font-family:'Cinzel',serif;color:#c9a24b;font-size:12px;letter-spacing:.5px;margin:18px 0 10px">ALL LAYERS</div>
+          <div style="display:flex;gap:6px">
+            <button onClick="{{ exportAllPNG }}" title="One PNG per layer, zipped" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:9px;font:500 12px 'IBM Plex Sans';cursor:pointer">Export all PNG</button>
+            <button onClick="{{ importAllPNG }}" title="Pick PNG files and/or a .zip" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:9px;font:500 12px 'IBM Plex Sans';cursor:pointer">Import all PNG</button>
+          </div>
+          <button onClick="{{ importAllPNGFolder }}" style="width:100%;margin-top:6px;border:1px solid #3a2c1a;background:transparent;color:#a08b5f;border-radius:6px;padding:7px;font:500 11px 'IBM Plex Sans';cursor:pointer">…or import all from a folder</button>
+          <div class="mono" style="margin-top:8px;font-size:10px;color:#6b5a3c;line-height:1.6">Export writes one PNG per layer into a .zip. Import takes PNG files, a .zip or a folder — in any mix, also by drag and drop — and tells the layers apart by the file name (<b>minimap</b>, <b>height</b>, <b>tile</b>, <b>shadow</b>, <b>attribute</b>), so you can swap them all at once or only some.</div>
           <div class="mono" style="margin-top:8px;font-size:10px;color:#6b5a3c;line-height:1.6">Import decodes a full-map PNG (cols×256 by rows×256) back into the current layer's per-sector files. Minimap is lossless; height/tile/shadow/attribute are approximate. Edits are written into <b>Export map (.zip)</b>.</div>
         </div>
       </sc-if>
@@ -317,7 +324,7 @@
     <div style="position:fixed;inset:0;z-index:200;background:rgba(10,7,4,.6);display:flex;align-items:center;justify-content:center">
       <div style="width:360px;background:#1c140d;border:1px solid #4a3820;border-radius:10px;box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden">
         <div style="padding:18px 20px 6px;font-family:'Cinzel',serif;color:#e8cf8f;font-size:15px">{{ confirmTitle }}</div>
-        <div style="padding:0 20px 18px;color:#c9b89a;font-size:13px;line-height:1.55">{{ confirmMsg }}</div>
+        <div style="padding:0 20px 18px;color:#c9b89a;font-size:13px;line-height:1.55;white-space:pre-wrap">{{ confirmMsg }}</div>
         <div style="display:flex;gap:8px;padding:0 16px 16px;justify-content:flex-end">
           <button onClick="{{ confirmNo }}" style="border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:8px 16px;font:500 12px 'IBM Plex Sans';cursor:pointer" style-hover="filter:brightness(1.2)">Cancel</button>
           <button onClick="{{ confirmYes }}" style="{{ confirmBtnStyle }}" style-hover="filter:brightness(1.1)">{{ confirmYesLabel }}</button>
@@ -330,6 +337,8 @@
   <input ref="{{ regenInputRef }}" type="file" accept=".txt" onChange="{{ onRegenInput }}" style="display:none">
   <input ref="{{ regenDirInputRef }}" type="file" webkitdirectory="" directory="" multiple="" onChange="{{ onRegenDirInput }}" style="display:none">
   <input ref="{{ namesInputRef }}" type="file" accept=".txt" onChange="{{ onNamesInput }}" style="display:none">
+  <input ref="{{ pngAllInputRef }}" type="file" accept=".png,.zip,image/png,application/zip" multiple="" onChange="{{ onPngAllInput }}" style="display:none">
+  <input ref="{{ pngDirInputRef }}" type="file" webkitdirectory="" directory="" multiple="" onChange="{{ onPngAllInput }}" style="display:none">
   <input ref="{{ pngInputRef }}" type="file" accept="image/png,image/*" onChange="{{ onPngInput }}" style="display:none">
   <input ref="{{ serverAttrInputRef }}" type="file" onChange="{{ onServerAttrInput }}" style="display:none">
   <input ref="{{ tsInputRef }}" type="file" accept=".txt" onChange="{{ onTsInput }}" style="display:none">
@@ -428,6 +437,7 @@ class Component extends DCLogic {
   canvasRef = el => this.canvas = el;
   viewRef = el => this.view = el;
   inputRef = el => this.input = el;
+  pngAllInputRef = el => this.pngAllInput = el; pngDirInputRef = el => this.pngDirInput = el;
   regenInputRef = el => this.regenInput = el;
   namesInputRef = el => this.namesInput = el;
   regenDirInputRef = el => this.regenDirInput = el;
@@ -826,6 +836,7 @@ class Component extends DCLogic {
     // not a map: spawn files dropped loose, or a server-side folder holding them at its top level — and/or a mob_names.txt
     const wanted = new Set(Object.values(REGEN_FILES)), top = {}; let names = null;
     for (const k of keys) { if (k.split('/').length > 2) continue; if (wanted.has(base(k))) top[base(k)] = out[k]; else if (base(k) === 'mob_names.txt') names = out[k]; }
+    const imgs = keys.filter(k => /\.(png|zip)$/i.test(k)); if (imgs.length && !this.state.empty && !Object.keys(top).length && !names) { await this.importLayerFiles(imgs.map(k => Object.assign(out[k], { _path: k }))); return; }
     if (names) await this.loadNamesFile(names);
     if (Object.keys(top).length) await this.applyRegenFolder(top, folder || '');
     else if (!names) this.loadFiles(out, folder);
@@ -1147,7 +1158,12 @@ class Component extends DCLogic {
     const file=e.target.files&&e.target.files[0]; e.target.value=''; if(!file) return;
     const layer=this.state.layer;
     if(layer==='water'){ this.setState({statusText:'water PNG import not supported (needs layer heights)'}); return; }
-    const img=await createImageBitmap(file);
+    const n=this.importLayerBitmap(layer,await createImageBitmap(file));
+    this.setState({statusText:'imported '+layer+' from PNG → '+n+' sectors (in .zip on export)'});
+    this.renderLayer();
+  }
+  // cut a full-map image into sectors and re-encode them as this layer's files; returns the number of sectors written
+  importLayerBitmap(layer,img){
     const b=this.bounds; const cols=b.maxx-b.minx+1, rows=b.maxy-b.miny+1;
     const off=document.createElement('canvas'); off.width=cols*TILE; off.height=rows*TILE;
     const ctx=off.getContext('2d'); ctx.imageSmoothingEnabled=false; ctx.drawImage(img,0,0,off.width,off.height);
@@ -1160,8 +1176,75 @@ class Component extends DCLogic {
       delete this.cache[layer+':'+c]; if(layer==='attribute') delete this.cache['hl:'+c];
       n++;
     }
-    this.setState({statusText:'imported '+layer+' from PNG → '+n+' sectors (in .zip on export)'});
-    this.renderLayer();
+    return n;
+  }
+
+  // ================= all layers at once =================
+  // Which layer a file is, from its name: a whole word wins (map_height.png, the last one if several), else a substring. null = not a layer.
+  layerOfName(name){
+    const base=String(name).toLowerCase().split('/').pop().replace(/\.[a-z0-9]+$/,''), words=base.split(/[^a-z0-9]+/);
+    const keys=[['minimap',['minimap']],['height',['height','heightmap']],['tile',['tile','tiles','texture','textures']],['shadow',['shadow','shadowmap','shadows']],['attribute',['attribute','attributes','attr']],['water',['water']]];
+    for(let i=words.length-1;i>=0;i--) for(const [layer,names] of keys) if(names.includes(words[i])) return layer;   // last word wins: the export names files <mapname>_<layer>.png, and a map name may itself contain a layer word
+    for(const [layer,names] of keys) if(names.some(nm=>base.includes(nm))) return layer;
+    return null;
+  }
+  async exportAllPNG(){
+    if(!this.sectorList.length){ this.setState({statusText:'load a map first'}); return; }
+    const root=(this.state.info.name||'map'), entries=[], done=[], empty=[];
+    for(const [layer] of LAYER_DEFS){
+      this.setState({statusText:'rendering '+layer+'…'});
+      const r=await this.renderLayerCanvas(layer,false); if(!r.drawn){ empty.push(layer); continue; }
+      const blob=await new Promise(res=>r.canvas.toBlob(res,'image/png')); if(!blob){ empty.push(layer); continue; }
+      entries.push({name:root+'_'+layer+'.png',data:new Uint8Array(await blob.arrayBuffer())}); done.push(layer);
+    }
+    if(!entries.length){ this.setState({statusText:'nothing to export — no layer has data'}); return; }
+    const zipName=root+'-layers-'+this.fileStamp()+'.zip'; this.download(zipName,this.buildZip(entries));
+    this.setState({statusText:'exported '+done.join(', ')+' → '+zipName+(empty.length?' · no data: '+empty.join(', '):'')});
+  }
+  importAllPNG(){ if(this.state.empty){ this.setState({statusText:'load a map first'}); return; } this.pngAllInput.click(); }
+  async importAllPNGFolder(){
+    if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
+    if(window.showDirectoryPicker){ try{ const dir=await window.showDirectoryPicker(); const out={}; await this.walkHandle(dir,'',out); await this.importLayerFiles(Object.values(out)); } catch(e){ if(e && e.name!=='AbortError') this.pngDirInput.click(); } }
+    else this.pngDirInput.click();
+  }
+  async onPngAllInput(e){ const files=Array.from(e.target.files||[]); e.target.value=''; if(files.length) await this.importLayerFiles(files); }
+  // Read a .zip: stored and deflated entries (the two every tool writes). Returns [{name,data:Uint8Array}] for the .png entries.
+  async unzipPngs(file){
+    const u8=new Uint8Array(await file.arrayBuffer()), dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength), out=[]; let eocd=-1;
+    for(let i=u8.length-22;i>=Math.max(0,u8.length-22-65535);i--) if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; }
+    if(eocd<0) throw new Error(file.name+' is not a zip file');
+    let p=dv.getUint32(eocd+16,true); const count=dv.getUint16(eocd+10,true), dec=new TextDecoder();
+    for(let n=0;n<count && p+46<=u8.length;n++){
+      if(dv.getUint32(p,true)!==0x02014b50) break;
+      const method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), lo=dv.getUint32(p+42,true);
+      const name=dec.decode(u8.subarray(p+46,p+46+nl)); p+=46+nl+el+cl;
+      if(!/\.png$/i.test(name) || /(^|\/)(__macosx\/|\._)/i.test(name)) continue;
+      const start=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true), raw=u8.subarray(start,start+csize);
+      if(method===0) out.push({name,data:raw});
+      else if(method===8 && typeof DecompressionStream!=='undefined') out.push({name,data:new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer())});
+      else out.push({name,skip:'compression not supported by this browser'});
+    }
+    return out;
+  }
+  // PNG files, zips and whatever else came along, in any mix → one image per layer. Layer imports are not covered by undo, so ask first.
+  async importLayerFiles(files){
+    if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
+    const picked=new Map(), skipped=[];
+    const take=(name,blob)=>{ const layer=this.layerOfName(name); if(!layer){ skipped.push(name.split('/').pop()+' (no layer in the name)'); return; } if(layer==='water'){ skipped.push(name.split('/').pop()+' (water import not supported)'); return; } if(picked.has(layer)) skipped.push(picked.get(layer).name.split('/').pop()+' (replaced by '+name.split('/').pop()+')'); picked.set(layer,{name,blob}); };
+    for(const f of files){ const nm=(f.webkitRelativePath||f.name||'');
+      if(/\.zip$/i.test(nm)){ try{ for(const en of await this.unzipPngs(f)){ if(en.skip) skipped.push(en.name.split('/').pop()+' ('+en.skip+')'); else take(en.name,new Blob([en.data],{type:'image/png'})); } } catch(err){ skipped.push(nm.split('/').pop()+' ('+((err&&err.message)||'unreadable zip')+')'); } }
+      else if(/\.png$/i.test(nm)) take(nm,f);
+    }
+    if(!picked.size){ this.setState({statusText:'no layer PNG found'+(skipped.length?' · skipped: '+skipped.join(', '):' — name the files after their layer, e.g. map_height.png')}); return; }
+    const order=LAYER_DEFS.map(l=>l[0]).filter(l=>picked.has(l));
+    this.askConfirm('Replace '+order.length+' layer'+(order.length>1?'s':'')+' from the picked files?\n\n'+order.map(l=>l+'  ←  '+picked.get(l).name.split('/').pop()).join('\n')+'\n\nThis is not covered by undo.',async()=>{
+      const b=this.bounds, W=(b.maxx-b.minx+1)*TILE, H=(b.maxy-b.miny+1)*TILE, done=[], odd=[];
+      for(const layer of order){ this.setState({statusText:'importing '+layer+'…'});
+        try{ const img=await createImageBitmap(picked.get(layer).blob); if(img.width!==W||img.height!==H) odd.push(layer+' '+img.width+'×'+img.height); const n=this.importLayerBitmap(layer,img); done.push(layer+' ('+n+')'); }
+        catch(err){ skipped.push(picked.get(layer).name.split('/').pop()+' (not a readable image)'); } }
+      this.setState({statusText:'imported '+(done.join(', ')||'nothing')+(odd.length?' · scaled to '+W+'×'+H+': '+odd.join(', '):'')+(skipped.length?' · skipped: '+skipped.join(', '):'')+' · in the .zip on export'});
+      this.renderLayer();
+    },{title:'Import all layers',yes:'Replace',safe:false});
   }
 
   // ================= zip =================
@@ -1907,16 +1990,20 @@ class Component extends DCLogic {
   skippedNote(){ const n=this._regenSkipped||0; return n?' — skipped '+n+' row'+(n>1?'s':'')+' with an unknown type letter':''; }
   resetRegen(){ const tab=this.state.regenTab; const n=this.currentRows().length; if(!n){ this.regen[tab]=[]; this.refreshRows(); return; } this.askConfirm('Remove all '+n+' spawn(s) from '+REGEN_FILES[tab]+'?',()=>{ this.pushUndo('reset '+REGEN_FILES[tab],[{kind:'regen',key:tab}]); this.regen[tab]=[]; this.selRow=-1; this.selSet.clear(); this.refreshRows(); this.draw(); this.setState({statusText:REGEN_FILES[tab]+' reset'}); },{title:'Reset '+REGEN_FILES[tab],yes:'Reset all'}); }
   exportRegen(){ const txt=this.serializeRegen(this.currentRows()); this.download(REGEN_FILES[this.state.regenTab], new Blob([txt],{type:'text/plain'})); this.setState({statusText:'exported '+REGEN_FILES[this.state.regenTab]+this.trapNote(this.countRespTraps(this.currentRows()))}); }
-  async exportLayerPNG(){
-    if(!this.sectorList.length) return;
-    const layer=this.state.layer, b=this.bounds;
-    const cols=b.maxx-b.minx+1, rows=b.maxy-b.miny+1;
+  // the whole map for one layer on an offscreen canvas; drawn = how many sectors actually had data
+  async renderLayerCanvas(layer,withHighlight){
+    const b=this.bounds, cols=b.maxx-b.minx+1, rows=b.maxy-b.miny+1; let drawn=0;
     const off=document.createElement('canvas'); off.width=cols*TILE; off.height=rows*TILE;
     const ctx=off.getContext('2d'); ctx.imageSmoothingEnabled=false;
     ctx.fillStyle='#120d08'; ctx.fillRect(0,0,off.width,off.height);
-    for(const c of this.sectorList){ let bmp=this.cache[layer+':'+c]; if(!bmp){ bmp=await this.buildSector(layer,c); if(bmp) this.cache[layer+':'+c]=bmp; } if(!bmp) continue; const x=(+c.slice(0,3)-b.minx)*TILE, y=(+c.slice(3,6)-b.miny)*TILE; ctx.drawImage(bmp,x,y,TILE,TILE); }
-    if(this.state.highlight){ for(const c of this.sectorList){ const bmp=this.cache['hl:'+c]; if(!bmp) continue; const x=(+c.slice(0,3)-b.minx)*TILE, y=(+c.slice(3,6)-b.miny)*TILE; ctx.drawImage(bmp,x,y,TILE,TILE); } }
-    off.toBlob(bl=>{ if(bl) this.download((this.state.info.name||'map')+'_'+layer+'.png', bl); });
+    for(const c of this.sectorList){ let bmp=this.cache[layer+':'+c]; if(!bmp){ bmp=await this.buildSector(layer,c); if(bmp) this.cache[layer+':'+c]=bmp; } if(!bmp) continue; drawn++; const x=(+c.slice(0,3)-b.minx)*TILE, y=(+c.slice(3,6)-b.miny)*TILE; ctx.drawImage(bmp,x,y,TILE,TILE); }
+    if(withHighlight){ for(const c of this.sectorList){ const bmp=this.cache['hl:'+c]; if(!bmp) continue; const x=(+c.slice(0,3)-b.minx)*TILE, y=(+c.slice(3,6)-b.miny)*TILE; ctx.drawImage(bmp,x,y,TILE,TILE); } }
+    return {canvas:off,drawn};
+  }
+  async exportLayerPNG(){
+    if(!this.sectorList.length) return;
+    const layer=this.state.layer, r=await this.renderLayerCanvas(layer,this.state.highlight);
+    r.canvas.toBlob(bl=>{ if(bl) this.download((this.state.info.name||'map')+'_'+layer+'.png', bl); });
   }
   download(name,blob){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
 
@@ -2037,7 +2124,7 @@ class Component extends DCLogic {
       highlightStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,
       statusText:st.statusText,
       iMapName:info.name, iDims:info.dims, iSectors:info.sectors, iBase:info.base, iCell:info.cell, iHeight:info.height, iView:info.view, iTex:info.tex, iEnv:info.env,
-      openFolder:()=>this.openFolder(), onInput:(e)=>this.onInput(e), onRegenInput:(e)=>this.onRegenInput(e), onNamesInput:(e)=>this.onNamesInput(e), onRegenDirInput:(e)=>this.onRegenDirInput(e), loadRegenFolder:()=>this.loadRegenFolder(), onPngInput:(e)=>this.onPngInput(e),
+      openFolder:()=>this.openFolder(), onInput:(e)=>this.onInput(e), onRegenInput:(e)=>this.onRegenInput(e), onNamesInput:(e)=>this.onNamesInput(e), onRegenDirInput:(e)=>this.onRegenDirInput(e), loadRegenFolder:()=>this.loadRegenFolder(), onPngInput:(e)=>this.onPngInput(e), onPngAllInput:(e)=>this.onPngAllInput(e), exportAllPNG:()=>this.exportAllPNG(), importAllPNG:()=>this.importAllPNG(), importAllPNGFolder:()=>this.importAllPNGFolder(),
       serverAttrInputRef:this.serverAttrInputRef, onServerAttrInput:(e)=>this.onServerAttrInput(e),
       toggleHighlight:()=>this.toggleHighlight(), tabConvert:()=>this.tabConvert(), tabRegen:()=>this.tabRegen(), tabObjects:()=>this.tabObjects(),
       zoomIn:()=>this.zoomIn(), zoomOut:()=>this.zoomOut(), fitView:()=>this.fitView(),
@@ -2050,7 +2137,7 @@ class Component extends DCLogic {
       updateObjBtnStyle:`flex:1;border:1px solid ${st.objDirty?'#c9a24b':'#4a3820'};background:${st.objDirty?'#c9a24b':'#241a11'};color:${st.objDirty?'#1a1209':'#c9b567'};border-radius:5px;padding:8px;font:${st.objDirty?600:500} 11px 'IBM Plex Sans';cursor:pointer`,
       onSectorPick:(e)=>this.onSectorPick(e), addObj:()=>this.addObj(), updateObj:()=>this.updateObj(), exportAreadata:()=>this.exportAreadata(),
       startResize:(e)=>this.startResize(e), inspectorRef:this.inspectorRef,
-      rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, namesInputRef:this.namesInputRef, regenDirInputRef:this.regenDirInputRef, pngInputRef:this.pngInputRef,
+      rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, namesInputRef:this.namesInputRef, regenDirInputRef:this.regenDirInputRef, pngInputRef:this.pngInputRef, pngAllInputRef:this.pngAllInputRef, pngDirInputRef:this.pngDirInputRef,
       coordRef:this.coordRef, zoomRef:this.zoomRef, layerInfoRef:this.layerInfoRef, emptyRowsRef:this.emptyRowsRef, emptyObjRef:this.emptyObjRef, dropHintRef:this.dropHintRef, oSectorRef:this.oSectorRef,
       fType:this.fType, fVnum:this.fVnum, fSx:this.fSx, fSy:this.fSy, fDir:this.fDir, fResp:this.fResp, fPerc:this.fPerc, fCount:this.fCount, fX:this.fX, fY:this.fY,
       vnumNameOn:!!st.vnumName, vnumName:st.vnumName, nameHeadStyle:nameCol,

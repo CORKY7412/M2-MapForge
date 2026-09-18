@@ -69,6 +69,8 @@ Per-sector `areadata.txt` editor:
 - **Export map (.zip)** — saved as `<mapname>-YYYYMMDD-HHMMSS.zip` (local time), so every export keeps its own file; the folder inside is still plain `<mapname>`. Re-zips every original file verbatim and rewrites the files you edited (regen/boss/stone/npc, areadata, generated `server_attr`, imported layers). Uses a built-in ZIP writer + CRC32, no external library.
 - **Export PNG** — renders the whole current layer to a full-resolution PNG (cols×256 by rows×256).
 - **Import PNG** — decodes a full-map PNG back into the current layer's per-sector files. Minimap and tile round-trip losslessly / index-exact; height, shadow and attribute are approximate; water is not supported.
+- **Export all PNG** — one full-resolution PNG per layer (`<mapname>_<layer>.png`) in `<mapname>-layers-YYYYMMDD-HHMMSS.zip`; layers without data are left out.
+- **Import all PNG** — swap several layers at once. Pick PNG files and/or a `.zip`, pick a folder, or drag and drop any mix onto the page; the layer is read from the file name (`minimap`, `height`, `tile`, `shadow`, `attribute`, also `attr` / `heightmap` / `shadowmap`; with several matches the last word wins, so `<mapname>_<layer>.png` always works). Only the layers found are replaced, a prompt lists them first (layer imports are not covered by undo), images of another size are scaled to the map, and water is skipped. Zips from other tools (deflate) are read too.
 
 ### Group selection (Regen and Objects)
 Hold **Ctrl** (**Cmd** on macOS) to work on several spawns or objects at once; plain left-drag still pans the map.
