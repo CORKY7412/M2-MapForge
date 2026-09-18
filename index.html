@@ -641,6 +641,28 @@ class Component extends DCLogic {
     this.fillRowForm(); this.refreshRows(); this.draw();
   }
 
+  // Name labels for the mob markers in view → [{x,y,lines[],sel,more}].
+  // Markers only share a label when their labels would land on top of each other: a cell is about one label big (110 × 18 px on
+  // screen), so spawns stacked on one spot become "Wild Dog × 300" while spawns that are merely near each other keep their own.
+  // The label hangs on a real marker of the group (the one nearest its middle), never in the empty space between markers.
+  // Cells are anchored to the map, so panning never reshuffles a group, and whole cells are taken, including their off-screen
+  // part, so a number does not change as the cell slides into view.
+  // The number is how many mobs those rows place: the count column added up (one row with count 56 reads "× 56").
+  nameLabels(rows,ms){
+    const cv=this.canvas, z=this.zoom, cw=110/z, ch=18/z;
+    const cx0=Math.floor((-this.ox/z)/cw)-1, cy0=Math.floor((-this.oy/z)/ch)-1, cx1=Math.floor(((cv.width-this.ox)/z)/cw), cy1=Math.floor(((cv.height-this.oy)/z)/ch)+1;
+    const cells=new Map(), out=[];   // a selected spawn stays in its group count; it only turns that label white
+    rows.forEach((r,i)=>{ if(r.type[0]!=='m') return; const gx=Math.floor(r.x/cw), gy=Math.floor(r.y/ch); if(gx<cx0||gx>cx1||gy<cy0||gy>cy1) return;
+      const nm=this.mobName(r.type,r.vnum); if(!nm) return;
+      const key=gx+','+gy; let cell=cells.get(key); if(!cell) cells.set(key,cell={by:new Map(),pts:[],sel:false}); cell.pts.push(r); if(i===this.selRow||this.selSet.has(r)) cell.sel=true; let g=cell.by.get(nm); if(!g) cell.by.set(nm,g={n:0}); g.n+=(+r.count||1); });
+    const MAXL=5;
+    for(const cell of cells.values()){ const gs=[...cell.by.entries()].sort((p,q)=>q[1].n-p[1].n||(p[0]<q[0]?-1:1)), P=cell.pts;
+      const mx=P.reduce((a,r)=>a+r.x,0)/P.length, my=P.reduce((a,r)=>a+r.y,0)/P.length; let at=P[0], bd=Infinity; for(const r of P){ const d=(r.x-mx)*(r.x-mx)+(r.y-my)*(r.y-my); if(d<bd){ bd=d; at=r; } }
+      const lines=gs.slice(0,MAXL).map(([nm,g])=>nm+(g.n>1?' × '+g.n.toLocaleString('en-US'):'')), more=gs.length>MAXL; if(more) lines.push('+ '+(gs.length-MAXL)+' more');
+      out.push({x:at.x+ms*1.6,y:at.y-ms*1.6,lines,sel:cell.sel,more}); }
+    return out.sort((p,q)=>(p.sel?1:0)-(q.sel?1:0));
+  }
+
   // ================= mob names (optional) =================
   // Regen › Load mob_names.txt… — a `vnum<TAB>name` list. Purely cosmetic: names show in the spawn list, under the Vnum field, next to
   // selected markers and in the stats panel. Only mob rows are named (m / ma / s); for g / r rows the vnum column is a group id.
@@ -1720,14 +1742,11 @@ class Component extends DCLogic {
           ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(hx-dv.x*hw*1.6-dv.y*hw,hy-dv.y*hw*1.6+dv.x*hw); ctx.lineTo(hx-dv.x*hw*1.6+dv.y*hw,hy-dv.y*hw*1.6-dv.x*hw); ctx.closePath(); ctx.fill(); }
         if(r.sx>0||r.sy>0){ ctx.strokeStyle=sel?'#ffffff':col; ctx.lineWidth=1/this.zoom; ctx.strokeRect(cx-r.sx,cy-r.sy,r.sx*2,r.sy*2); }
       });
-      // mob names next to every mob marker in view (selected ones brighter). Past NAME_CAP labels in view they would only smear
-      // into each other and slow the redraw, so only the selected ones are labelled until you zoom in.
-      if(this.mobNames.size && this.state.mapNames){ const NAME_CAP=400, cv=this.canvas, fs=11/this.zoom, pad=ms*3;
-        const vx0=-this.ox/this.zoom-pad, vy0=-this.oy/this.zoom-pad, vx1=(cv.width-this.ox)/this.zoom+pad, vy1=(cv.height-this.oy)/this.zoom+pad;
-        const vis=[]; rows.forEach((r,i)=>{ if(r.type[0]!=='m'||r.x<vx0||r.x>vx1||r.y<vy0||r.y>vy1) return; const nm=this.mobName(r.type,r.vnum); if(nm) vis.push({r,nm,sel:(i===this.selRow||this.selSet.has(r))}); });
-        const list=vis.length>NAME_CAP?vis.filter(v=>v.sel).slice(0,NAME_CAP):vis;
+      // Mob names on the map: one label per marker, except where labels would pile up on the same spot — those spawns share one,
+      // "Wild Dog × 300", with different mobs of that spot stacked below each other. See nameLabels().
+      if(this.mobNames.size && this.state.mapNames){ const fs=11/this.zoom, lh=fs*1.3;
         ctx.font='500 '+fs+"px 'IBM Plex Sans',sans-serif"; ctx.textBaseline='middle'; ctx.lineWidth=3/this.zoom; ctx.strokeStyle='rgba(18,13,8,.9)';
-        for(const v of list.sort((p,q)=>(p.sel?1:0)-(q.sel?1:0))){ const tx=v.r.x+ms*1.6, ty=v.r.y-ms*1.6; ctx.strokeText(v.nm,tx,ty); ctx.fillStyle=v.sel?'#ffffff':'#e6d3a1'; ctx.fillText(v.nm,tx,ty); }
+        for(const lb of this.nameLabels(rows,ms)){ lb.lines.forEach((ln,k)=>{ const ty=lb.y+k*lh; ctx.strokeText(ln,lb.x,ty); ctx.fillStyle=lb.sel?'#ffffff':(k===lb.lines.length-1&&lb.more?'#a08b5f':'#e6d3a1'); ctx.fillText(ln,lb.x,ty); }); }
         ctx.textBaseline='alphabetic'; }
       const hs=3.5/this.zoom; ctx.lineWidth=1/this.zoom;
       for(const h of this.rangeHandles()){ ctx.fillStyle='#ffffff'; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.fillRect(h.x-hs,h.y-hs,hs*2,hs*2); ctx.strokeRect(h.x-hs,h.y-hs,hs*2,hs*2); }
