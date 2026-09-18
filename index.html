@@ -170,10 +170,13 @@
               <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Dir</div><div class="spin"><input ref="{{ fDir }}" class="mono" defaultValue="0" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"><div class="spin-btns"><button onClick="{{ dirUp }}" title="+1 (Shift +10)">▲</button><button onClick="{{ dirDown }}" title="−1 (Shift −10)">▼</button></div></div></div>
             </div>
             <div style="display:flex;gap:7px">
-              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Respawn</div><div class="spin"><input ref="{{ fResp }}" class="mono" defaultValue="1m" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"><div class="spin-btns"><button onClick="{{ respUp }}" title="+1 (Shift +10)">▲</button><button onClick="{{ respDown }}" title="−1 (Shift −10)">▼</button></div></div></div>
+              <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Respawn</div><div class="spin"><input ref="{{ fResp }}" class="mono" defaultValue="1m" title="{{ respWarnMsg }}" style="{{ respFieldStyle }}"><sc-if value="{{ respWarnOn }}" hint-placeholder-val="{{ false }}"><span title="{{ respWarnMsg }}" style="{{ respIconStyle }}">⚠</span></sc-if><div class="spin-btns"><button onClick="{{ respUp }}" title="+1 (Shift +10)">▲</button><button onClick="{{ respDown }}" title="−1 (Shift −10)">▼</button></div></div></div>
               <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Percent</div><div class="spin"><input ref="{{ fPerc }}" class="mono" defaultValue="100" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"><div class="spin-btns"><button onClick="{{ percUp }}" title="+1 (Shift +10)">▲</button><button onClick="{{ percDown }}" title="−1 (Shift −10)">▼</button></div></div></div>
               <div style="flex:1"><div style="color:#8a744c;font-size:10px;margin-bottom:3px">Count</div><input ref="{{ fCount }}" class="mono" defaultValue="1" style="width:100%;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:6px 8px;color:#d8c9a8;text-align:center"></div>
             </div>
+            <sc-if value="{{ respWarnOn }}" hint-placeholder-val="{{ false }}">
+              <div class="mono" style="{{ respWarnStyle }}">⚠ {{ respWarnMsg }}</div>
+            </sc-if>
             <div class="mono" style="margin-top:8px;font-size:10.5px;color:#8a744c">Click the map to place · drag a marker to move it · <b style="color:#d8c9a8">Shift</b>+click to place on top of one · click a row to load it here, edit, then <b style="color:#c9b567">Update</b> or <b style="color:#d8c9a8">Enter</b> · <b style="color:#d8c9a8">↑↓</b> step the numeric fields (Shift ×10).</div>
           </div>
 
@@ -185,11 +188,11 @@
 
           <div style="flex:1;overflow:auto;margin:0 12px;border:1px solid #3a2c1a;border-radius:6px;background:#120d08">
             <div class="mono" style="display:flex;position:sticky;top:0;background:#241a11;color:#8a744c;font-size:10px;border-bottom:1px solid #3a2c1a">
-              <span style="width:36px;padding:5px 6px">Type</span><span style="width:66px;padding:5px 6px">Vnum</span><span style="width:42px;padding:5px 6px">X</span><span style="width:42px;padding:5px 6px">Y</span><span style="width:50px;padding:5px 6px">Resp</span><span style="width:30px;padding:5px 6px">Sx</span><span style="width:30px;padding:5px 6px">Sy</span><span style="width:28px;padding:5px 6px">Dir</span><span style="width:34px;padding:5px 6px">%</span><span style="width:36px;padding:5px 6px">Cnt</span><span style="width:30px;padding:5px 6px"></span>
+              <span style="width:36px;padding:5px 6px">Type</span><span style="width:66px;padding:5px 6px">Vnum</span><span style="width:42px;padding:5px 6px">X</span><span style="width:42px;padding:5px 6px">Y</span><span style="width:58px;padding:5px 6px">Resp</span><span style="width:30px;padding:5px 6px">Sx</span><span style="width:30px;padding:5px 6px">Sy</span><span style="width:28px;padding:5px 6px">Dir</span><span style="width:34px;padding:5px 6px">%</span><span style="width:36px;padding:5px 6px">Cnt</span><span style="width:30px;padding:5px 6px"></span>
             </div>
             <sc-for list="{{ rows }}" as="R" hint-placeholder-count="0">
               <div onClick="{{ R.onClick }}" class="mono" style="{{ R.style }}">
-                <span style="width:36px;padding:5px 6px">{{ R.type }}</span><span style="width:66px;padding:5px 6px">{{ R.vnum }}</span><span style="width:42px;padding:5px 6px">{{ R.x }}</span><span style="width:42px;padding:5px 6px">{{ R.y }}</span><span style="width:50px;padding:5px 6px">{{ R.resp }}</span><span style="width:30px;padding:5px 6px">{{ R.sx }}</span><span style="width:30px;padding:5px 6px">{{ R.sy }}</span><span style="width:28px;padding:5px 6px">{{ R.dir }}</span><span style="width:34px;padding:5px 6px">{{ R.perc }}</span><span style="width:36px;padding:5px 6px">{{ R.count }}</span><span onClick="{{ R.onDelete }}" style="width:30px;padding:5px 6px;color:#b5573f;cursor:pointer;text-align:center">&times;</span>
+                <span style="width:36px;padding:5px 6px">{{ R.type }}</span><span style="width:66px;padding:5px 6px">{{ R.vnum }}</span><span style="width:42px;padding:5px 6px">{{ R.x }}</span><span style="width:42px;padding:5px 6px">{{ R.y }}</span><span title="{{ R.respTitle }}" style="{{ R.respStyle }}">{{ R.respText }}</span><span style="width:30px;padding:5px 6px">{{ R.sx }}</span><span style="width:30px;padding:5px 6px">{{ R.sy }}</span><span style="width:28px;padding:5px 6px">{{ R.dir }}</span><span style="width:34px;padding:5px 6px">{{ R.perc }}</span><span style="width:36px;padding:5px 6px">{{ R.count }}</span><span onClick="{{ R.onDelete }}" style="width:30px;padding:5px 6px;color:#b5573f;cursor:pointer;text-align:center">&times;</span>
               </div>
             </sc-for>
             <div ref="{{ emptyRowsRef }}" class="mono" style="padding:14px;color:#5a4a30;font-size:11px;text-align:center">no spawns in this file</div>
@@ -313,6 +316,28 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;},&quot;showSectorGrid&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;View&quot;},&quot;markerScale&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.5,&quot;max&quot;:3,&quot;step&quot;:0.5,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;View&quot;},&quot;normalizeWater&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Merge&quot;}}">
 const TILE = 256;
+// ---- regen time column: how the server really reads it (docs/mapformat/server-regen.md) ----
+// digits accumulate, h/m/s flush them into the total, every other char is skipped, a trailing number is dropped
+function serverRegenSecs(text){ let time=0,tmp=0; for(const c of String(text)){ if(c>='0'&&c<='9') tmp=tmp*10+(+c); else if(c==='h'){ time+=tmp*3600; tmp=0; } else if(c==='m'){ time+=tmp*60; tmp=0; } else if(c==='s'){ time+=tmp; tmp=0; } } return time; }
+function fmtSecs(t){ return t<=0?'0':[['h',3600],['m',60],['s',1]].map(([u,n])=>{ const v=Math.floor(t/n); t-=v*n; return v?v+u:''; }).join(''); }
+const RESP_MAX_SAFE=20000*3600, RESP_CEILING=85899000, _respTrapCache=new Map();
+// null when the tag is safe, else {sev:'red'|'amber', msg}
+function respTrap(text){
+  const k=String(text); if(_respTrapCache.has(k)) return _respTrapCache.get(k);
+  const t=k.trim(), secs=serverRegenSecs(t), q='"'+t+'"'; let w=null;
+  if(/\s/.test(t)) w={sev:'amber',msg:'space inside '+q+' would split the row and stop the server booting — removed on export'};
+  else if(!/^(\d+[smh])+$/.test(t)){
+    const why=!t?'empty':/^\d+$/.test(t)?'no unit':/\d$/.test(t)?'trailing number dropped':/[HMS]/.test(t)&&!/[^0-9hmsHMS]/.test(t)?'uppercase is not a unit':/d/i.test(t)?'no day unit — use hours':'only digits + h/m/s count';
+    w=secs===0?{sev:'red',msg:'server reads '+q+' as 0 — never spawns ('+why+')'}:{sev:'amber',msg:'server reads '+q+' as '+fmtSecs(secs)+' ('+why+')'};
+  }
+  else if(secs===0) w={sev:'red',msg:q+' is 0 — never spawns on a map'};
+  else if(secs>=RESP_CEILING) w={sev:'red',msg:q+' overflows the server timer — spawns once, never respawns'};
+  else if(secs>RESP_MAX_SAFE) w={sev:'amber',msg:q+' is above the safe maximum (20000h)'};
+  else if(secs===1) w={sev:'amber',msg:q+' refills this line every second — heavy'};
+  if(_respTrapCache.size>5000) _respTrapCache.clear();
+  _respTrapCache.set(k,w); return w;
+}
+
 const LAYER_DEFS = [
   ['minimap','Minimap'],['height','Height'],['tile','Tile'],['shadow','Shadow'],
   ['attribute','Attribute'],['water','Water']
@@ -335,7 +360,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false,
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null,
     mergeOpen:false, mergeMsg:'', mergeInfo:[null,null,null,null]
   };
   pendingConfirm = null;
@@ -518,6 +543,7 @@ class Component extends DCLogic {
     if (!this.sectorList.length){ minx=miny=0;maxx=maxy=0; }
     this.bounds = { minx,miny,maxx,maxy };
     const dimx = s.mapSizeX || (maxx-minx+1), dimy = s.mapSizeY || (maxy-miny+1);
+    this._regenSkipped=0;
     for (const key of Object.keys(REGEN_FILES)) {
       const f = this.getFile(REGEN_FILES[key]);
       this.regen[key] = f ? this.parseRegen(await f.text()) : [];
@@ -531,7 +557,7 @@ class Component extends DCLogic {
     const oSector = firstObj || this.sectorList[0] || '';
     this.selRow = -1; this.selObj = -1;
     this.setState({
-      empty:false, statusText:'loaded', oSector,
+      empty:false, statusText:'loaded'+this.skippedNote(), oSector,
       info:{
         name: this._folderName || 'metin2_map',
         dims: dimx + '×' + dimy,
@@ -571,17 +597,23 @@ class Component extends DCLogic {
       const ci=t.indexOf('//'); if(ci>=0) t=t.slice(0,ci).trim();
       const p=t.split(/[ \t]+/); if(!p.length) continue;
       const type=p[0];
+      if (!/^[mgrse]/.test(type)){ this._regenSkipped=(this._regenSkipped||0)+1; continue; }   // unknown type letter = server exit(1); also drops a stray 0x1A word
       if (type[0]==='e'){ rows.push({type,x:+p[1]||0,y:+p[2]||0,sx:+p[3]||0,sy:+p[4]||0,dir:0,resp:'0',perc:'0',count:0,vnum:0}); continue; }
       rows.push({ type, x:+p[1]||0, y:+p[2]||0, sx:+p[3]||0, sy:+p[4]||0,
         dir:+p[6]||0, resp:p[7]||'1m', perc:p[8]||'100', count:+p[9]||1, vnum:+p[10]||0 });
     }
     return rows;
   }
+  // The server reads regen files as a word stream, not lines: a row is exactly 11 words (6 for 'e'). An empty column or a
+  // space inside one shifts every following word, and the core exits on the first unknown type letter — so each column is
+  // forced to a single non-empty word, numbers to integers, and '//' can never appear inside a value.
   serializeRegen(rows){
+    const word=(v,fb)=>{ const w=String(v==null?'':v).replace(/\s+/g,'').replace(/\/\/+/g,''); return w||fb; };
+    const int=v=>{ const n=Math.trunc(+v); return isFinite(n)?n:0; };
     let out='//type\tcx\tcy\tsx\tsy\tz\tdir\ttime\tpercent\tcount\tvnum\n';
     for (const r of rows){
-      if (r.type[0]==='e'){ out += ['e',r.x,r.y,r.sx,r.sy,0].join('\t')+'\n'; continue; }
-      out += [r.type,r.x,r.y,r.sx,r.sy,0,r.dir,r.resp,r.perc,r.count,r.vnum].join('\t')+'\n';
+      if (r.type[0]==='e'){ out += ['e',int(r.x),int(r.y),int(r.sx),int(r.sy),0].join('\t')+'\n'; continue; }
+      out += [word(r.type,'m'),int(r.x),int(r.y),int(r.sx),int(r.sy),0,int(r.dir),word(r.resp,'1m'),word(r.perc,'100'),int(r.count),int(r.vnum)].join('\t')+'\n';
     }
     return out;
   }
@@ -851,7 +883,7 @@ class Component extends DCLogic {
     }
     const blob=this.buildZip(entries);
     this.download(root+'.zip', blob);
-    this.setState({statusText:'exported '+entries.length+' files → '+root+'.zip'});
+    this.setState({statusText:'exported '+entries.length+' files → '+root+'.zip'+this.trapNote(Object.keys(REGEN_FILES).reduce((n,k)=>n+this.countRespTraps(this.regen[k]),0))});
   }
 
   // ================= merge maps =================
@@ -1395,7 +1427,11 @@ class Component extends DCLogic {
       sx:+(this._sx?this._sx.value:0)||0, sy:+(this._sy?this._sy.value:0)||0, dir:+(this._d?this._d.value:0)||0,
       resp:(this._r?this._r.value:r.resp)||'1m', perc:(this._p?this._p.value:r.perc)||'100', count:+(this._c?this._c.value:1)||1 }; }
   // form differs from the selected row → Update button lights up
-  checkDirty(){ const r=this.currentRows()[this.selRow]; let d=false; if(r){ const v=this.formVals(r); d=Object.keys(v).some(k=>String(v[k])!==String(r[k])); } if(d!==this.state.dirty) this.setState({dirty:d}); }
+  checkDirty(){ const r=this.currentRows()[this.selRow]; let d=false; if(r){ const v=this.formVals(r); d=Object.keys(v).some(k=>String(v[k])!==String(r[k])); } if(d!==this.state.dirty) this.setState({dirty:d}); this.checkResp(); }
+  // respawn field holds a tag the server would misread → warn inline (never blocks)
+  checkResp(){ const isE=this._t&&this._t.value[0]==='e'; const w=(this._r&&!isE)?respTrap(this._r.value):null; const cur=this.state.respWarn; if((w&&w.msg)!==(cur&&cur.msg)) this.setState({respWarn:w}); }
+  countRespTraps(rows){ return (rows||[]).filter(r=>r.type[0]!=='e' && respTrap(r.resp)).length; }
+  trapNote(n){ return n?' — ⚠ '+n+' row'+(n>1?'s have':' has')+' a respawn the server misreads':''; }
   updateRow(){ if(this.selRow<0){ this.setState({statusText:'select a row to update'}); return; } const r=this.currentRows()[this.selRow]; if(!r) return; Object.assign(r,this.formVals(r)); this.setState({statusText:'row updated'}); this.refreshRows(); this.draw(); }
   deleteRow(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); const r=this.currentRows()[i]; if(!r) return; this.askConfirm('Delete this '+r.type+' spawn'+(r.vnum?' (vnum '+r.vnum+')':'')+'?',()=>{ this.currentRows().splice(i,1); if(this.selRow>=i) this.selRow=-1; this.refreshRows(); this.draw(); },{title:'Delete spawn'}); }
 
@@ -1409,9 +1445,10 @@ class Component extends DCLogic {
 
   // ================= import / export =================
   importRegen(){ this.regenInput.click(); }
-  async onRegenInput(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; this.regen[this.state.regenTab]=this.parseRegen(await f.text()); this.selRow=-1; this.refreshRows(); this.draw(); e.target.value=''; }
+  async onRegenInput(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; this._regenSkipped=0; this.regen[this.state.regenTab]=this.parseRegen(await f.text()); this.selRow=-1; this.refreshRows(); this.draw(); e.target.value=''; this.setState({statusText:'imported '+this.currentRows().length+' spawn(s)'+this.skippedNote()}); }
+  skippedNote(){ const n=this._regenSkipped||0; return n?' — skipped '+n+' row'+(n>1?'s':'')+' with an unknown type letter':''; }
   resetRegen(){ const tab=this.state.regenTab; const n=this.currentRows().length; if(!n){ this.regen[tab]=[]; this.refreshRows(); return; } this.askConfirm('Remove all '+n+' spawn(s) from '+REGEN_FILES[tab]+'? This cannot be undone.',()=>{ this.regen[tab]=[]; this.selRow=-1; this.refreshRows(); this.draw(); this.setState({statusText:REGEN_FILES[tab]+' reset'}); },{title:'Reset '+REGEN_FILES[tab],yes:'Reset all'}); }
-  exportRegen(){ const txt=this.serializeRegen(this.currentRows()); this.download(REGEN_FILES[this.state.regenTab], new Blob([txt],{type:'text/plain'})); }
+  exportRegen(){ const txt=this.serializeRegen(this.currentRows()); this.download(REGEN_FILES[this.state.regenTab], new Blob([txt],{type:'text/plain'})); this.setState({statusText:'exported '+REGEN_FILES[this.state.regenTab]+this.trapNote(this.countRespTraps(this.currentRows()))}); }
   async exportLayerPNG(){
     if(!this.sectorList.length) return;
     const layer=this.state.layer, b=this.bounds;
@@ -1477,11 +1514,13 @@ class Component extends DCLogic {
     const cf=st.confirm||{};
     const layers=LAYER_DEFS.map(([k,label])=>({ key:k, label, style:this.chipStyle(st.layer===k), onClick:()=>this.setLayer(k) }));
     const subtabs=Object.keys(REGEN_FILES).map(k=>({ key:k, label:REGEN_FILES[k], style:this.subStyle(st.regenTab===k), onClick:()=>this.setRegenTab(k) }));
-    const rows=this.currentRows().map((r,i)=>({
+    const rows=this.currentRows().map((r,i)=>{ const w=r.type[0]==='e'?null:respTrap(r.resp); return {
+      respText:(w?'⚠':'')+r.resp, respTitle:w?w.msg:'', respStyle:'width:58px;padding:5px 6px'+(w?';font-weight:600;color:'+(w.sev==='red'?'#e0604a':'#e0a93a'):''),
       type:r.type, vnum:r.vnum, x:r.x, y:r.y, resp:r.resp, sx:r.sx, sy:r.sy, dir:r.dir, perc:r.perc, count:r.count,
       onClick:()=>this.clickRow(i), onDelete:(e)=>this.deleteRow(i,e),
       style:`display:flex;cursor:pointer;font-size:10.5px;border-bottom:1px solid #241a11;color:#d8c9a8;background:${i===this.selRow?'#3a2c1a':(i%2?'#171009':'transparent')}`
-    }));
+    }; });
+    const respCol=st.respWarn?(st.respWarn.sev==='red'?'#e0604a':'#e0a93a'):'#3a2c1a';
     const layerLabel=(LAYER_DEFS.find(l=>l[0]===st.layer)||['','—'])[1];
     const sectorOpts=this.sectorList.map(c=>({ value:c, label:c+'  ('+(this.areadata[c]?this.areadata[c].length:0)+' obj)' }));
     const objRows=this.curObjs().map((o,i)=>({
@@ -1523,6 +1562,10 @@ class Component extends DCLogic {
       rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, pngInputRef:this.pngInputRef,
       coordRef:this.coordRef, zoomRef:this.zoomRef, layerInfoRef:this.layerInfoRef, emptyRowsRef:this.emptyRowsRef, emptyObjRef:this.emptyObjRef, dropHintRef:this.dropHintRef, oSectorRef:this.oSectorRef,
       fType:this.fType, fVnum:this.fVnum, fSx:this.fSx, fSy:this.fSy, fDir:this.fDir, fResp:this.fResp, fPerc:this.fPerc, fCount:this.fCount, fX:this.fX, fY:this.fY,
+      respWarnOn:!!st.respWarn, respWarnMsg:st.respWarn?st.respWarn.msg:'',
+      respFieldStyle:`width:100%;background:#120d08;border:1px solid ${st.respWarn?respCol:'#3a2c1a'};border-radius:4px;padding:6px 8px;color:${st.respWarn?respCol:'#d8c9a8'};text-align:center`,
+      respIconStyle:`position:absolute;left:5px;top:50%;transform:translateY(-50%);font-size:10px;line-height:1;color:${respCol};pointer-events:none`,
+      respWarnStyle:`margin-top:8px;padding:5px 7px;font-size:10.5px;line-height:1.4;border-radius:4px;border:1px solid ${respCol};color:${respCol};background:#1b100b`,
       updateLabel:st.dirty?'Update *':'Update',
       updateBtnStyle:`flex:1;border:1px solid ${st.dirty?'#c9a24b':'#4a3820'};background:${st.dirty?'#c9a24b':'#241a11'};color:${st.dirty?'#1a1209':'#c9b567'};border-radius:5px;padding:8px;font:${st.dirty?600:500} 11px 'IBM Plex Sans';cursor:pointer`,
       xUp:e=>this.nudge('x',1,e), xDown:e=>this.nudge('x',-1,e), yUp:e=>this.nudge('y',1,e), yDown:e=>this.nudge('y',-1,e),

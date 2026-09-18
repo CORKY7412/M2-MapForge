@@ -138,7 +138,49 @@ Always end on a unit letter. For days use hours (`24h`, `120h`, `720h`).
 
 ### What MapForge does
 
-The Respawn field accepts free text and exports it as typed, so a trap value stays a trap until it is edited. The ▲▼ / ↑↓ stepper only ever writes the safe grammar: it reads the current value (treating a bare number as seconds and ignoring case), steps it, and rewrites it as `h`/`m`/`s` parts with no zero parts, never going below `1s` — so stepping a bare `120` once turns it into a valid tag.
+The Respawn field accepts free text and exports it as typed, so a trap value stays a trap until it is edited — but it is flagged. MapForge runs the same character loop as the server on every respawn value and warns, without ever blocking, when the result is not what the text looks like:
+
+- **Red** — the line would never spawn or is corrupted: the server reads 0 (`120`, `1d`, `1H`, empty, `0s`), or the value is past the overflow ceiling.
+- **Amber** — the server reads a time, but not the one written (`1h30` → 1h, `1.5h` → 15h, `2m-1s` → 2m1s, `30ms` → 30m), the value is legal but risky (`1s`, above `20000h`), or it contains a space (which would split the row — MapForge removes it on export).
+
+The warning shows on the Respawn field (coloured border, `⚠`, and a line saying what the server reads), as a `⚠` on the affected rows of the spawn list (hover for the reason), and as a count in the status bar after exporting a regen file or the map ZIP.
+
+The ▲▼ / ↑↓ stepper only ever writes the safe grammar: it reads the current value (treating a bare number as seconds and ignoring case), steps it, and rewrites it as `h`/`m`/`s` parts with no zero parts, never going below `1s` — so stepping a bare `120` once turns it into a valid tag.
+
+## File structure — word stream, line endings, and what stops the server booting
+
+The parser is a **word stream, not line based**. Newline, carriage return, space and tab are all the same separator, and a row ends when its 11th word (`vnum`) has been read — not at the end of the line (`e` rows end after their 6th word). The only place a newline matters is ending a `//` comment.
+
+### Line endings and the last row
+
+| File ends with | Result |
+|---|---|
+| `…101\n` | Row read once, then a clean end of file |
+| `…101\r\n` | Same — `\r` is a separator, so the vnum is a clean `101` |
+| `…101` (no end of line) | Same — the pending word is still returned at end of file |
+| blank lines, trailing spaces or tabs | Same — leading whitespace is skipped |
+| a last `// comment` with no newline | Fine |
+
+So the last row is never lost, duplicated or turned into a phantom row, whatever the ending. LF and CRLF are both safe.
+
+### What does break
+
+| Problem | What the server does |
+|---|---|
+| Last row truncated (fewer than 11 words) | Dropped silently, no log |
+| A row with a missing column anywhere | The stream shifts: the next row's type letter is consumed as this row's vnum, then a number arrives where a type is expected → `unknown regen type` → **the core exits, the server does not boot** |
+| An extra word on a row (12 columns, a space inside a value, a comment without `//`) | Same shift, usually the same exit |
+| Comment glued to the vnum (`101//dog`) | It is one word: the vnum reads as 101 but the comment is never recognised, so the rest of that line is parsed as the next row. `101 // dog` (with a space) is fine |
+| UTF-8 BOM at the start of the file | The first word starts with `EF BB BF`, which is an unknown type → exit. Save without a BOM |
+| Stray byte at end of file (Ctrl-Z `0x1A` from a DOS editor) | A one-character word with an unknown type → exit on FreeBSD. Windows builds treat `0x1A` as end of file in text mode, which hides it |
+| CR-only (old Mac) line endings | Rows parse, but a `//` comment swallows everything up to the next `\n` — i.e. the rest of the file |
+| Extra words after an `e` row's 6th word | They start a new row |
+
+### What MapForge does
+
+- **Export** writes LF endings, no BOM, a trailing newline, and exactly 11 words per row (6 for `e`). Every column is forced to a single non-empty word: whitespace and `//` are stripped from `type`, `time` and `percent`, an empty value falls back to a safe default (`m`, `1m`, `100`), and numeric columns are written as integers. A row can therefore never shift the ones after it.
+- **Import** is line based and more forgiving than the server: it strips `//` comments even when glued to a value, tolerates a BOM and CRLF, and fills missing trailing columns with defaults. Rows whose type does not start with `m`, `g`, `r`, `s` or `e` — which would stop the server booting, and which is also what a stray `0x1A` looks like — are skipped, and the status bar reports how many.
+- Importing a file and exporting it again is a quick way to clean up a BOM, glued comments, stray bytes and odd line endings.
 
 ## Referenced global files
 

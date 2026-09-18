@@ -45,6 +45,7 @@ Load, place, edit and export server spawn files — `regen.txt`, `boss.txt`, `st
 - Drag a marker to move it (clicking a marker selects its row). **Shift**+click places a new spawn even on top of an existing marker.
 - Click a row to load it into the form (including X/Y), edit, then **Update** or press **Enter** in any field.
 - X / Y / Sx / Sy / Dir / Respawn / Percent have ▲▼ stepper buttons and respond to **↑ / ↓** (hold **Shift** for ±10); steps apply live to the selected spawn. Dir stays within 0–8 and Percent within 0–100. Respawn text is left as typed until you step it; a step rewrites it as proper h/m/s with no zero parts (`120s` +1 → `2m1s`, `120s` −1 → `1m59s`, `1m` −1 → `59s`, `1h` −1 → `59m`).
+- Respawn values the server would misread (`120` with no unit, `1d`, `1.5h`, uppercase units, a space…) are flagged with a **⚠** on the field and on the list rows, with the time the server would actually use; exports report how many remain. See [`docs/mapformat/server-regen.md`](docs/mapformat/server-regen.md).
 - Delete rows (row button, or **Del** on the selected spawn), import an existing `.txt`, reset a file, or export the current file in correct 11-column server format.
 - Spawns are drawn on the map as markers with their spawn-extent rectangles.
 
