@@ -56,6 +56,7 @@ Per-sector `areadata.txt` editor:
 - Edit x/y/z, property CRC, rotation (yaw/pitch/roll) and height bias.
 - Add / delete objects (row button, or **Del** on the selected object); markers plotted at (x, −y).
 - Click a marker to select it — including one in another sector, which switches the sector — and drag it to move. Dragging is the only way to move an object on the map: clicking the map never relocates one (type X / Y for exact values). **Esc** deselects.
+- When a move (drag, stepper or Update) takes an object into another sector, MapForge asks whether to move its record into that sector's `areadata.txt` — **Enter** confirms, **Esc** keeps it where it is.
 - Double-click a row to center the map on that object with a mild zoom.
 - X / Y / Z / Bias / Yaw / Pitch / Roll have ▲▼ stepper buttons and respond to **↑ / ↓**: positions step 10 cm (**Shift** 100 cm), rotations 1° (**Shift** 10°) and wrap at 360°. Steps apply live to the selected object; **Enter** in any field runs **Update**, and the button turns gold (`Update *`) while the form has unsaved edits.
 - Objects the client would drop or misplace are flagged with a **⚠** on the form and the list rows — CRC 0, a position outside the sector whose `areadata.txt` holds it, fractional rotation — and exports report how many remain. See [`docs/mapformat/areadata-txt.md`](docs/mapformat/areadata-txt.md).

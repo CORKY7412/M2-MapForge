@@ -98,7 +98,7 @@ The warning shows under the object form (with the offending fields outlined), as
 
 **Export.** Fields are addressed purely by position, so a blank or `NaN` would shift everything after it. Every numeric field is therefore forced to a finite number (falling back to 0) and written in the `%f` form, rotation always keeps the `a#b#c` shape — which also sidesteps the yaw `substr` defect — portal IDs are written as integers, and records are renumbered `Object000…` contiguously with a matching `ObjectCount`.
 
-**Editing.** Objects move on the map by dragging their marker only (a click never relocates one). Dragging only changes `x` / `y`; it never moves the record to another sector's file, which is exactly the case the amber position warning is for.
+**Editing.** Objects move on the map by dragging their marker only (a click never relocates one). A move changes `x` / `y` only. When a drag, a stepper or Update takes the object into a different sector that exists in the map, MapForge asks whether to move the record into that sector's `areadata.txt` (Enter confirms); on yes it is appended there and the view switches to that sector. Answering no keeps the record where it is — the amber position warning stays — and the question is not repeated until the object has been back inside its own sector. Nothing is asked for a position outside the map or in a sector the map does not have.
 
 ## Pitfalls
 

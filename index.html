@@ -488,9 +488,9 @@ class Component extends DCLogic {
   componentWillUnmount(){ this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); }
 
   // ================= confirm =================
-  askConfirm(msg, fn, opts){ this.pendingConfirm=fn; this.setState({ menu:'', confirm:{ msg, title:(opts&&opts.title)||'Are you sure?', yes:(opts&&opts.yes)||'Delete', danger:!(opts&&opts.safe) } }); }
-  confirmYes(){ const f=this.pendingConfirm; this.pendingConfirm=null; this.setState({confirm:null}); if(f) f(); }
-  confirmNo(){ this.pendingConfirm=null; this.setState({confirm:null}); }
+  askConfirm(msg, fn, opts){ this.pendingConfirm=fn; this.pendingNo=(opts&&opts.onNo)||null; this.setState({ menu:'', confirm:{ msg, title:(opts&&opts.title)||'Are you sure?', yes:(opts&&opts.yes)||'Delete', danger:!(opts&&opts.safe) } }); }
+  confirmYes(){ const f=this.pendingConfirm; this.pendingConfirm=null; this.pendingNo=null; this.setState({confirm:null}); if(f) f(); }
+  confirmNo(){ const f=this.pendingNo; this.pendingConfirm=null; this.pendingNo=null; this.setState({confirm:null}); if(f) f(); }
 
   // ================= menu =================
   toggleMenu(k){ this.setState({ menu:this.state.menu===k?'':k }); }
@@ -1421,7 +1421,7 @@ class Component extends DCLogic {
   onUp(e){
     if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn; this.down=null;
     if(this.dragRow){ const d=this.dragRow; this.dragRow=null; if(wasMoved){ this.setState({statusText:'spawn moved to '+d.row.x+', '+d.row.y}); this.refreshRows(); } return; }
-    if(this.dragObj){ const d=this.dragObj; this.dragObj=null; if(wasMoved){ this.setState({statusText:'object moved to '+d.o.x+', '+d.o.y}); this.refreshObjs(); } return; }
+    if(this.dragObj){ const d=this.dragObj; this.dragObj=null; if(wasMoved){ this.setState({statusText:'object moved to '+d.o.x+', '+d.o.y}); this.refreshObjs(); this.offerSectorMove(d.o); } return; }
     if(wasMoved||this.state.empty||btn===2) return;   // right click never places/moves
     const r=this.canvas.getBoundingClientRect(); if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) return;
     const mx=e.clientX-r.left,my=e.clientY-r.top;
@@ -1508,7 +1508,21 @@ class Component extends DCLogic {
     if(d!==this.state.objDirty) this.setState({objDirty:d}); const cur=this.state.objWarn; if((w&&w.msg)!==(cur&&cur.msg)) this.setState({objWarn:w}); }
   countObjTraps(sectors){ return sectors.reduce((n,c)=>n+(this.areadata[c]||[]).filter(o=>objTraps(o,c).length).length,0); }
   objTrapNote(n){ return n?' — ⚠ '+n+' object'+(n>1?'s':'')+' the client would drop or misplace':''; }
-  updateObj(){ const o=this.curObjs()[this.selObj]; if(!o){ this.setState({statusText:'select an object to update'}); return; } Object.assign(o,this.objFormVals(o)); this.setState({statusText:'object updated'}); this.refreshObjs(); this.draw(); }
+  updateObj(){ const o=this.curObjs()[this.selObj]; if(!o){ this.setState({statusText:'select an object to update'}); return; } Object.assign(o,this.objFormVals(o)); this.setState({statusText:'object updated'}); this.refreshObjs(); this.draw(); this.offerSectorMove(o); }
+  // the object now lies in another sector: offer to move its record to that sector's areadata.txt.
+  // Asked once per excursion — answering No keeps it quiet until the object is back inside its own sector.
+  offerSectorMove(o){
+    const from=this.state.oSector; if(!o||!/^\d{6}$/.test(from||'')) return;
+    const S=TILE*100, ax=+from.slice(0,3), ay=+from.slice(3,6), tx=o.x, ty=-o.y, kept=(this._keptSector=this._keptSector||new WeakSet());
+    if(tx>=ax*S&&tx<=(ax+1)*S&&ty>=ay*S&&ty<=(ay+1)*S){ kept.delete(o); return; }
+    const p=n=>String(n).padStart(3,'0'), to=p(Math.floor(tx/S))+p(Math.floor(ty/S));
+    if(to===from||!this.sectorList.includes(to)||kept.has(o)||this.state.confirm) return;
+    this.askConfirm('This object now lies in sector '+to+', but its record is stored in '+from+'/areadata.txt. Move the record to '+to+'/areadata.txt?',()=>{
+      const src=this.areadata[from]||[], i=src.indexOf(o); if(i<0) return;
+      src.splice(i,1); (this.areadata[to]=this.areadata[to]||[]).push(o);
+      this.selectObj(this.areadata[to].length-1,to); this.setState({statusText:'object moved to sector '+to});
+    },{title:'Move to sector '+to+'?', yes:'Move', safe:true, onNo:()=>kept.add(o)});
+  }
   addObj(){ const c=this.state.oSector; if(!c){ this.setState({statusText:'no sector'}); return; } const ax=+c.slice(0,3),ay=+c.slice(3,6); const o={x:(ax*256+128)*100,y:-(ay*256+128)*100,z:0,crc:0,yaw:0,pitch:0,roll:0,bias:0,portals:[]}; (this.areadata[c]=this.areadata[c]||[]).push(o); this.selObj=this.areadata[c].length-1; this.setState({statusText:'object added at the sector center — set CRC, then drag its marker to move it'}); this.selectObj(this.selObj); }
   deleteObjRow(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); const o=this.curObjs()[i]; if(!o) return; this.askConfirm('Delete object #'+i+' (CRC '+o.crc+') from sector '+this.state.oSector+'?',()=>{ this.curObjs().splice(i,1); if(this.selObj>=i) this.selObj=-1; this.refreshObjs(); this.draw(); },{title:'Delete object'}); }
   exportAreadata(){ const c=this.state.oSector; if(!c) return; this.download('areadata_'+c+'.txt', new Blob([this.serializeAreadata(this.curObjs())],{type:'text/plain'})); this.setState({statusText:'exported areadata_'+c+'.txt'+this.objTrapNote(this.countObjTraps([c]))}); }
