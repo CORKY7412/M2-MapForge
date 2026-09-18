@@ -41,7 +41,7 @@ All 8 `attr.atr` bit flags are color-coded. Base layer shows the dominant flag p
 ### Regen Creator
 Load, place, edit and export server spawn files — `regen.txt`, `boss.txt`, `stone.txt`, `npc.txt`:
 
-- **Load regen folder…** (button on the Regen tab, also under **File** and **Regen**) picks a folder and loads `regen.txt`, `boss.txt`, `stone.txt` and `npc.txt` from it in one go. Client maps often ship without spawn files, so point it at the server-side map folder. Only the top level of the folder is read; a file that is not there leaves the current one untouched, and the whole load is one undo step.
+- **Load regen folder…** (button on the Regen tab, also under **File** and **Regen**) picks a folder and loads `regen.txt`, `boss.txt`, `stone.txt` and `npc.txt` from it in one go. Client maps often ship without spawn files, so point it at the server-side map folder. Only the top level of the folder is read; a file that is not there leaves the current one untouched, and the whole load is one undo step. You can also **drag and drop** the spawn files (any of the four, loose) or the server-side folder anywhere onto the page; a dropped `mob_names.txt` loads the names.
 - Click the map to place a spawn using the current form values (type, vnum, sx/sy, dir, respawn, percent, count).
 - Drag a marker to move it (clicking a marker selects its row). **Shift**+click places a new spawn even on top of an existing marker.
 - The selected spawn's range shows white handles: drag an edge to set Sx or Sy, a corner to set both (the range stays centered on the spawn point). An axis only gets handles once its half-range is drawn larger than the diamond marker, so zoom in if they are missing; a point spawn (Sx = Sy = 0) has none — give it a range in the form first.
@@ -94,7 +94,7 @@ Optional helpers under the **Tools** menu. The ruler and the stats panel are off
 - Confirmation modal on every destructive action (reset a regen file, delete a spawn/object, close map).
 - Working menu bar: **File · Edit · Map · Server Attr · Regen · Tools**.
 - Resizable inspector sidebar.
-- Loads a folder via the picker **or** by drag-and-drop onto the viewport.
+- Loads a map folder via the picker **or** by drag-and-drop anywhere onto the page. A dropped folder with a `setting.txt` is a map; loose `regen.txt` / `boss.txt` / `stone.txt` / `npc.txt` files (or a folder holding them) load as spawn files into the current map.
 
 ---
 

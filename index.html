@@ -518,8 +518,8 @@ class Component extends DCLogic {
     cv.addEventListener('mousedown', e => this.onDown(e));
     window.addEventListener('mousemove', e => this.onMove(e));
     window.addEventListener('mouseup', e => this.onUp(e));
-    view.addEventListener('dragover', e => { e.preventDefault(); });
-    view.addEventListener('drop', e => this.onDrop(e));
+    this._dragOver = e => { e.preventDefault(); }; this._drop = e => this.onDrop(e);
+    window.addEventListener('dragover', this._dragOver); window.addEventListener('drop', this._drop);
     this._docDown = e => { if(this.state.menu && this.menuBar && !this.menuBar.contains(e.target)) this.setState({menu:''}); };
     window.addEventListener('mousedown', this._docDown, true);
     this._keyDown = e => {
@@ -541,7 +541,7 @@ class Component extends DCLogic {
     this._copy=e=>this.onCopy(e,false); this._cut=e=>this.onCopy(e,true); this._paste=e=>this.onPaste(e);
     document.addEventListener('copy',this._copy); document.addEventListener('cut',this._cut); document.addEventListener('paste',this._paste);
   }
-  componentWillUnmount(){ document.removeEventListener('copy',this._copy); document.removeEventListener('cut',this._cut); document.removeEventListener('paste',this._paste); this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); }
+  componentWillUnmount(){ window.removeEventListener('dragover',this._dragOver); window.removeEventListener('drop',this._drop); document.removeEventListener('copy',this._copy); document.removeEventListener('cut',this._cut); document.removeEventListener('paste',this._paste); this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); }
 
   // ================= multi-select =================
   // A group is a Set of row / object references on top of the primary selection (selRow / selObj), which still drives the form.
@@ -619,6 +619,7 @@ class Component extends DCLogic {
     for(const f of fl){ const parts=(f.webkitRelativePath||f.name).split('/'); if(parts.length>2) continue; if(parts.length===2) folder=parts[0]; files[parts[parts.length-1].toLowerCase()]=f; }
     e.target.value=''; await this.applyRegenFolder(files,folder); }
   async applyRegenFolder(files,folder){
+    if(this.state.empty){ this.setState({statusText:'open the client map first — spawn files need a map to be drawn on, then drop them again'}); this.askConfirm('Spawn files are drawn on top of a map, and no map is open yet. Open the client map folder first, then drop '+Object.keys(files).join(', ')+' again.',()=>this.openFolder(),{title:'Open a map first',yes:'Open map folder…',safe:true}); return; }
     const found=Object.keys(REGEN_FILES).filter(k=>files[REGEN_FILES[k]]), missing=Object.keys(REGEN_FILES).filter(k=>!files[REGEN_FILES[k]]).map(k=>REGEN_FILES[k]);
     if(!found.length){ this.setState({statusText:'no regen.txt / boss.txt / stone.txt / npc.txt in '+(folder||'that folder')+' — pick the server-side map folder itself'}); return; }
     const parsed={}; this._regenSkipped=0; for(const k of found) parsed[k]=this.parseRegen(this.decodeText(await files[REGEN_FILES[k]].arrayBuffer()));
@@ -636,7 +637,8 @@ class Component extends DCLogic {
   mobNames=new Map();
   decodeText(buf){ try{ return new TextDecoder('utf-8',{fatal:true}).decode(buf); }catch(e){ return new TextDecoder('windows-1252').decode(buf); } }   // these files are often in a legacy codepage
   parseMobNames(txt){ const m=new Map(); for(const line of txt.split(/\r?\n/)){ const p=line.split('\t'); const v=parseInt(p[0]); const name=(p[1]||'').trim(); if(v>0 && String(v)===p[0].trim() && name) m.set(v,name); } return m; }
-  async onNamesInput(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; e.target.value=''; const m=this.parseMobNames(this.decodeText(await f.arrayBuffer()));
+  async onNamesInput(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; e.target.value=''; await this.loadNamesFile(f); }
+  async loadNamesFile(f){ const m=this.parseMobNames(this.decodeText(await f.arrayBuffer()));
     if(!m.size){ this.setState({statusText:'no names found in '+f.name+' — expected lines of vnum<TAB>name'}); return; }
     this.mobNames=m; this.setState({mobNames:m.size,statusText:'loaded '+m.size.toLocaleString('en-US')+' mob names from '+f.name}); this.refreshRows(); this.draw(); }
   unloadMobNames(){ this.mobNames=new Map(); this.setState({mobNames:0,vnumName:'',statusText:'mob names unloaded'}); this.refreshRows(); this.draw(); }
@@ -802,14 +804,31 @@ class Component extends DCLogic {
     }
     this.loadFiles(out, folder);
   }
-  async onDrop(e) {
+  async onDrop(e) { try { await this.handleDrop(e); } catch (err) { console.error(err); this.setState({ statusText: 'drop failed: ' + ((err && err.message) || err) }); } }
+  async handleDrop(e) {
     e.preventDefault();
-    const items = e.dataTransfer.items; const out = {};
-    const entries = [];
-    for (const it of items) { const en = it.webkitGetAsEntry && it.webkitGetAsEntry(); if (en) entries.push(en); }
+    const dt = e.dataTransfer; if (!dt) return; const out = {}, entries = [];
+    // Everything must be read off the DataTransfer before the first await — it is emptied once the event handler yields.
+    // Plain files come from getAsFile(): the entry API (needed for folders) can return null, and entry.file() fails on file:// pages.
+    for (const it of Array.from(dt.items || [])) {
+      if (it.kind !== 'file') continue;
+      const en = it.webkitGetAsEntry ? it.webkitGetAsEntry() : null;
+      if (en && en.isDirectory) entries.push(en);
+      else { const f = it.getAsFile ? it.getAsFile() : null; if (f) out[f.name.toLowerCase()] = f; else if (en) entries.push(en); }
+    }
+    if (!entries.length && !Object.keys(out).length) for (const f of Array.from(dt.files || [])) out[f.name.toLowerCase()] = f;
     let folder = null;
     for (const en of entries) { if (en.isDirectory && !folder) folder = en.name; await this.walkEntry(en, '', out); }
-    if (Object.keys(out).length) this.loadFiles(out, folder);
+    if (!Object.keys(out).length) { this.setState({ statusText: 'nothing readable in that drop — the browser handed over no files' }); return; }
+    const keys = Object.keys(out); if (!keys.length) return;
+    const base = k => k.split('/').pop();
+    if (keys.some(k => base(k) === 'setting.txt')) { this.loadFiles(out, folder); return; }   // a client map folder
+    // not a map: spawn files dropped loose, or a server-side folder holding them at its top level — and/or a mob_names.txt
+    const wanted = new Set(Object.values(REGEN_FILES)), top = {}; let names = null;
+    for (const k of keys) { if (k.split('/').length > 2) continue; if (wanted.has(base(k))) top[base(k)] = out[k]; else if (base(k) === 'mob_names.txt') names = out[k]; }
+    if (names) await this.loadNamesFile(names);
+    if (Object.keys(top).length) await this.applyRegenFolder(top, folder || '');
+    else if (!names) this.loadFiles(out, folder);
   }
   walkEntry(entry, prefix, out) {
     return new Promise(res => {
