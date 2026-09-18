@@ -197,7 +197,7 @@
 
           <div style="padding:10px 12px;display:flex;gap:6px;flex:none">
             <button onClick="{{ importRegen }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:5px;padding:8px;font:500 11px 'IBM Plex Sans';cursor:pointer">Import</button>
-            <button onClick="{{ updateRow }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#c9b567;border-radius:5px;padding:8px;font:500 11px 'IBM Plex Sans';cursor:pointer">Update</button>
+            <button onClick="{{ updateRow }}" style="{{ updateBtnStyle }}">{{ updateLabel }}</button>
             <button onClick="{{ resetRegen }}" style="flex:none;border:1px solid #4a3820;background:#241a11;color:#b5573f;border-radius:5px;padding:8px 10px;font:500 11px 'IBM Plex Sans';cursor:pointer">Reset</button>
             <button onClick="{{ exportRegen }}" style="flex:1;border:1px solid #6b501f;background:linear-gradient(#d9b845,#a5802e);color:#2a1d09;border-radius:5px;padding:8px;font:600 11px 'IBM Plex Sans';cursor:pointer">Export</button>
           </div>
@@ -335,7 +335,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null,
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false,
     mergeOpen:false, mergeMsg:'', mergeInfo:[null,null,null,null]
   };
   pendingConfirm = null;
@@ -371,7 +371,7 @@ class Component extends DCLogic {
   fX=el=>this._x=this.bindField(el,'x'); fY=el=>this._y=this.bindField(el,'y');
   // regen form field: Enter = Update; spin fields also step with ArrowUp/ArrowDown (Shift = 10)
   bindField(el,spinKey){
-    if(el && !el._bound){ el._bound=true; el.addEventListener('keydown',e=>{
+    if(el && !el._bound){ el._bound=true; el.addEventListener('input',()=>this.checkDirty()); el.addEventListener('change',()=>this.checkDirty()); el.addEventListener('keydown',e=>{
       if(e.key==='Enter'){ if(this.state.confirm) return; e.preventDefault(); this.updateRow(); }
       else if(spinKey && (e.key==='ArrowUp'||e.key==='ArrowDown')){ e.preventDefault(); this.nudge(spinKey,e.key==='ArrowUp'?1:-1,e); }
     }); }
@@ -381,7 +381,7 @@ class Component extends DCLogic {
     const el=this['_'+key]; if(!el) return; const pos=(key==='x'||key==='y');
     let v=parseInt(el.value); if(isNaN(v)){ if(pos) return; v=0; }
     v+=dir*((e&&e.shiftKey)?10:1); if(!pos) v=Math.max(0,v);
-    el.value=v; if(this.selRow>=0) this.updateRow();
+    el.value=v; if(this.selRow>=0) this.updateRow(); else this.checkDirty();
   }
   oX=el=>this._ox=el; oY=el=>this._oy=el; oZ=el=>this._oz=el; oCrc=el=>this._ocrc=el;
   oYaw=el=>this._oyaw=el; oPitch=el=>this._opitch=el; oRoll=el=>this._oroll=el; oBias=el=>this._obias=el;
@@ -416,7 +416,7 @@ class Component extends DCLogic {
   run(fn){ this.setState({menu:''}); if(fn) fn(); }
   gridOn(){ return this.state.showGrid!==null ? this.state.showGrid : (this.props.showSectorGrid ?? true); }
   toggleGrid(){ this.setState({ showGrid:!this.gridOn(), menu:'' }); this.draw(); }
-  clearMap(){ this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.setState({ empty:true, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
+  clearMap(){ this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.setState({ empty:true, dirty:false, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
   attrExport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.exportLayerPNG(),120); }
   attrImport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.importPng(),120); }
 
@@ -1358,7 +1358,7 @@ class Component extends DCLogic {
   tabObjects(){ this.setState({mainTab:'objects'}); this.refreshObjs(); this.draw(); }
   setRegenTab(k){ this.selRow=-1; this.setState({regenTab:k}); this.refreshRows(); this.draw(); }
   toggleHighlight(){ const nv=!this.state.highlight; this.setState({highlight:nv}); if(nv) this.ensureHighlight(this.jobId).then(()=>this.draw()); else this.draw(); }
-  refreshRows(){ this.setState({rev:this.state.rev+1}); if(this.emptyRowsEl) this.emptyRowsEl.style.display=this.currentRows().length?'none':'block'; }
+  refreshRows(){ this.setState({rev:this.state.rev+1}); this.checkDirty(); if(this.emptyRowsEl) this.emptyRowsEl.style.display=this.currentRows().length?'none':'block'; }
   refreshObjs(){ this.setState({rev:this.state.rev+1}); if(this.emptyObjEl) this.emptyObjEl.style.display=this.curObjs().length?'none':'block'; }
   // second click on the same row within 400ms = focus it on the map
   clickRow(i){ const t=Date.now(), dbl=(this._lastRowClick && this._lastRowClick.i===i && t-this._lastRowClick.t<400); this._lastRowClick=dbl?null:{i,t}; this.selectRow(i); if(dbl) this.focusRow(i); }
@@ -1370,7 +1370,14 @@ class Component extends DCLogic {
     this.updateZoom(); this.draw();
   }
   selectRow(i){ this.selRow=i; const r=this.currentRows()[i]; if(r){ if(this._t)this._t.value=r.type; if(this._v)this._v.value=r.vnum; if(this._x)this._x.value=r.x; if(this._y)this._y.value=r.y; if(this._sx)this._sx.value=r.sx; if(this._sy)this._sy.value=r.sy; if(this._d)this._d.value=r.dir; if(this._r)this._r.value=r.resp; if(this._p)this._p.value=r.perc; if(this._c)this._c.value=r.count; } this.refreshRows(); this.draw(); }
-  updateRow(){ if(this.selRow<0){ this.setState({statusText:'select a row to update'}); return; } const r=this.currentRows()[this.selRow]; if(!r) return; r.type=this._t?this._t.value:r.type; r.vnum=+(this._v?this._v.value:r.vnum)||0; const nx=this._x?parseInt(this._x.value):NaN, ny=this._y?parseInt(this._y.value):NaN; if(!isNaN(nx)) r.x=nx; if(!isNaN(ny)) r.y=ny; r.sx=+(this._sx?this._sx.value:0)||0; r.sy=+(this._sy?this._sy.value:0)||0; r.dir=+(this._d?this._d.value:0)||0; r.resp=(this._r?this._r.value:r.resp)||'1m'; r.perc=(this._p?this._p.value:r.perc)||'100'; r.count=+(this._c?this._c.value:1)||1; this.setState({statusText:'row updated'}); this.refreshRows(); this.draw(); }
+  // what Update would write to row r, from the current form values
+  formVals(r){ const nx=this._x?parseInt(this._x.value):NaN, ny=this._y?parseInt(this._y.value):NaN;
+    return { type:this._t?this._t.value:r.type, vnum:+(this._v?this._v.value:r.vnum)||0, x:isNaN(nx)?r.x:nx, y:isNaN(ny)?r.y:ny,
+      sx:+(this._sx?this._sx.value:0)||0, sy:+(this._sy?this._sy.value:0)||0, dir:+(this._d?this._d.value:0)||0,
+      resp:(this._r?this._r.value:r.resp)||'1m', perc:(this._p?this._p.value:r.perc)||'100', count:+(this._c?this._c.value:1)||1 }; }
+  // form differs from the selected row → Update button lights up
+  checkDirty(){ const r=this.currentRows()[this.selRow]; let d=false; if(r){ const v=this.formVals(r); d=Object.keys(v).some(k=>String(v[k])!==String(r[k])); } if(d!==this.state.dirty) this.setState({dirty:d}); }
+  updateRow(){ if(this.selRow<0){ this.setState({statusText:'select a row to update'}); return; } const r=this.currentRows()[this.selRow]; if(!r) return; Object.assign(r,this.formVals(r)); this.setState({statusText:'row updated'}); this.refreshRows(); this.draw(); }
   deleteRow(i,e){ if(e&&e.stopPropagation) e.stopPropagation(); const r=this.currentRows()[i]; if(!r) return; this.askConfirm('Delete this '+r.type+' spawn'+(r.vnum?' (vnum '+r.vnum+')':'')+'?',()=>{ this.currentRows().splice(i,1); if(this.selRow>=i) this.selRow=-1; this.refreshRows(); this.draw(); },{title:'Delete spawn'}); }
 
   // ---- objects ----
@@ -1497,6 +1504,8 @@ class Component extends DCLogic {
       rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, pngInputRef:this.pngInputRef,
       coordRef:this.coordRef, zoomRef:this.zoomRef, layerInfoRef:this.layerInfoRef, emptyRowsRef:this.emptyRowsRef, emptyObjRef:this.emptyObjRef, dropHintRef:this.dropHintRef, oSectorRef:this.oSectorRef,
       fType:this.fType, fVnum:this.fVnum, fSx:this.fSx, fSy:this.fSy, fDir:this.fDir, fResp:this.fResp, fPerc:this.fPerc, fCount:this.fCount, fX:this.fX, fY:this.fY,
+      updateLabel:st.dirty?'Update *':'Update',
+      updateBtnStyle:`flex:1;border:1px solid ${st.dirty?'#c9a24b':'#4a3820'};background:${st.dirty?'#c9a24b':'#241a11'};color:${st.dirty?'#1a1209':'#c9b567'};border-radius:5px;padding:8px;font:${st.dirty?600:500} 11px 'IBM Plex Sans';cursor:pointer`,
       xUp:e=>this.nudge('x',1,e), xDown:e=>this.nudge('x',-1,e), yUp:e=>this.nudge('y',1,e), yDown:e=>this.nudge('y',-1,e),
       sxUp:e=>this.nudge('sx',1,e), sxDown:e=>this.nudge('sx',-1,e), syUp:e=>this.nudge('sy',1,e), syDown:e=>this.nudge('sy',-1,e),
       oX:this.oX, oY:this.oY, oZ:this.oZ, oCrc:this.oCrc, oYaw:this.oYaw, oPitch:this.oPitch, oRoll:this.oRoll, oBias:this.oBias
