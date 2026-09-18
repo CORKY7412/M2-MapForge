@@ -44,7 +44,7 @@ Load, place, edit and export server spawn files — `regen.txt`, `boss.txt`, `st
 - Click the map to place a spawn using the current form values (type, vnum, sx/sy, dir, respawn, percent, count).
 - Drag a marker to move it (clicking a marker selects its row). **Shift**+click places a new spawn even on top of an existing marker.
 - Click a row to load it into the form (including X/Y), edit, then **Update**.
-- Delete rows, import an existing `.txt`, reset a file, or export the current file in correct 11-column server format.
+- Delete rows (row button, or **Del** on the selected spawn), import an existing `.txt`, reset a file, or export the current file in correct 11-column server format.
 - Spawns are drawn on the map as markers with their spawn-extent rectangles.
 
 ### Objects (areadata)
