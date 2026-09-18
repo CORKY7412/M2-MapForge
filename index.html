@@ -91,6 +91,13 @@
     <!-- viewport -->
     <div ref="{{ viewRef }}" style="position:relative;flex:1;background:#120d08;overflow:hidden;min-width:0">
       <canvas ref="{{ canvasRef }}" style="position:absolute;inset:0;width:100%;height:100%;display:block"></canvas>
+      <sc-if value="{{ statsOn }}" hint-placeholder-val="{{ false }}">
+        <div class="mono" style="position:absolute;top:12px;left:12px;max-width:330px;max-height:calc(100% - 64px);overflow:auto;padding:8px 10px;border-radius:6px;background:rgba(28,20,13,.92);border:1px solid #4a3820;color:#d8c9a8;font-size:10.5px;line-height:1.55;z-index:5">
+          <sc-for list="{{ statsLines }}" as="S" hint-placeholder-count="0">
+            <div style="{{ S.style }}">{{ S.text }}</div>
+          </sc-for>
+        </div>
+      </sc-if>
       <div class="mono" ref="{{ coordRef }}" style="position:absolute;top:12px;right:12px;padding:5px 10px;border-radius:5px;background:rgba(28,20,13,.85);border:1px solid #4a3820;color:#e8cf8f;font-size:11px;pointer-events:none">x — · y —</div>
       <div style="position:absolute;bottom:12px;left:12px;display:flex;gap:5px">
         <button onClick="{{ zoomOut }}" style="width:28px;height:28px;border-radius:5px;border:1px solid #4a3820;background:rgba(36,26,17,.9);color:#d8c9a8;cursor:pointer;font-size:15px">&minus;</button>
@@ -391,7 +398,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false,
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false,
     mergeOpen:false, mergeMsg:'', mergeInfo:[null,null,null,null]
   };
   pendingConfirm = null;
@@ -583,6 +590,31 @@ class Component extends DCLogic {
     for(const key of Object.keys(F)) if(F[key]) F[key].value=this.common(g,key); }
   fillObjForm(){ const g=this.group('obj'); for(const key of ['x','y','z','crc','yaw','pitch','roll','bias']){ const el=this.objField(key); if(el) el.value=g.length?this.common(g,key):''; } }
 
+  // ================= stats panel =================
+  // Tools › Stats panel (off by default): counts for every regen file, the current file's types / top vnums / warnings, and the objects.
+  toggleStats(){ this.setState({stats:!this.state.stats}); }
+  statsLines(){
+    const out=[], H=t=>out.push({text:t,style:'color:#e8cf8f;font-weight:600;margin-top:'+(out.length?'7px':'0')}), T=t=>out.push({text:t,style:'white-space:pre'}), D=t=>out.push({text:t,style:'color:#8a744c;white-space:pre-wrap'});
+    const n=v=>Number(v).toLocaleString('en-US'), pad=(v,w)=>String(v).padEnd(w), sum=rows=>rows.reduce((a,r)=>a+(r.type[0]==='e'?0:(+r.count||0)),0);
+    H('Spawn files');
+    for(const key of Object.keys(REGEN_FILES)){ const rows=this.regen[key]||[]; T(pad(REGEN_FILES[key],10)+' '+pad(n(rows.length)+' rows',12)+' Σ count '+n(sum(rows))); }
+    const cur=this.currentRows(), file=REGEN_FILES[this.state.regenTab];
+    H(file+' · by type'); const byType={}; for(const r of cur) byType[r.type]=(byType[r.type]||0)+1;
+    T(Object.keys(byType).sort().map(t=>t+' '+n(byType[t])).join('  ·  ')||'—');
+    const bad=this.countRespTraps(cur); T('warnings: '+n(bad)+(bad?'  ⚠':''));
+    H(file+' · top vnums'); const byV=new Map(); for(const r of cur){ if(r.type[0]==='e') continue; const k=r.type+' '+r.vnum, e=byV.get(k)||{rows:0,count:0}; e.rows++; e.count+=(+r.count||0); byV.set(k,e); }
+    const top=[...byV.entries()].sort((a,b)=>b[1].count-a[1].count||b[1].rows-a[1].rows).slice(0,10);
+    if(!top.length) T('—'); for(const [k,e] of top) T(pad(k,12)+' '+pad(n(e.rows)+' rows',10)+' Σ '+n(e.count));
+    if(byV.size>10) D('… '+n(byV.size-10)+' more');
+    H('Objects'); const secs=Object.keys(this.areadata), withObj=secs.filter(c=>(this.areadata[c]||[]).length), crc=new Map(); let total=0;
+    for(const c of secs) for(const o of this.areadata[c]||[]){ total++; crc.set(o.crc,(crc.get(o.crc)||0)+1); }
+    T(n(total)+' objects in '+n(withObj.length)+' of '+n(this.sectorList.length)+' sectors  ·  '+n(crc.size)+' distinct CRCs');
+    T('sector '+(this.state.oSector||'—')+': '+n(this.curObjs().length)+'  ·  warnings: '+n(this.countObjTraps(secs)));
+    for(const [k,v] of [...crc.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5)) T(pad('crc '+k,16)+' × '+n(v));
+    D('Σ count adds the count column; a group row counts its groups, not the mobs inside them.');
+    return out;
+  }
+
   // ================= ruler =================
   // Tools › Ruler (off by default). While it is on, a left click drops a point instead of placing / selecting: first click = start,
   // second = end, a third starts over. Map units are meters (1 px of the map image = 1 m). Dragging still pans.
@@ -680,7 +712,7 @@ class Component extends DCLogic {
   run(fn){ this.setState({menu:''}); if(fn) fn(); }
   gridOn(){ return this.state.showGrid!==null ? this.state.showGrid : (this.props.showSectorGrid ?? true); }
   toggleGrid(){ this.setState({ showGrid:!this.gridOn(), menu:'' }); this.draw(); }
-  clearMap(){ this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.clearHistory(); this.rulerPts=[]; this.rulerLive=null; this.setState({ empty:true, ruler:false, dirty:false, objDirty:false, objWarn:null, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
+  clearMap(){ this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.clearHistory(); this.rulerPts=[]; this.rulerLive=null; this.setState({ empty:true, ruler:false, stats:false, dirty:false, objDirty:false, objWarn:null, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
   attrExport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.exportLayerPNG(),120); }
   attrImport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.importPng(),120); }
 
@@ -1843,6 +1875,7 @@ class Component extends DCLogic {
       this.mkItem('Reset current file',()=>{ this.tabRegen(); this.resetRegen(); },{danger:true})
     ];
     const U=[
+      this.mkItem('Stats panel',()=>{ if(has) this.toggleStats(); },{check:st.stats}),
       this.mkItem('Ruler (1 px = 1 m)',()=>{ if(has) this.toggleRuler(); },{check:st.ruler}),
       this.mkItem('Converter tab',()=>this.tabConvert(),{check:st.mainTab==='convert'}),
       this.mkItem('Objects (areadata) tab',()=>this.tabObjects(),{check:st.mainTab==='objects'}),
@@ -1923,6 +1956,7 @@ class Component extends DCLogic {
       rootRef:this.rootRef, canvasRef:this.canvasRef, viewRef:this.viewRef, inputRef:this.inputRef, regenInputRef:this.regenInputRef, pngInputRef:this.pngInputRef,
       coordRef:this.coordRef, zoomRef:this.zoomRef, layerInfoRef:this.layerInfoRef, emptyRowsRef:this.emptyRowsRef, emptyObjRef:this.emptyObjRef, dropHintRef:this.dropHintRef, oSectorRef:this.oSectorRef,
       fType:this.fType, fVnum:this.fVnum, fSx:this.fSx, fSy:this.fSy, fDir:this.fDir, fResp:this.fResp, fPerc:this.fPerc, fCount:this.fCount, fX:this.fX, fY:this.fY,
+      statsOn:!!st.stats&&!st.empty, statsLines:(st.stats&&!st.empty)?this.statsLines():[],
       undo:()=>this.undo(), redo:()=>this.redo(),
       undoTitle:(uTop?'Undo: '+uTop.label:'Nothing to undo')+'  (Ctrl+Z)', redoTitle:(rTop?'Redo: '+rTop.label:'Nothing to redo')+'  (Ctrl+Y)',
       undoBtnStyle:histBtn(!!uTop&&!st.empty), redoBtnStyle:histBtn(!!rTop&&!st.empty),

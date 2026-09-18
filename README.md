@@ -83,6 +83,7 @@ Hold **Ctrl** (**Cmd** on macOS) to work on several spawns or objects at once; p
 ### Tools
 Optional helpers under the **Tools** menu, all off until you switch them on.
 
+- **Stats panel**: an overlay in the top-left of the map with rows and summed `count` for every regen file, the current file by type with its warning count and top 10 vnums, and the objects (total, sectors used, distinct and most-used CRCs, warnings). A group row counts its groups, not the mobs inside them.
 - **Ruler**: click two points on the map to measure the distance in meters, with Δx / Δy (map units are meters: 1 px of the map image = 1 m). A third click starts a new measurement, **Esc** clears it. While the ruler is on, clicks only measure — nothing is placed or selected — and dragging still pans.
 
 ### Safety & UI
