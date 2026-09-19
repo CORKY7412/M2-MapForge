@@ -319,7 +319,7 @@
     <div style="position:fixed;inset:0;z-index:190;background:rgba(10,7,4,.62);display:flex;align-items:center;justify-content:center">
       <div style="width:min(94vw,960px);max-height:90vh;display:flex;flex-direction:column;background:#1c140d;border:1px solid #4a3820;border-radius:11px;box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden">
         <div style="padding:16px 20px 4px;font-family:'Cinzel',serif;color:#e8cf8f;font-size:16px;flex:none">Merge maps</div>
-        <div style="padding:0 20px 12px;color:#a08b5f;font-size:12px;line-height:1.5;flex:none">Load as many maps as you like: each one takes as many cells as it has sectors (a 6×6 map is 6 cells wide and 6 tall). Drag it anywhere on the board, or select it and click the cell it should go to. The board is just working room: the merged map is cut down to the area your maps actually cover, so empty space around them is dropped, and empty cells in between become flat empty ground. Each map's textureset is read from <b style="color:#c9b567">setting.txt</b>: if the file is not inside the map folder, link the <b style="color:#c9b567">YmirWork/textureset</b> folder below, once. Regenerate <b style="color:#c9b567">server_attr</b> after merging.</div>
+        <div style="padding:0 20px 12px;color:#a08b5f;font-size:12px;line-height:1.5;flex:none">Load as many maps as you like: each one takes as many cells as it has sectors (a 6×6 map is 6 cells wide and 6 tall). Drag it anywhere on the board — from the strip above, or a map that is already placed. Drop it onto another map to overlap them. The board is just working room: the merged map is cut down to the area your maps actually cover, so empty space around them is dropped, and empty cells in between become flat empty ground. Each map's textureset is read from <b style="color:#c9b567">setting.txt</b>: if the file is not inside the map folder, link the <b style="color:#c9b567">YmirWork/textureset</b> folder below, once. Regenerate <b style="color:#c9b567">server_attr</b> after merging.</div>
 
         <div style="padding:0 20px 10px;flex:none">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
@@ -348,7 +348,7 @@
           </div>
           <div onDragOver="{{ onPaletteDragOver }}" onDrop="{{ onPaletteDrop }}" style="display:flex;gap:8px;flex-wrap:wrap;max-height:172px;overflow:auto;padding:2px 2px 6px;border-radius:8px">
             <sc-for list="{{ mergeMapCards }}" as="M" hint-placeholder-count="2">
-              <div draggable="true" onDragStart="{{ M.onDragStart }}" onDragOver="{{ M.onDragOver }}" onDrop="{{ M.onDrop }}" onClick="{{ M.onClick }}" style="{{ M.style }}">
+              <div draggable="true" onDragStart="{{ M.onDragStart }}" onDragEnd="{{ mergeDragEnd }}" onDragOver="{{ M.onDragOver }}" onDrop="{{ M.onDrop }}" onClick="{{ M.onClick }}" style="{{ M.style }}">
                 <sc-if value="{{ M.placed }}" hint-placeholder-val="{{ false }}">
                   <div style="position:absolute;top:6px;left:6px;width:7px;height:7px;border-radius:50%;background:#8fce6f;z-index:2" title="placed on the grid"></div>
                 </sc-if>
@@ -381,23 +381,21 @@
         <div style="display:flex;align-items:center;gap:16px;padding:0 20px 8px;flex:none">
           <div style="font:600 10px 'IBM Plex Mono',monospace;color:#8a744c;letter-spacing:.5px">BOARD</div>
           <div class="mono" style="font-size:10.5px;color:#c9b567">{{ mergeResultLabel }}</div>
-          <sc-if value="{{ mergeHasSelection }}" hint-placeholder-val="{{ false }}">
-            <div class="mono" style="color:#e8cf8f;font-size:10.5px;margin-left:auto">map selected — click a cell to move it there</div>
-          </sc-if>
         </div>
 
         <div style="padding:0 20px 6px;overflow:auto;flex:1 1 auto;min-height:200px">
-          <div ref="{{ mergeGridRef }}" style="{{ mergeGridView.containerStyle }}">
-            <div onDragOver="{{ mergeBoardDragOver }}" onDrop="{{ mergeBoardDrop }}" onClick="{{ mergeBoardClick }}" style="{{ mergeGridView.targetStyle }}"></div>
+          <div ref="{{ mergeGridRef }}" onDragLeave="{{ mergeBoardDragLeave }}" style="{{ mergeGridView.containerStyle }}">
+            <div onDragOver="{{ mergeBoardDragOver }}" onDrop="{{ mergeBoardDrop }}" style="{{ mergeGridView.targetStyle }}"></div>
             <sc-if value="{{ mergeGridView.hasBox }}" hint-placeholder-val="{{ false }}">
               <div style="{{ mergeGridView.boxStyle }}"></div>
             </sc-if>
             <sc-for list="{{ mergeGridView.blocks }}" as="B" hint-placeholder-count="2">
-              <div draggable="true" onDragStart="{{ B.onDragStart }}" onDragOver="{{ B.onDragOver }}" onDrop="{{ B.onDrop }}" onClick="{{ B.onClick }}" style="{{ B.style }}" title="{{ B.title }}">
+              <div draggable="true" onDragStart="{{ B.onDragStart }}" onDragEnd="{{ mergeDragEnd }}" onDragOver="{{ B.onDragOver }}" onDrop="{{ B.onDrop }}" onClick="{{ B.onClick }}" style="{{ B.style }}" title="{{ B.title }}">
                 <div style="position:absolute;left:0;right:0;bottom:0;padding:3px 20px 3px 5px;font-weight:600;color:#f2e6c4;font-size:10.5px;text-shadow:0 1px 4px #000;word-break:break-all;background:linear-gradient(transparent,rgba(0,0,0,.55))">{{ B.name }}</div>
                 <button onClick="{{ B.onClear }}" style="position:absolute;top:1px;right:1px;width:12px;height:12px;border:1px solid #4a3820;background:#241a11cc;color:#b5573f;border-radius:3px;cursor:pointer;font-size:8px;line-height:1;padding:0;z-index:2">&times;</button>
               </div>
             </sc-for>
+            <div ref="{{ mergeGhostRef }}" style="display:none;pointer-events:none;z-index:999;box-sizing:border-box;border-radius:6px;border:2px solid #e8cf8f;background:rgba(232,207,143,.22);box-shadow:0 0 0 3px rgba(232,207,143,.18);padding:2px 4px;overflow:hidden;white-space:nowrap;font:600 9.5px 'IBM Plex Mono',monospace;color:#1a1209;text-shadow:0 0 3px rgba(255,240,200,.9)"></div>
           </div>
         </div>
 
@@ -562,6 +560,7 @@ class Component extends DCLogic {
   menuBarRef = el => this.menuBar = el;
   mergeMsgRef = el => this.mergeMsgEl = el;
   mergeGridRef = el => this.mergeGridEl = el;
+  mergeGhostRef = el => this.mergeGhostEl = el;
   // A placed map's block is ONE dom element spanning its whole w×h footprint
   // (not one element per quadrant), so a click/drop anywhere inside it needs its
   // own translation from pixel position -> (r,c), instead of assuming the block's
@@ -1783,11 +1782,6 @@ class Component extends DCLogic {
     this._mergeSelectedId=(this._mergeSelectedId===id)?null:id;
     this.refreshMergeUi();
   }
-  onQuadrantClick(r,c,e){
-    if(e&&e.stopPropagation) e.stopPropagation();
-    if(this._mergeSelectedId==null) return;
-    this.tryPlaceMergeMap(this._mergeSelectedId,r,c,{grow:false});
-  }
   async readDroppedFolder(e){ const d=await this.readDrop(e); return { out:d.out, folder:d.folder, handle:d.handles.find(h=>h.kind==='directory'&&h.name===d.folder)||null }; }
   // drop targets inside the dialog mark the native event, so the page-wide drop handler (which sees it next) leaves it alone
   mergeTook(e){ const n=(e&&e.nativeEvent)||e; if(n) n._mfMerge=true; }
@@ -1814,7 +1808,7 @@ class Component extends DCLogic {
   }
   onPaletteDragOver(e){ e.preventDefault(); }
   async onPaletteDrop(e){
-    e.preventDefault(); this.mergeTook(e);
+    e.preventDefault(); this.mergeTook(e); this.mergeHideGhost();
     const raw=e.dataTransfer.getData('text/x-mf-map-id');
     if(raw){ this.unplaceMergeMap(parseInt(raw,10)); return; }
     const items=e.dataTransfer.items; if(!items||!items.length) return;
@@ -1832,12 +1826,35 @@ class Component extends DCLogic {
     for(const f of fl){ let rp=f.webkitRelativePath||f.name; const i=rp.indexOf('/'); if(i>=0){ if(!folder) folder=rp.slice(0,i); rp=rp.slice(i+1); } out[rp.toLowerCase()]=f; }
     this.ingestMergeMap(out, folder, null);
   }
-  onCardDragStart(id,e){ e.dataTransfer.setData('text/x-mf-map-id', String(id)); e.dataTransfer.effectAllowed='move'; this._mergeSelectedId=id; this.refreshMergeUi(); }
-  onQuadrantDragOver(e){ e.preventDefault(); }
+  // Maps move by dragging only. fromBoard = a placed block was picked up: remember which of its cells is under the pointer, so it
+  // keeps that grip when dropped. A card from the strip is held by its middle.
+  onCardDragStart(id,e,fromBoard){ e.dataTransfer.setData('text/x-mf-map-id', String(id)); e.dataTransfer.effectAllowed='move'; const m=this.mergeMapById(id); let grab=m?{dr:Math.floor((m.slot.h-1)/2),dc:Math.floor((m.slot.w-1)/2)}:{dr:0,dc:0};
+    if(fromBoard&&m&&m.pos){ const cell=this.mergeCellFromEvent(e); if(cell) grab={dr:Math.min(m.slot.h-1,Math.max(0,cell.r-m.pos.r)),dc:Math.min(m.slot.w-1,Math.max(0,cell.c-m.pos.c))}; }
+    this._mergeGrab={id,...grab}; this._mergeSelectedId=id; this.refreshMergeUi(); }
+  // cell under the pointer → the map's top-left cell, pulled back inside the board if it would stick out
+  mergeDropAnchor(id,r,c){ const m=this.mergeMapById(id), g=(this._mergeGrab&&this._mergeGrab.id===id)?this._mergeGrab:{dr:0,dc:0}; if(!m) return {r,c};
+    return { r:Math.min(this.mergeGrid.rows-m.slot.h,Math.max(0,r-g.dr)), c:Math.min(this.mergeGrid.cols-m.slot.w,Math.max(0,c-g.dc)) }; }
+  onQuadrantDragOver(e){ e.preventDefault(); this.mergeShowGhost(e); }
+  // While something is dragged over the board, a ghost the size of the map sits on the cells it would land on — snapped, with the grip
+  // and the edge pull-back already applied — and turns amber where it would overlap another map. It is moved straight on the DOM (no
+  // re-render per mouse move) and carries the target cell as a small label. A folder dragged in from outside has no known size yet,
+  // so it shows as a single cell.
+  mergeShowGhost(e){
+    const el=this.mergeGhostEl, cell=this.mergeCellFromEvent(e); if(!el) return; if(!cell){ this.mergeHideGhost(); return; }
+    const g=this._mergeGrab, m=g?this.mergeMapById(g.id):null, w=m?m.slot.w:1, h=m?m.slot.h:1, a=m?this.mergeDropAnchor(m.id,cell.r,cell.c):cell;
+    const key=a.r+','+a.c+','+w+','+h; if(key===this._mergeGhostKey) return; this._mergeGhostKey=key;
+    const over=this.mergeOverlapsAt(m?m.id:-1,{r:a.r,c:a.c,w,h}), col=over.length?'214,138,46':'232,207,143';
+    el.style.display='block'; el.style.gridColumn=(a.c+1)+' / '+(a.c+1+w); el.style.gridRow=(a.r+1)+' / '+(a.r+1+h);
+    el.style.borderColor='rgb('+col+')'; el.style.background='rgba('+col+',.22)'; el.style.boxShadow='0 0 0 3px rgba('+col+',.18)';
+    el.textContent='R'+(a.r+1)+'C'+(a.c+1)+(over.length?' · overlaps '+over.map(o=>o.slot.name).join(', '):'');   // written into the ghost itself: the message line belongs to the renderer
+  }
+  mergeHideGhost(){ this._mergeGhostKey=null; if(this.mergeGhostEl) this.mergeGhostEl.style.display='none'; }
+  mergeDragEnd(){ this.mergeHideGhost(); this._mergeGrab=null; }
+  mergeBoardDragLeave(e){ const el=this.mergeGridEl, to=e&&e.relatedTarget; if(el && to && el.contains(to)) return; this.mergeHideGhost(); }
   async onQuadrantDrop(r,c,e){
-    e.preventDefault(); this.mergeTook(e);
+    e.preventDefault(); this.mergeTook(e); this.mergeHideGhost();
     const raw=e.dataTransfer.getData('text/x-mf-map-id');
-    if(raw){ this.placeMergeMap(parseInt(raw,10), r, c); return; }
+    if(raw){ const id=parseInt(raw,10), a=this.mergeDropAnchor(id,r,c); this.placeMergeMap(id,a.r,a.c); this._mergeGrab=null; return; }
     const items=e.dataTransfer.items; if(!items||!items.length) return;
     const {out,folder,handle}=await this.readDroppedFolder(e);
     await this.ingestMergeMap(out, folder, {r,c}, handle);
@@ -2847,8 +2864,8 @@ class Component extends DCLogic {
       blocks.push({
         id:m.id, name:m.slot.name,
         title:m.slot.name+' · '+w+'×'+h+(overlapping?'  —  overlaps another map: use ↑↓ on its card to choose which one wins here':''),
-        onClick:(e)=>{ if(this._mergeSelectedId!=null&&this._mergeSelectedId!==m.id){ const cell=this.mergeCellFromEvent(e)||{r,c}; this.onQuadrantClick(cell.r,cell.c,e); } else this.selectMergeMap(m.id,e); },
-        onDragStart:(e)=>this.onCardDragStart(m.id,e),
+        onClick:(e)=>this.selectMergeMap(m.id,e),
+        onDragStart:(e)=>this.onCardDragStart(m.id,e,true),
         onDragOver:(e)=>this.onQuadrantDragOver(e),
         onDrop:(e)=>{ const cell=this.mergeCellFromEvent(e)||{r,c}; this.onQuadrantDrop(cell.r,cell.c,e); },
         onClear:(e)=>this.unplaceMergeMap(m.id,e),
@@ -2860,7 +2877,7 @@ class Component extends DCLogic {
     return {
       blocks, hasBox:!!b,
       boxStyle:b?`grid-column:${b.c0+1} / ${b.c1+2};grid-row:${b.r0+1} / ${b.r1+2};margin:-2px;border:1.5px dashed #c9a24b;border-radius:8px;pointer-events:none;z-index:0;background:rgba(201,162,75,.05)`:'',
-      targetStyle:`grid-column:1 / -1;grid-row:1 / -1;z-index:0;cursor:${this._mergeSelectedId!=null?'pointer':'default'}`,
+      targetStyle:'grid-column:1 / -1;grid-row:1 / -1;z-index:0',
       containerStyle:`display:grid;grid-template-columns:repeat(${cols},${QPX}px);grid-template-rows:repeat(${rows},${QPX}px);gap:${GAP}px;position:relative;width:max-content;border-radius:6px;background-color:#15100a;background-image:linear-gradient(to right,#2b2116 1px,transparent 1px),linear-gradient(to bottom,#2b2116 1px,transparent 1px);background-size:${pitch}px ${pitch}px;background-position:-${GAP/2+0.5}px -${GAP/2+0.5}px`
     };
   }
@@ -2909,7 +2926,7 @@ class Component extends DCLogic {
       confirmOpen:!!st.confirm, confirmTitle:cf.title||'', confirmMsg:cf.msg||'', confirmYesLabel:cf.yes||'Delete',
       confirmBtnStyle:`border:1px solid ${cf.danger?'#7a2f22':'#6b501f'};background:${cf.danger?'linear-gradient(#c25236,#9a3d26)':'linear-gradient(#d9b845,#a5802e)'};color:${cf.danger?'#fff':'#2a1d09'};border-radius:6px;padding:8px 16px;font:600 12px 'IBM Plex Sans';cursor:pointer`,
       confirmYes:()=>this.confirmYes(), confirmNo:()=>this.confirmNo(),
-      mergeOpen:st.mergeOpen, mergeMsg:st.mergeMsg, mergeMsgRef:this.mergeMsgRef, mergeGridRef:this.mergeGridRef,
+      mergeOpen:st.mergeOpen, mergeMsg:st.mergeMsg, mergeMsgRef:this.mergeMsgRef, mergeGridRef:this.mergeGridRef, mergeGhostRef:this.mergeGhostRef, mergeDragEnd:()=>this.mergeDragEnd(), mergeBoardDragLeave:(e)=>this.mergeBoardDragLeave(e),
       openMerge:()=>this.openMerge(), closeMerge:()=>this.closeMerge(), runMerge:()=>this.runMerge(),
       tsInputRef:this.tsInputRef, onTsInput:(e)=>this.onTsInput(e),
       mergeAddInputRef:this.mergeAddInputRef, onMergeAddInput:(e)=>this.onMergeAddInput(e), openMergeAddPicker:()=>this.openMergeAddPicker(),
@@ -2926,8 +2943,8 @@ class Component extends DCLogic {
           style:`display:flex;align-items:center;gap:6px;padding:3px 6px 3px 8px;border-radius:6px;font-size:10px;border:1px solid ${u.id===this._mergeSetupId?'#e8cf8f':'#3a2c1a'};background:#15100a` })) }; })(),
       onPaletteDragOver:(e)=>this.onPaletteDragOver(e), onPaletteDrop:(e)=>this.onPaletteDrop(e),
       mergeResultLabel:st.mergeOpen?this.mergeResultLabel():'',
-      mergeBoardDragOver:(e)=>this.onQuadrantDragOver(e), mergeBoardDrop:(e)=>{ const cell=this.mergeCellFromEvent(e); if(cell) this.onQuadrantDrop(cell.r,cell.c,e); }, mergeBoardClick:(e)=>{ const cell=this.mergeCellFromEvent(e); if(cell) this.onQuadrantClick(cell.r,cell.c,e); },
-      mergeGridView:st.mergeOpen?this.buildMergeGrid():{blocks:[],hasBox:false,boxStyle:'',targetStyle:'',containerStyle:''}, mergeHasSelection:this._mergeSelectedId!=null,
+      mergeBoardDragOver:(e)=>this.onQuadrantDragOver(e), mergeBoardDrop:(e)=>{ const cell=this.mergeCellFromEvent(e); if(cell) this.onQuadrantDrop(cell.r,cell.c,e); },
+      mergeGridView:st.mergeOpen?this.buildMergeGrid():{blocks:[],hasBox:false,boxStyle:'',targetStyle:'',containerStyle:''},
       empty:st.empty,
       convertActive:st.mainTab==='convert', regenActive:st.mainTab==='regen', objectsActive:st.mainTab==='objects',
       convertTabStyle:this.tabStyle(st.mainTab==='convert'), regenTabStyle:this.tabStyle(st.mainTab==='regen'), objectsTabStyle:this.tabStyle(st.mainTab==='objects'),
