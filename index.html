@@ -106,6 +106,63 @@
           </sc-for>
         </div>
       </sc-if>
+      <sc-if value="{{ paintOn }}" hint-placeholder-val="{{ false }}">
+        <div onDragOver="{{ onPaintDragOver }}" onDrop="{{ onPaintDrop }}" style="{{ paintBoxStyle }}">
+          <div onMouseDown="{{ startPaintDrag }}" style="display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;cursor:move;border-bottom:1px solid #3a2c1a;background:#241a11;border-radius:9px 9px 0 0;user-select:none">
+            <div style="font-family:'Cinzel',serif;color:#e8cf8f;font-size:12.5px;flex:1">Paint attributes</div>
+            <button onClick="{{ closePaint }}" title="Close (Esc)" style="width:20px;height:20px;border:1px solid #4a3820;background:#1c140d;color:#b5573f;border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:0">&times;</button>
+          </div>
+          <div style="padding:9px 10px 10px">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
+              <sc-for list="{{ paintFlags }}" as="P" hint-placeholder-count="8">
+                <button onClick="{{ P.onClick }}" title="{{ P.title }}" class="mono" style="{{ P.style }}"><span style="{{ P.dot }}"></span>{{ P.label }}</button>
+              </sc-for>
+            </div>
+            <div class="mono" style="margin-top:5px;font-size:9.5px;color:#8a744c;line-height:1.4">{{ paintMaskText }}</div>
+            <div style="display:flex;gap:4px;margin-top:8px">
+              <sc-for list="{{ paintModes }}" as="P" hint-placeholder-count="3">
+                <button onClick="{{ P.onClick }}" title="{{ P.title }}" style="{{ P.style }}">{{ P.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex;gap:4px;margin-top:6px">
+              <sc-for list="{{ paintTools }}" as="P" hint-placeholder-count="4">
+                <button onClick="{{ P.onClick }}" title="{{ P.title }}" style="{{ P.style }}">{{ P.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:8px">
+              <span class="mono" style="font-size:10px;color:#a08b5f">tip</span>
+              <sc-for list="{{ paintTips }}" as="P" hint-placeholder-count="2">
+                <button onClick="{{ P.onClick }}" style="{{ P.style }}">{{ P.label }}</button>
+              </sc-for>
+              <input type="range" min="1" max="64" step="1" value="{{ paintSize }}" onChange="{{ onPaintSize }}" onInput="{{ onPaintSize }}" style="flex:1;min-width:0;accent-color:#c9a24b">
+              <span class="mono" style="width:34px;text-align:right;font-size:10.5px;color:#e8cf8f">{{ paintSizeText }}</span>
+            </div>
+            <div style="margin-top:10px;padding-top:8px;border-top:1px solid #3a2c1a">
+              <div class="mono" style="font-size:9.5px;color:#8a744c;letter-spacing:.4px;margin-bottom:5px" title="Paints the whole map in one go from the ground textures: every tile whose texture file name starts with one of these prefixes gets the flag.">BATCH PAINT · by texture name</div>
+              <div style="display:flex;gap:5px;align-items:stretch;margin-bottom:6px">
+                <div class="mono" title="{{ paintTsTitle }}" style="{{ paintTsLineStyle }}">{{ paintTsLine }}</div>
+                <button onClick="{{ pickPaintTextureset }}" title="{{ paintTsTitle }}" style="flex:none;border:1px solid #3a2c1a;background:transparent;color:#a08b5f;border-radius:5px;padding:4px 7px;font:500 10.5px 'IBM Plex Sans';cursor:pointer">{{ paintTsBtnLabel }}</button>
+              </div>
+              <sc-for list="{{ paintTexRows }}" as="T" hint-placeholder-count="2">
+                <div style="display:flex;gap:4px;align-items:center;margin-top:4px">
+                  <span class="mono" style="{{ T.labelStyle }}">{{ T.label }}</span>
+                  <input ref="{{ T.ref }}" class="mono" title="{{ T.inputTitle }}" style="flex:1;min-width:0;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:4px 6px;color:#d8c9a8;font-size:10.5px">
+                  <button onClick="{{ T.onAdd }}" title="{{ T.addTitle }}" style="{{ T.addStyle }}">Add</button>
+                  <button onClick="{{ T.onRebuild }}" title="{{ T.rebuildTitle }}" style="{{ T.rebuildStyle }}">Rebuild</button>
+                </div>
+              </sc-for>
+              <sc-if value="{{ paintMsgOn }}" hint-placeholder-val="{{ false }}">
+                <div class="mono" style="margin-top:6px;font-size:9.5px;line-height:1.45;color:#c9b567;word-break:break-word">{{ paintMsg }}</div>
+              </sc-if>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid #3a2c1a">
+              <span class="mono" style="{{ paintStaleStyle }}">{{ paintStaleText }}</span>
+              <button onClick="{{ generateServerAttr }}" style="margin-left:auto;border:1px solid #6b501f;background:#3a2c1a;color:#e8cf8f;border-radius:5px;padding:5px 8px;font:600 10.5px 'IBM Plex Sans';cursor:pointer">Generate server_attr</button>
+            </div>
+            <div class="mono" style="margin-top:7px;font-size:9px;color:#6b5a3c;line-height:1.5">B brush · R rectangle · C circle · I pick · X set/clear · [ ] size · 1–8 flags · Space or right-drag pans · Ctrl+Z undo</div>
+          </div>
+        </div>
+      </sc-if>
       <div class="mono" ref="{{ coordRef }}" style="position:absolute;top:12px;right:12px;padding:5px 10px;border-radius:5px;background:rgba(28,20,13,.85);border:1px solid #4a3820;color:#e8cf8f;font-size:11px;pointer-events:none">x — · y —</div>
       <div style="position:absolute;bottom:12px;left:12px;display:flex;gap:5px">
         <button onClick="{{ zoomOut }}" style="width:28px;height:28px;border-radius:5px;border:1px solid #4a3820;background:rgba(36,26,17,.9);color:#d8c9a8;cursor:pointer;font-size:15px">&minus;</button>
@@ -183,6 +240,8 @@
             <button onClick="{{ exportLayerPNG }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:9px;font:500 12px 'IBM Plex Sans';cursor:pointer">Export PNG</button>
             <button onClick="{{ importPng }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:9px;font:500 12px 'IBM Plex Sans';cursor:pointer">Import PNG</button>
           </div>
+          <div style="font-family:'Cinzel',serif;color:#c9a24b;font-size:12px;letter-spacing:.5px;margin:18px 0 10px">ATTRIBUTES</div>
+          <button onClick="{{ openPaint }}" title="Opens a floating palette over the map: paint Block, Safezone, Banshop and the other attr flags with a brush, rectangle or circle, or derive them from texture names." style="{{ paintOpenBtnStyle }}">{{ paintOpenLabel }}</button>
           <div style="font-family:'Cinzel',serif;color:#c9a24b;font-size:12px;letter-spacing:.5px;margin:18px 0 10px">ALL LAYERS</div>
           <div style="display:flex;gap:6px">
             <button onClick="{{ exportAllPNG }}" title="One PNG per layer, zipped" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:9px;font:500 12px 'IBM Plex Sans';cursor:pointer">Export all PNG</button>
@@ -433,6 +492,7 @@
 
   <input ref="{{ inputRef }}" type="file" webkitdirectory="" directory="" multiple="" onChange="{{ onInput }}" style="display:none">
   <input ref="{{ regenInputRef }}" type="file" accept=".txt" onChange="{{ onRegenInput }}" style="display:none">
+  <input ref="{{ paintTsInputRef }}" type="file" accept=".txt" onChange="{{ onPaintTsInput }}" style="display:none">
   <input ref="{{ groupInputRef }}" type="file" accept=".txt" multiple="" onChange="{{ onGroupInput }}" style="display:none">
   <input ref="{{ wsInputRef }}" type="file" accept=".json,application/json" onChange="{{ onWsInput }}" style="display:none">
   <input ref="{{ regenDirInputRef }}" type="file" webkitdirectory="" directory="" multiple="" onChange="{{ onRegenDirInput }}" style="display:none">
@@ -534,7 +594,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
     mergeOpen:false, mergeMsg:'', mergeRev:0
   };
   pendingConfirm = null;
@@ -558,6 +618,8 @@ class Component extends DCLogic {
   regenDirInputRef = el => this.regenDirInput = el;
   wsInputRef = el => this.wsInput = el;
   groupInputRef = el => this.groupInput = el;
+  paintTsInputRef = el => this.paintTsInput = el; ptBlockRef = el => { this._ptBlock = el; if(el && !el._init){ el._init=true; el.value=this._ptBlockVal||'stone'; el.addEventListener('input',()=>{ this._ptBlockVal=el.value; }); } };
+  ptSafeRef = el => { this._ptSafe = el; if(el && !el._init){ el._init=true; el.value=this._ptSafeVal||'tile'; el.addEventListener('input',()=>{ this._ptSafeVal=el.value; }); } };
   pngInputRef = el => this.pngInput = el;
   serverAttrInputRef = el => this.serverAttrInput = el;
   tsInputRef = el => this.tsInput = el;
@@ -682,17 +744,19 @@ class Component extends DCLogic {
         e.preventDefault(); this.selectAll(this.state.mainTab==='regen'?'row':'obj'); return; }
       if(/^Arrow(Up|Down|Left|Right)$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !this.state.empty && !this.state.confirm && !this.state.menu && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){
         const k=this.clipKind(); if(k && this.group(k).length){ e.preventDefault(); this.arrowNudge(k,e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0,e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:0,e.shiftKey); return; } }
+      if(this.paintKey(e)){ e.preventDefault(); return; }
       if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.ruler && this.rulerPts.length){ this.rulerPts=[]; this.rulerLive=null; this.draw(); } else if(this.state.mainTab==='regen' && this.group('row').length && !this.dragRow && !this.dragHandle && !this.dragGroup){ this.deselect('row'); }
         else if(this.state.mainTab==='objects' && this.group('obj').length && !this.dragObj && !this.dragGroup){ this.deselect('obj'); } }
       else if(e.key==='Enter' && this.state.confirm){ e.preventDefault(); if(!e.repeat) this.confirmYes(); }
       else if(e.key==='Delete' && this.state.mainTab==='regen' && this.group('row').length && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteGroup('row'); }
       else if(e.key==='Delete' && this.state.mainTab==='objects' && this.group('obj').length && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteGroup('obj'); } };
     window.addEventListener('keydown', this._keyDown);
+    this._keyUp=e=>{ if(e.key===' ') this._space=false; }; window.addEventListener('keyup',this._keyUp);
     this._vis=()=>{ if(document.visibilityState==='hidden') this.wsSaveView(); }; document.addEventListener('visibilitychange',this._vis); this.wsRefresh();
     this._copy=e=>this.onCopy(e,false); this._cut=e=>this.onCopy(e,true); this._paste=e=>this.onPaste(e);
     document.addEventListener('copy',this._copy); document.addEventListener('cut',this._cut); document.addEventListener('paste',this._paste);
   }
-  componentWillUnmount(){ document.removeEventListener('visibilitychange',this._vis); window.removeEventListener('dragover',this._dragOver); window.removeEventListener('drop',this._drop); document.removeEventListener('copy',this._copy); document.removeEventListener('cut',this._cut); document.removeEventListener('paste',this._paste); this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); }
+  componentWillUnmount(){ window.removeEventListener('keyup',this._keyUp); document.removeEventListener('visibilitychange',this._vis); window.removeEventListener('dragover',this._dragOver); window.removeEventListener('drop',this._drop); document.removeEventListener('copy',this._copy); document.removeEventListener('cut',this._cut); document.removeEventListener('paste',this._paste); this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); }
 
   // ================= multi-select =================
   // A group is a Set of row / object references on top of the primary selection (selRow / selObj), which still drives the form.
@@ -824,6 +888,7 @@ class Component extends DCLogic {
       if(w.regen){ try{ const files={}; if(w.regen.dir){ if(await this.wsPerm(w.regen.dir)) for await(const [name,h] of w.regen.dir.entries()) if(h.kind==='file') files[name.toLowerCase()]=await h.getFile(); } else for(const f of w.regen.files||[]) if(await this.wsPerm(f.handle)) files[f.name.toLowerCase()]=await f.handle.getFile();
           if(Object.keys(files).length){ const tab=this.state.mainTab, rt=this.state.regenTab; await this.applyRegenFolder(files,w.regen.name||''); this.setState({mainTab:tab,regenTab:rt}); } else miss.push(w.regen.dir||(w.regen.files||[]).some(f=>f.handle)?'regens (moved or permission refused)':'regens (not linked yet — load them once)'); }catch(e){ miss.push('regens (moved or permission refused)'); } }
       for(const kind of ['groups','ggroups']){ if(!w[kind]) continue; try{ if(w[kind].file && await this.wsPerm(w[kind].file) && await this.loadAuxFile(await w[kind].file.getFile(),kind)){ this._auxLink[kind]=w[kind]; await this.wsSetLast(kind+'Link',w[kind]); } else miss.push(w[kind].name+(w[kind].file?' (permission refused)':' (not linked yet — load the file once)')); }catch(e){ miss.push(w[kind].name+' (moved or deleted)'); } }
+      if(w.textureset){ try{ if(w.textureset.file && await this.wsPerm(w.textureset.file) && await this.usePaintTextureset(await w.textureset.file.getFile(),w.textureset.file,true)){} else miss.push('textureset '+w.textureset.name+(w.textureset.file?' (permission refused or no longer a textureset)':' (not linked yet — load it once in the paint palette)')); }catch(e){ miss.push('textureset '+w.textureset.name+' (moved or deleted)'); } }
       await this.wsCarryAux(w);
       if(!w.names) await this.wsCarryNames(w);
       else { try{ if(await this.wsPerm(w.names.file)){ await this.loadNamesFile(await w.names.file.getFile()); this._namesLink=w.names; await this.wsSetLastNames(w.names); } else miss.push(w.names.file?'mob names (permission refused)':'mob names (not linked yet — load the file once)'); }catch(e){ miss.push('mob names (moved or deleted)'); } }
@@ -839,7 +904,7 @@ class Component extends DCLogic {
   async wsExport(){
     await this.wsRefresh(); const all=this._ws||[]; if(!all.length){ this.setState({statusText:'no workspaces to export'}); return; }
     const data={app:'MapForge',kind:'workspaces',version:1,exported:new Date().toISOString(),note:'Names and view settings only. Folders cannot be exported by a browser; link them again after importing.',
-      workspaces:all.map(w=>({name:w.name,created:w.created||0,opened:w.opened||0,map:{name:w.map.name},regen:w.regen?{name:w.regen.name||'',folder:!!w.regen.dir||!!w.regen.folder,files:(w.regen.files||[]).map(f=>f.name)}:null,names:w.names?{name:w.names.name||'mob_names.txt'}:null,groups:w.groups?{name:w.groups.name}:null,ggroups:w.ggroups?{name:w.ggroups.name}:null,view:w.view||null,info:w.info||null}))};
+      workspaces:all.map(w=>({name:w.name,created:w.created||0,opened:w.opened||0,map:{name:w.map.name},regen:w.regen?{name:w.regen.name||'',folder:!!w.regen.dir||!!w.regen.folder,files:(w.regen.files||[]).map(f=>f.name)}:null,names:w.names?{name:w.names.name||'mob_names.txt'}:null,groups:w.groups?{name:w.groups.name}:null,ggroups:w.ggroups?{name:w.ggroups.name}:null,textureset:w.textureset?{name:w.textureset.name}:null,view:w.view||null,info:w.info||null}))};
     const file='mapforge-workspaces-'+this.fileStamp()+'.json'; this.download(file,new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
     this.setState({statusText:'exported '+all.length+' workspace'+(all.length>1?'s':'')+' → '+file+' (names and settings; folders are linked again after import)'});
   }
@@ -854,13 +919,13 @@ class Component extends DCLogic {
         const w={id:'ws'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)+n,name,created:+x.created||Date.now(),opened:+x.opened||0,imported:true,map:{name:str(x.map.name),handle:null}};
         if(x.regen) w.regen=x.regen.folder?{name:str(x.regen.name,''),folder:true,dir:null}:{name:'',files:(Array.isArray(x.regen.files)?x.regen.files:[]).slice(0,4).map(nm=>({name:str(nm),handle:null}))};
         if(x.names) w.names={name:str(x.names.name,'mob_names.txt'),file:null};
-        for(const kind of ['groups','ggroups']) if(x[kind]&&x[kind].name) w[kind]={name:str(x[kind].name),file:null};
+        for(const kind of ['groups','ggroups','textureset']) if(x[kind]&&x[kind].name) w[kind]={name:str(x[kind].name),file:null};
         if(x.view&&typeof x.view==='object'){ w.view={}; for(const key of VIEW) if(key in x.view) w.view[key]=x.view[key]; }
         if(x.info&&typeof x.info==='object') w.info={dims:str(x.info.dims,''),sectors:str(x.info.sectors,'')};
         await this.wsTx('readwrite',st=>st.put(w)); n++; }
       await this.wsRefresh(); this.setState({statusText:n?'imported '+n+' workspace'+(n>1?'s':'')+' — open one to link its map folder':'no workspaces found in '+f.name});
     }catch(err){ this.wsFail(err); } }
-  wsLinks(w){ const un=' (not linked)', p=['map: '+w.map.name+(w.map.handle?'':un)]; if(w.regen){ const dir=w.regen.dir||w.regen.folder, linked=w.regen.dir||(w.regen.files||[]).some(f=>f.handle); p.push('regens: '+(dir?(w.regen.name||'folder'):(w.regen.files||[]).map(f=>f.name).join(' '))+(linked?'':un)); } if(w.names) p.push((w.names.name||'mob_names.txt')+(w.names.file?'':un)); for(const kind of ['groups','ggroups']) if(w[kind]) p.push(w[kind].name+(w[kind].file?'':un)); return p.join('  ·  '); }
+  wsLinks(w){ const un=' (not linked)', p=['map: '+w.map.name+(w.map.handle?'':un)]; if(w.regen){ const dir=w.regen.dir||w.regen.folder, linked=w.regen.dir||(w.regen.files||[]).some(f=>f.handle); p.push('regens: '+(dir?(w.regen.name||'folder'):(w.regen.files||[]).map(f=>f.name).join(' '))+(linked?'':un)); } if(w.names) p.push((w.names.name||'mob_names.txt')+(w.names.file?'':un)); for(const kind of ['groups','ggroups','textureset']) if(w[kind]) p.push(w[kind].name+(w[kind].file?'':un)); return p.join('  ·  '); }
   wsWhen(t){ if(!t) return ''; const d=(Date.now()-t)/1000; if(d<90) return 'just now'; if(d<5400) return Math.round(d/60)+' min ago'; if(d<129600) return Math.round(d/3600)+' h ago'; if(d<2592000) return Math.round(d/86400)+' days ago'; return new Date(t).toLocaleDateString(); }
 
   // ================= merge setups =================
@@ -1079,6 +1144,134 @@ class Component extends DCLogic {
     return out;
   }
 
+  // ================= paint attributes =================
+  // A floating palette (Converter › Paint attributes…) that edits the attr.atr flag grid: one byte per 1 m cell, 8 bit flags.
+  // While it is open the flag overlay is forced on over whatever layer is shown, left-drag paints, and right / middle drag or
+  // holding Space pans. A sector's grid is copied into memory the first time it is touched (attrEdit); when a stroke ends the touched
+  // sectors are written back into this.files as attr.atr, so export, server_attr generation and the layer renderer all see the edit
+  // without knowing about painting. Every stroke is one undo step holding a copy of each touched sector from before the stroke.
+  paint={tool:'brush',mode:'set',mask:0x01,size:8,tip:'round',x:14,y:58};
+  attrEdit={}; _paintChain=Promise.resolve(); _stroke=null; paintShape=null; paintHover=null;
+  openPaint(){
+    if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
+    if(this.state.paint) return; this._hlBefore=this.state.highlight; this.rulerPts=[]; this.rulerLive=null;
+    this.setState({paint:true,highlight:true,ruler:false,menu:'',statusText:'paint on — left-drag paints · right / middle drag or Space pans · Esc closes'});
+    this.ensureHighlight(this.jobId).then(()=>this.draw());
+    this.paintTextureEntries().then(()=>this.setState({paintRev:(this.state.paintRev||0)+1})).catch(()=>{});
+  }
+  closePaint(){ if(!this.state.paint) return; this.paintShape=null; this.paintHover=null; this._space=false; this.setState({paint:false,highlight:!!this._hlBefore,statusText:'paint off'}); if(this.canvas) this.canvas.style.cursor=''; this.draw(); }
+  paintSet(patch){ Object.assign(this.paint,patch); this.setState({paintRev:(this.state.paintRev||0)+1}); this.draw(); }
+  // what one cell becomes: Set turns the chosen flags on, Clear turns them off, Replace writes exactly the chosen flags
+  paintValue(b){ const m=this.paint.mask&255, md=this.paint.mode; return md==='set'?(b|m):md==='clear'?(b&~m&255):m; }
+  sectorOf(x,y){ return this.pad3(Math.floor(x/TILE))+this.pad3(Math.floor(y/TILE)); }
+  async paintCells(coord){ if(this.attrEdit[coord]) return this.attrEdit[coord]; if(!this.sectorList.includes(coord)) return null; const g=await this.attrGrid(coord); return (this.attrEdit[coord]=g?new Uint8Array(g):new Uint8Array(65536)); }
+  // first change to a sector within a stroke: open the undo step if needed and keep a copy of the sector as it was
+  strokeTouch(coord,label){ const s=this._stroke; if(s.touched.has(coord)) return; if(!s.undo){ this.pushUndo(label||'paint attributes',[]); s.undo=this.undoStack[this.undoStack.length-1]; } s.undo.scopes.push({kind:'attr',key:coord,data:new Uint8Array(this.attrEdit[coord])}); s.touched.add(coord); }
+  // apply fn(byte)->byte to a list of [x,y] cells (world cell coordinates); sectors are loaded as needed, cells outside the map are skipped
+  async paintApply(cells,fn,label){
+    const need=new Set(); for(const p of cells) need.add(this.sectorOf(p[0],p[1])); for(const c of need) await this.paintCells(c);
+    const s=this._stroke; if(!s) return;
+    for(const p of cells){ if(p[0]<0||p[1]<0) continue; const c=this.sectorOf(p[0],p[1]), a=this.attrEdit[c]; if(!a) continue; const i=(p[1]%TILE)*TILE+(p[0]%TILE), nv=fn(a[i])&255; if(nv===a[i]) continue; this.strokeTouch(c,label); a[i]=nv; s.changed++; s.dirty.add(c); }
+    this.paintRefresh();
+  }
+  queuePaint(cells,fn,label){ this._paintChain=this._paintChain.then(()=>this.paintApply(cells,fn,label)).catch(e=>console.error(e)); return this._paintChain; }
+  tipCells(cx,cy){ const n=Math.max(1,this.paint.size|0), x0=cx-Math.floor((n-1)/2), y0=cy-Math.floor((n-1)/2), mid=(n-1)/2, rr=(n/2)*(n/2), round=this.paint.tip==='round'&&n>2, out=[]; for(let j=0;j<n;j++) for(let i=0;i<n;i++){ if(round && (i-mid)*(i-mid)+(j-mid)*(j-mid)>rr) continue; out.push([x0+i,y0+j]); } return out; }
+  lineCells(x0,y0,x1,y1){ const pts=[]; let dx=Math.abs(x1-x0), dy=-Math.abs(y1-y0), sx=x0<x1?1:-1, sy=y0<y1?1:-1, err=dx+dy; for(;;){ pts.push([x0,y0]); if(x0===x1&&y0===y1) break; const e2=2*err; if(e2>=dy){ err+=dy; x0+=sx; } if(e2<=dx){ err+=dx; y0+=sy; } } return pts; }
+  rectCells(a,b){ const x0=Math.min(a.x,b.x), x1=Math.max(a.x,b.x), y0=Math.min(a.y,b.y), y1=Math.max(a.y,b.y), out=[]; for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) out.push([x,y]); return out; }
+  circleCells(c,e){ const r=Math.hypot(e.x-c.x,e.y-c.y), R=Math.ceil(r), out=[]; for(let y=-R;y<=R;y++) for(let x=-R;x<=R;x++) if(x*x+y*y<=r*r+0.25) out.push([c.x+x,c.y+y]); return out; }
+  paintDown(wx,wy){
+    const x=Math.floor(wx), y=Math.floor(wy), t=this.paint.tool;
+    if(t==='pick'){ this.paintPick(x,y); return; }
+    this._stroke={touched:new Set(),dirty:new Set(),changed:0,undo:null,last:{x,y}};
+    if(t==='brush'){ const fn=b=>this.paintValue(b); this.queuePaint(this.tipCells(x,y),fn); }
+    else { this.paintShape={tool:t,a:{x,y},b:{x,y}}; this.draw(); }
+  }
+  paintMove(wx,wy){
+    const s=this._stroke; if(!s) return; const x=Math.floor(wx), y=Math.floor(wy);
+    if(this.paint.tool==='brush'){ if(x===s.last.x&&y===s.last.y) return; const seen=new Set(), cells=[]; for(const p of this.lineCells(s.last.x,s.last.y,x,y)) for(const q of this.tipCells(p[0],p[1])){ const k=q[0]+','+q[1]; if(!seen.has(k)){ seen.add(k); cells.push(q); } } s.last={x,y}; this.queuePaint(cells,b=>this.paintValue(b)); }
+    else if(this.paintShape){ this.paintShape.b={x,y}; this.draw(); }
+  }
+  paintUp(){
+    const s=this._stroke; if(!s) return; const sh=this.paintShape; this.paintShape=null;
+    if(sh) this.queuePaint(sh.tool==='circle'?this.circleCells(sh.a,sh.b):this.rectCells(sh.a,sh.b),b=>this.paintValue(b));
+    this._paintChain=this._paintChain.then(()=>this.paintCommit(s)); this.draw(); return this._paintChain;
+  }
+  async paintPick(x,y){ const a=await this.paintCells(this.sectorOf(x,y)); if(!a||x<0||y<0){ this.setState({statusText:'nothing to pick there'}); return; } const b=a[(y%TILE)*TILE+(x%TILE)]; this.paintSet({mask:b,tool:'brush'}); this.setState({statusText:'picked '+(this.flagNames(b)||'no flags')+' at '+x+', '+y}); }
+  flagNames(b){ return ATTR_FLAGS.filter(f=>b&f.bit).map(f=>f.name).join(' + '); }
+  // stroke finished: write the touched sectors back as attr.atr files and refresh their bitmaps
+  async paintCommit(s){
+    if(this._stroke===s) this._stroke=null; if(!s.touched.size){ if(s.undo&&!s.undo.scopes.length){ const i=this.undoStack.indexOf(s.undo); if(i>=0) this.undoStack.splice(i,1); } return; }
+    this.attrWrite([...s.touched]); this.setState({attrStale:true,statusText:(s.label||'painted')+' '+s.changed.toLocaleString('en-US')+' cell'+(s.changed===1?'':'s')+' in '+s.touched.size+' sector'+(s.touched.size===1?'':'s')+' · server_attr needs regenerating'});
+    await this.attrRebuildBitmaps([...s.touched]); this.draw();
+  }
+  attrWrite(coords){ for(const c of coords){ const a=this.attrEdit[c]; if(!a) continue; const out=new Uint8Array(6+65536), dv=new DataView(out.buffer); dv.setUint16(0,2634,true); dv.setUint16(2,256,true); dv.setUint16(4,256,true); out.set(a,6); this.files[(c+'/attr.atr').toLowerCase()]=new File([out],'attr.atr'); } }
+  // colour of one cell in the flag overlay: every set flag contributes, so a Block + Safezone cell is visibly neither plain red nor plain green
+  hlPixel(byte,data,o){ let r=0,g=0,b=0,n=0; for(const F of ATTR_FLAGS) if(byte&F.bit){ r+=F.col[0]; g+=F.col[1]; b+=F.col[2]; n++; } if(!n){ data[o+3]=0; return; } data[o]=r/n; data[o+1]=g/n; data[o+2]=b/n; data[o+3]=175; }
+  async attrRebuildBitmaps(coords){
+    if(typeof createImageBitmap==='undefined'||typeof ImageData==='undefined') return;
+    for(const c of coords){ const a=this.attrEdit[c]; if(!a) continue; const hl=new ImageData(256,256); for(let i=0;i<65536;i++) this.hlPixel(a[i],hl.data,i*4); this.cache['hl:'+c]=await createImageBitmap(hl);
+      if(this.cache['attribute:'+c]||this.state.layer==='attribute'){ const img=new ImageData(256,256); for(let i=0;i<65536;i++){ const col=this.attrColor(a[i]), o=i*4; img.data[o]=col[0]; img.data[o+1]=col[1]; img.data[o+2]=col[2]; img.data[o+3]=255; } this.cache['attribute:'+c]=await createImageBitmap(img); } }
+  }
+  // live feedback while the mouse is still down: redraw the overlay of the sectors changed since the last frame
+  paintRefresh(){ const s=this._stroke; if(!s||this._paintRaf) return; const go=async()=>{ this._paintRaf=0; const d=[...s.dirty]; s.dirty.clear(); await this.attrRebuildBitmaps(d); this.draw(); }; this._paintRaf=(typeof requestAnimationFrame!=='undefined')?requestAnimationFrame(go):setTimeout(go,16); }
+  drawPaint(ctx){
+    if(!this.state.paint) return; const z=this.zoom, F=ATTR_FLAGS.find(f=>this.paint.mask&f.bit), col=F?F.col:[232,207,143], erase=this.paint.mode==='clear';
+    ctx.save(); ctx.lineWidth=1.5/z; ctx.strokeStyle=erase?'#ffffff':'rgb('+col.join(',')+')'; ctx.fillStyle='rgba('+col.join(',')+','+(erase?0.08:0.28)+')'; if(erase) ctx.setLineDash([4/z,3/z]);
+    const sh=this.paintShape;
+    if(sh){ if(sh.tool==='circle'){ const r=Math.hypot(sh.b.x-sh.a.x,sh.b.y-sh.a.y)+0.5; ctx.beginPath(); ctx.arc(sh.a.x+0.5,sh.a.y+0.5,r,0,6.2832); ctx.fill(); ctx.stroke(); } else { const x0=Math.min(sh.a.x,sh.b.x), y0=Math.min(sh.a.y,sh.b.y), w=Math.abs(sh.b.x-sh.a.x)+1, h=Math.abs(sh.b.y-sh.a.y)+1; ctx.fillRect(x0,y0,w,h); ctx.strokeRect(x0,y0,w,h); } }
+    else if(this.paintHover&&this.paintHover.inside){ const h=this.paintHover, n=this.paint.tool==='brush'?Math.max(1,this.paint.size|0):1, x0=h.x-Math.floor((n-1)/2), y0=h.y-Math.floor((n-1)/2);
+      if(this.paint.tool==='brush'&&this.paint.tip==='round'&&n>2){ ctx.beginPath(); ctx.arc(x0+n/2,y0+n/2,n/2,0,6.2832); ctx.stroke(); } else ctx.strokeRect(x0,y0,n,n); }
+    ctx.restore();
+  }
+  startPaintDrag(e){ if(e.button!==0) return; e.preventDefault(); const sx=e.clientX, sy=e.clientY, px=this.paint.x, py=this.paint.y; const move=ev=>{ this.paintSet({x:Math.max(0,px+ev.clientX-sx),y:Math.max(0,py+ev.clientY-sy)}); }; const up=()=>{ window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); }
+  paintKey(e){
+    if(!this.state.paint||this.state.confirm||this.state.menu||e.ctrlKey||e.metaKey||e.altKey||/^(INPUT|SELECT|TEXTAREA)$/.test((e.target&&e.target.tagName)||'')) return false; const k=e.key;
+    if(k===' '){ this._space=true; return true; }
+    if(k==='Escape'){ if(this.paintShape){ this.paintShape=null; this._stroke=null; this.draw(); } else this.closePaint(); return true; }
+    const tool={b:'brush',r:'rect',c:'circle',i:'pick'}[k.toLowerCase()]; if(tool){ this.paintSet({tool}); return true; }
+    if(k==='x'||k==='X'){ this.paintSet({mode:this.paint.mode==='set'?'clear':'set'}); return true; }
+    if(k==='['||k===']'){ this.paintSet({size:Math.min(64,Math.max(1,(this.paint.size|0)+(k===']'?1:-1)*(e.shiftKey?8:1)))}); return true; }
+    if(/^[1-8]$/.test(k)){ this.paintSet({mask:this.paint.mask^(1<<(+k-1))}); return true; }
+    return false;
+  }
+  // ---- attributes from texture names: the mapper's trick of giving Block to every tile whose ground texture file starts with
+  // "stone…" and Safezone to every one starting with "tile…". Add only sets those flags; Rebuild also clears them wherever the texture
+  // does not match. Needs the map's textureset to know which texture each tile index is.
+  async paintTextureEntries(){
+    if(this._paintTs) return this._paintTs; const slot={files:this.files,setting:this.setting||{},name:this.state.info.name||'',tsFile:this._paintTsFile||null,tsPath:this._paintTsFile?this._paintTsFile.name:''};
+    const found=this.findTextureSetFile(slot); if(!found) return null; const p=this.parseTextureSet(await found.file.text()); if(!this.isTextureSet(p)) return null; this._paintTsName=found.path.split('/').pop(); return (this._paintTs=p.entries);
+  }
+  async pickPaintTextureset(){
+    try{ if(window.showOpenFilePicker){ const [h]=await window.showOpenFilePicker({types:[{description:'textureset .txt',accept:{'text/plain':['.txt']}}]}); await this.usePaintTextureset(await h.getFile(),h); } else this.paintTsInput.click(); }
+    catch(e){ if(e&&e.name!=='AbortError') this.paintTsInput.click(); }
+  }
+  // a real textureset lists image files; a regen or names file must not pass for one
+  isTextureSet(p){ return p.entries.length>0 && p.entries.some(en=>/\.(dds|tga|png|jpg|bmp)\b/i.test(String(en.file||''))); }
+  async usePaintTextureset(f,handle,noLink){ const p=this.parseTextureSet(await f.text()); if(!this.isTextureSet(p)){ this.setState({paintMsg:'✗ '+f.name+' is not a textureset (no texture files listed in it)',paintRev:(this.state.paintRev||0)+1}); return false; } this._paintTsFile=f; this._paintTs=p.entries; this._paintTsName=f.name; this.setState({paintMsg:'',paintRev:(this.state.paintRev||0)+1}); if(handle && !noLink) await this.wsLink('textureset',{file:handle,name:f.name}); return true; }
+  onPaintDragOver(e){ e.preventDefault(); }
+  // a textureset .txt dropped on the palette (one file, several, or the whole textureset folder: the one setting.txt names is preferred)
+  async onPaintDrop(e){ e.preventDefault(); if(e.stopPropagation) e.stopPropagation(); const n=e.nativeEvent||e; n._mfTaken=true; const d=await this.readDrop(e); await this.paintTakeDropped(d.out,d.handles); }
+  async paintTakeDropped(out,handles){
+    const txt=Object.keys(out).filter(k=>/\.txt$/i.test(k)); if(!txt.length){ this.setState({paintMsg:'drop the textureset .txt here',paintRev:(this.state.paintRev||0)+1}); return false; }
+    const want=String((this.setting&&this.setting.textureSet)||'').toLowerCase().replace(/\\/g,'/').split('/').pop(), order=[...txt.filter(k=>k.split('/').pop()===want),...txt.filter(k=>k.split('/').pop()!==want)];
+    for(const k of order.slice(0,40)){ const p=this.parseTextureSet(await out[k].text()); if(this.isTextureSet(p)) return await this.usePaintTextureset(out[k],handles?await this.handleForDropped(handles,k):null); }
+    this.setState({paintMsg:'✗ no textureset among the dropped files',paintRev:(this.state.paintRev||0)+1}); return false;
+  }
+  async onPaintTsInput(e){ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f) await this.usePaintTextureset(f); }
+  async paintFromTextures(rebuild,which){
+    const entries=await this.paintTextureEntries(); if(!entries){ /* the buttons are disabled in this state; this is the keyboard / stale-click path */ this.setState({paintMsg:'✗ textureset not found ('+((this.setting&&this.setting.textureSet)||'no TextureSet in setting.txt')+') — load it with the button below',paintRev:(this.state.paintRev||0)+1}); return; }
+    const list=el=>String(el?el.value:'').toLowerCase().split(/[,;\s]+/).filter(Boolean), bp=which==='safe'?[]:list(this._ptBlock), sp=which==='block'?[]:list(this._ptSafe); if(!bp.length&&!sp.length){ this.setState({paintMsg:'type a prefix for '+(which==='safe'?'Safezone':which==='block'?'Block':'Block or Safezone')+' first',paintRev:(this.state.paintRev||0)+1}); return; }
+    const lut=new Uint8Array(256), hitB=[], hitS=[]; entries.forEach((en,i)=>{ if(i>254) return; const base=String(en.file||'').replace(/\\/g,'/').split('/').pop().toLowerCase(); let m=0; if(bp.some(p=>base.startsWith(p))){ m|=0x01; hitB.push(base); } if(sp.some(p=>base.startsWith(p))){ m|=0x04; hitS.push(base); } lut[i+1]=m; });
+    if(!hitB.length&&!hitS.length){ this.setState({paintMsg:'no texture of '+(this._paintTsName||'the textureset')+' starts with '+bp.concat(sp).join(' / ')}); return; }
+    const managed=(bp.length?0x01:0)|(sp.length?0x04:0), s=this._stroke={touched:new Set(),dirty:new Set(),changed:0,undo:null,label:rebuild?'rebuilt from textures:':'added from textures:'}; let nB=0,nS=0,noTile=0;
+    this.setState({paintMsg:'working…'});
+    for(const c of this.sectorList){ const tf=this.getFile(c+'/tile.raw'); if(!tf){ noTile++; continue; } const t=new Uint8Array(await tf.arrayBuffer()); if(t.length<258*258){ noTile++; continue; } const a=await this.paintCells(c); if(!a) continue;
+      for(let y=0;y<256;y++) for(let x=0;x<256;x++){ const i=y*256+x, want=lut[t[(y+1)*258+(x+1)]], nv=rebuild?((a[i]&~managed)|want):(a[i]|want); if(nv===a[i]) continue; this.strokeTouch(c,rebuild?'rebuild attributes from textures':'add attributes from textures'); if((nv&1)&&!(a[i]&1)) nB++; if((nv&4)&&!(a[i]&4)) nS++; a[i]=nv; s.changed++; } }
+    await this.paintCommit(s);
+    const part=(name,n,hit)=>name+' +'+n.toLocaleString('en-US')+(hit.length?' ('+[...new Set(hit)].slice(0,4).join(', ')+([...new Set(hit)].length>4?'…':'')+')':' (no texture starts with that)'), removed=s.changed-nB-nS;
+    this.setState({paintMsg:(s.changed?'':'nothing to change · ')+[bp.length?part('Block',nB,hitB):'',sp.length?part('Safezone',nS,hitS):''].filter(Boolean).join(' · ')+(rebuild&&removed>0?' · cleared on '+removed.toLocaleString('en-US')+' cell'+(removed===1?'':'s'):'')+(noTile?' · '+noTile+' sector'+(noTile===1?'':'s')+' without tile.raw skipped':''),paintRev:(this.state.paintRev||0)+1});
+  }
+
   // ================= ruler =================
   // Tools › Ruler (off by default). While it is on, a left click drops a point instead of placing / selecting: first click = start,
   // second = end, a third starts over. Map units are meters (1 px of the map image = 1 m). Dragging still pans.
@@ -1141,7 +1334,8 @@ class Component extends DCLogic {
   undoStack=[]; redoStack=[];
   scopeRegen(){ return [{kind:'regen',key:this.state.regenTab}]; }
   scopeArea(...sectors){ return (sectors.length?sectors:[this.state.oSector]).map(key=>({kind:'area',key})); }
-  snapScope(sc){ return sc.kind==='regen' ? {kind:'regen',key:sc.key,data:(this.regen[sc.key]||[]).map(r=>({...r}))} : {kind:'area',key:sc.key,data:(this.areadata[sc.key]||[]).map(o=>({...o,portals:[...(o.portals||[])]}))}; }
+  snapScope(sc){ if(sc.kind==='attr') return {kind:'attr',key:sc.key,data:this.attrEdit[sc.key]?new Uint8Array(this.attrEdit[sc.key]):null};
+    return sc.kind==='regen' ? {kind:'regen',key:sc.key,data:(this.regen[sc.key]||[]).map(r=>({...r}))} : {kind:'area',key:sc.key,data:(this.areadata[sc.key]||[]).map(o=>({...o,portals:[...(o.portals||[])]}))}; }
   snapView(){ return {mainTab:this.state.mainTab,regenTab:this.state.regenTab,oSector:this.state.oSector,selRow:this.selRow,selObj:this.selObj}; }
   uid(o){ const m=(this._uids=this._uids||new WeakMap()); if(!m.has(o)) m.set(o,(this._uidN=(this._uidN||0)+1)); return m.get(o); }
   // call BEFORE mutating. Edits sharing a coalesce key within 1s fold into one entry (a run of stepper presses = one undo)
@@ -1159,8 +1353,9 @@ class Component extends DCLogic {
     if(this.state.empty||this.state.confirm) return;
     const e=from.pop(); if(!e){ this.setState({statusText:'nothing to '+verb}); return; }
     to.push({label:e.label,t:0,coalesce:null,view:this.snapView(),scopes:e.scopes.map(sc=>this.snapScope(sc))});
-    for(const sc of e.scopes){ if(sc.kind==='regen') this.regen[sc.key]=sc.data; else this.areadata[sc.key]=sc.data; }
-    const v=e.view; this.selRow=v.selRow; this.selObj=v.selObj; this.selSet.clear(); this.selObjSet.clear();
+    const attrs=[]; for(const sc of e.scopes){ if(sc.kind==='attr'){ if(sc.data){ this.attrEdit[sc.key]=sc.data; attrs.push(sc.key); } } else if(sc.kind==='regen') this.regen[sc.key]=sc.data; else this.areadata[sc.key]=sc.data; }
+    if(attrs.length){ this.attrWrite(attrs); this.setState({attrStale:true}); this.attrRebuildBitmaps(attrs).then(()=>this.draw()); }
+    const onlyAttr=e.scopes.length>0&&e.scopes.every(sc=>sc.kind==='attr'); const v=onlyAttr?this.snapView():e.view; this.selRow=v.selRow; this.selObj=v.selObj; this.selSet.clear(); this.selObjSet.clear();
     this.setState({mainTab:v.mainTab,regenTab:v.regenTab,oSector:v.oSector,statusText:verb+': '+e.label});
     this.reselect(); setTimeout(()=>this.reselect(),0);   // again once a panel that was just switched to has mounted its fields
   }
@@ -1182,7 +1377,7 @@ class Component extends DCLogic {
   run(fn){ this.setState({menu:''}); if(fn) fn(); }
   gridOn(){ return this.state.showGrid!==null ? this.state.showGrid : (this.props.showSectorGrid ?? true); }
   toggleGrid(){ this.setState({ showGrid:!this.gridOn(), menu:'' }); this.draw(); }
-  clearMap(){ this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.wsSaveView(); this.clearHistory(); this.rulerPts=[]; this.rulerLive=null; this.setState({ wsCur:'', empty:true, ruler:false, stats:false, dirty:false, objDirty:false, objWarn:null, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
+  clearMap(){ this.attrEdit={}; this._paintTs=null; this._paintTsFile=null; this._stroke=null; this.paintShape=null; this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.wsSaveView(); this.clearHistory(); this.rulerPts=[]; this.rulerLive=null; this.setState({ wsCur:'', paint:false, attrStale:false, paintMsg:'', empty:true, ruler:false, stats:false, dirty:false, objDirty:false, objWarn:null, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
   attrExport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.exportLayerPNG(),120); }
   attrImport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.importPng(),120); }
 
@@ -1248,7 +1443,7 @@ class Component extends DCLogic {
     return { out, folder, handles };
   }
   async handleDrop(e) {
-    e.preventDefault();
+    e.preventDefault(); if (e._mfTaken) return;
     if (this.state.mergeOpen) {   // the merge dialog is modal: a drop anywhere while it is open is a map for the merge, never for the page
       if (e._mfMerge) return;     // one of the dialog's own drop targets already took it
       if (e.dataTransfer && e.dataTransfer.getData('text/x-mf-map-id')) return;
@@ -1258,6 +1453,7 @@ class Component extends DCLogic {
     if (!Object.keys(out).length) { this.setState({ statusText: 'nothing readable in that drop — the browser handed over no files' }); return; }
     const keys = Object.keys(out); if (!keys.length) return;
     const base = k => k.split('/').pop();
+    if (this.state.paint && !keys.some(k => base(k) === 'setting.txt') && keys.some(k => /\.txt$/i.test(k)) && await this.paintTakeDropped(out, hp)) return;   // paint palette open: a textureset dropped anywhere is for it
     const handles = hp, hDir = handles.find(h => h.kind === 'directory'), hFile = n => handles.find(h => h.kind === 'file' && h.name.toLowerCase() === n);
     if (keys.some(k => base(k) === 'setting.txt')) { await this.wsSaveView(); await this.loadFiles(out, folder); if (!this.state.empty) await this.wsMapOpened(hDir && hDir.name === folder ? hDir : null); return; }   // a client map folder
     // not a map: spawn files dropped loose, or a server-side folder holding them at its top level — and/or a mob_names.txt
@@ -1286,6 +1482,7 @@ class Component extends DCLogic {
   getFile(path){ return this.files[path.toLowerCase()]; }
 
   async loadFiles(map, folderName) {
+    this.attrEdit={}; this._paintTs=null; this._paintTsFile=null; this._stroke=null;
     this._folderName = folderName || null;
     let prefix = '';
     for (const k of Object.keys(map)) { const m = k.match(/(^|.*\/)(\d{6})\/[^/]+$/); if (m) { prefix = m[1]; break; } }
@@ -1481,9 +1678,7 @@ class Component extends DCLogic {
         const b=await file.arrayBuffer(); const dv=new DataView(b);
         if(dv.getUint16(0,true)!==2634) return null;
         const a=new Uint8Array(b,6); const img=new ImageData(256,256);
-        for(let i=0;i<65536;i++){ const o=i*4; const byte=a[i]; let hit=null;
-          for(const F of ATTR_FLAGS){ if(byte&F.bit){ hit=F.col; break; } }
-          if(hit){ img.data[o]=hit[0];img.data[o+1]=hit[1];img.data[o+2]=hit[2];img.data[o+3]=175; } else img.data[o+3]=0; }
+        for(let i=0;i<65536;i++) this.hlPixel(a[i],img.data,i*4);
         return await createImageBitmap(img);
       }
     } catch(e){ return null; }
@@ -1603,7 +1798,7 @@ class Component extends DCLogic {
       const id=ctx.getImageData(sx,sy,TILE,TILE);
       const {name,buf}=this.encodeLayer(layer,c,id); if(!buf) continue;
       this.files[(c+'/'+name).toLowerCase()]=new File([buf],name);
-      delete this.cache[layer+':'+c]; if(layer==='attribute') delete this.cache['hl:'+c];
+      delete this.cache[layer+':'+c]; if(layer==='attribute'){ delete this.cache['hl:'+c]; delete this.attrEdit[c]; }
       n++;
     }
     return n;
@@ -2349,7 +2544,7 @@ class Component extends DCLogic {
     return new Uint8Array(b,6,65536);
   }
   async generateServerAttr(){
-    this.setState({menu:''});
+    await this._paintChain; this.setState({menu:'',attrStale:false});
     if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
     this.setState({statusText:'generating server_attr…'});
     const b=this.bounds;
@@ -2408,7 +2603,7 @@ class Component extends DCLogic {
       const out=new Uint8Array(65542); const odv=new DataView(out.buffer);
       odv.setUint16(0,2634,true); odv.setUint16(2,256,true); odv.setUint16(4,256,true);
       out.set(grids[code],6);
-      this.files[(code+'/attr.atr').toLowerCase()]=new File([out],'attr.atr');
+      this.files[(code+'/attr.atr').toLowerCase()]=new File([out],'attr.atr'); delete this.attrEdit[code];
       delete this.cache['attribute:'+code]; delete this.cache['hl:'+code]; wrote++;
     }
     this.files['server_attr']=f;
@@ -2507,6 +2702,7 @@ class Component extends DCLogic {
       ctx.fillStyle='rgba('+col+',.12)'; ctx.strokeStyle='rgba('+col+',.95)'; ctx.lineWidth=1/this.zoom; ctx.setLineDash([5/this.zoom,4/this.zoom]);
       ctx.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0); ctx.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0); ctx.setLineDash([]); }
     this.drawRuler(ctx);
+    this.drawPaint(ctx);
   }
   currentRows(){ return this.regen[this.state.regenTab]||[]; }
   curObjs(){ return this.areadata[this.state.oSector]||[]; }
@@ -2536,6 +2732,7 @@ class Component extends DCLogic {
     this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null; this.dragObj=null; this.dragHandle=null; this.dragGroup=null; this.box=null;
     if(e.button!==0||this.state.empty) return;
     const r=this.canvas.getBoundingClientRect(); const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
+    if(this.state.paint){ if(this._space) return; this.down.paint=true; this.paintDown(wx,wy); return; }   // paint on: left-drag paints; Space (or right / middle drag) still pans
     if(this.state.ruler){ this.down.ruler=true; return; }   // ruler on: a click measures, a drag pans, nothing is selected or placed
     const tab=this.state.mainTab, k=tab==='regen'?'row':tab==='objects'?'obj':null; if(!k) return;
     if(e.ctrlKey||e.metaKey){   // Ctrl = group selection: click toggles one item, drag from empty map draws a box (Alt = take out)
@@ -2574,7 +2771,8 @@ class Component extends DCLogic {
   onMove(e){
     if(this.state.empty){ return; }
     const r=this.canvas.getBoundingClientRect(); const inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
-    if(this.down){ const dx=e.clientX-this.down.x,dy=e.clientY-this.down.y; if(Math.abs(dx)+Math.abs(dy)>3) this.moved=true;
+    if(this.state.paint){ const pwx=(e.clientX-r.left-this.ox)/this.zoom, pwy=(e.clientY-r.top-this.oy)/this.zoom; this.paintHover={x:Math.floor(pwx),y:Math.floor(pwy),inside}; if(this.down&&this.down.paint) this.paintMove(pwx,pwy); else if(!this.down){ this.canvas.style.cursor=inside?(this._space?'grab':'crosshair'):''; this.draw(); } }
+    if(this.down && !this.down.paint){ const dx=e.clientX-this.down.x,dy=e.clientY-this.down.y; if(Math.abs(dx)+Math.abs(dy)>3) this.moved=true;
       if(this.moved){
         const wxm=(e.clientX-r.left-this.ox)/this.zoom, wym=(e.clientY-r.top-this.oy)/this.zoom;
         if(this.box){ this.box.x1=wxm; this.box.y1=wym; }
@@ -2601,7 +2799,7 @@ class Component extends DCLogic {
         this.draw();
       }
     }
-    if(!this.down && !this.state.ruler){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
+    if(!this.down && !this.state.ruler && !this.state.paint){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
       const hh=(inside && tab==='regen' && !e.shiftKey)?this.hitHandle(wx,wy):null;
       const ctrlBox=inside && (e.ctrlKey||e.metaKey) && (tab==='regen'||tab==='objects');
       this.canvas.style.cursor=hh&&!ctrlBox?hh.cur:(inside && ((tab==='regen' && !e.shiftKey && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?(ctrlBox?'pointer':'grab'):(ctrlBox?'crosshair':''); }
@@ -2610,7 +2808,9 @@ class Component extends DCLogic {
     if(inside && this.coordEl){ const mx=e.clientX-r.left,my=e.clientY-r.top; const ax=Math.floor((mx-this.ox)/this.zoom), ay=Math.floor((my-this.oy)/this.zoom); this.coordEl.textContent='x '+ax+' · y '+ay; }
   }
   onUp(e){
-    if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn, ctrlDown=!!this.down.ctrl, rulerDown=!!this.down.ruler; this.down=null;
+    if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn, ctrlDown=!!this.down.ctrl, rulerDown=!!this.down.ruler, paintDown=!!this.down.paint; this.down=null;
+    if(paintDown){ this.paintUp(); return; }
+    if(this.state.paint) return;   // palette open: a click never places or selects (this was a Space / right-drag pan)
     if(rulerDown){ if(!wasMoved){ const rr=this.canvas.getBoundingClientRect(); if(e.clientX>=rr.left&&e.clientX<=rr.right&&e.clientY>=rr.top&&e.clientY<=rr.bottom) this.rulerClick((e.clientX-rr.left-this.ox)/this.zoom,(e.clientY-rr.top-this.oy)/this.zoom); } return; }
     if(this.box){ const b=this.box; this.box=null; if(wasMoved) this.boxSel(b.k,b); this.draw(); return; }
     if(this.dragGroup){ const d=this.dragGroup; this.dragGroup=null; if(wasMoved){ this.setState({statusText:this.gName(d.k,d.items.length)+' moved'}); if(d.k==='obj') this.refreshObjs(); else this.refreshRows(); } return; }
@@ -2987,6 +3187,31 @@ class Component extends DCLogic {
       convertActive:st.mainTab==='convert', regenActive:st.mainTab==='regen', objectsActive:st.mainTab==='objects',
       convertTabStyle:this.tabStyle(st.mainTab==='convert'), regenTabStyle:this.tabStyle(st.mainTab==='regen'), objectsTabStyle:this.tabStyle(st.mainTab==='objects'),
       allRegensStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.allRegens?'#6b501f':'#4a3820'};background:${st.allRegens?'#3a2c1a':'#241a11'};color:${st.allRegens?'#e8cf8f':'#a08b5f'}`,
+      ...(()=>{ const P=this.paint, on=st.paint&&!st.empty, chip=(act,extra)=>`border:1px solid ${act?'#c9a24b':'#3a2c1a'};background:${act?'#3a2c1a':'#15100a'};color:${act?'#f3e2b0':'#a08b5f'};border-radius:5px;padding:5px 4px;font:${act?600:500} 10.5px 'IBM Plex Sans';cursor:pointer;`+(extra||'');
+        if(!on) return { paintOn:false, paintFlags:[], paintModes:[], paintTools:[], paintTips:[], paintMsgOn:false, paintOpenLabel:'Paint attributes…', paintOpenBtnStyle:`width:100%;border:1px solid #6b501f;background:#3a2c1a;color:#e8cf8f;border-radius:6px;padding:9px;font:600 12px 'IBM Plex Sans';cursor:pointer`, openPaint:()=>this.openPaint() };
+        return { paintOn:true, openPaint:()=>this.closePaint(), paintOpenLabel:'Close paint palette', paintOpenBtnStyle:`width:100%;border:1px solid #c9a24b;background:#c9a24b;color:#1a1209;border-radius:6px;padding:9px;font:600 12px 'IBM Plex Sans';cursor:pointer`,
+          paintBoxStyle:`position:absolute;left:${P.x}px;top:${P.y}px;width:286px;z-index:30;border:1px solid #4a3820;border-radius:10px;background:rgba(28,20,13,.97);box-shadow:0 14px 34px rgba(0,0,0,.55)`,
+          startPaintDrag:(e)=>this.startPaintDrag(e), closePaint:()=>this.closePaint(),
+          paintFlags:ATTR_FLAGS.map((F,i)=>{ const act=!!(P.mask&F.bit); return { label:F.name, title:F.name+' · bit '+i+' (0x'+F.bit.toString(16).padStart(2,'0')+') · key '+(i+1)+(F.bit===0x02?' · marks water cells; the visible water itself comes from water.wtr':''), onClick:()=>this.paintSet({mask:P.mask^F.bit}), dot:`display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;background:rgb(${F.col.join(',')});opacity:${act?1:.45}`, style:chip(act,'display:flex;align-items:center;justify-content:flex-start;white-space:nowrap;overflow:hidden') }; }),
+          paintMaskText:(P.mode==='set'?'turns on: ':P.mode==='clear'?'turns off: ':'cell becomes exactly: ')+(this.flagNames(P.mask)||'nothing')+'  (0x'+(P.mask&255).toString(16).padStart(2,'0')+')'+(P.mode!=='replace'?' · other flags stay':''),
+          paintModes:[['set','Set','Turn the chosen flags on; every other flag of the cell stays as it is'],['clear','Clear','Turn the chosen flags off; every other flag stays (X swaps Set / Clear)'],['replace','Replace','The cell gets exactly the chosen flags; everything else is wiped']].map(([k,label,title])=>({label,title,onClick:()=>this.paintSet({mode:k}),style:chip(P.mode===k,'flex:1')})),
+          paintTools:[['brush','Brush','Freehand (B)'],['rect','Rectangle','Drag a filled rectangle (R)'],['circle','Circle','Drag from the centre outwards (C)'],['pick','Pick','Click a cell to take its flags (I)']].map(([k,label,title])=>({label,title,onClick:()=>this.paintSet({tool:k}),style:chip(P.tool===k,'flex:1')})),
+          paintTips:[['round','●'],['square','■']].map(([k,label])=>({label,onClick:()=>this.paintSet({tip:k}),style:chip(P.tip===k,'width:26px;padding:3px 0')})),
+          paintSize:P.size, paintSizeText:P.size+' m', onPaintSize:(e)=>this.paintSet({size:Math.min(64,Math.max(1,parseInt(e.target.value)||1))}),
+          pickPaintTextureset:()=>this.pickPaintTextureset(), onPaintDragOver:(e)=>this.onPaintDragOver(e), onPaintDrop:(e)=>this.onPaintDrop(e),
+          ...(()=>{ const has=!!this._paintTs, ask=String((this.setting&&this.setting.textureSet)||'').replace(/\\/g,'/').split('/').pop(), btn=(on,danger)=>`flex:1;border:1px solid ${on?(danger?'#6b3a2a':'#4a3820'):'#2c2115'};background:${on?(danger?'#2a1712':'#241a11'):'transparent'};color:${on?(danger?'#e0a08a':'#d8c9a8'):'#5a4a30'};border-radius:5px;padding:5px;font:500 10.5px 'IBM Plex Sans';cursor:${on?'pointer':'not-allowed'}`;
+            return { paintTsLine:has?('✓ '+this._paintTsName+' · '+this._paintTs.length+' texture'+(this._paintTs.length===1?'':'s')):('needs '+(ask||'a textureset .txt')+' — drop it here or press load…'),
+              paintTsLineStyle:`flex:1;min-width:0;padding:4px 6px;border-radius:4px;font-size:10px;line-height:1.35;word-break:break-all;border:1px dashed ${has?'#4a6b3a':'#6b501f'};color:${has?'#8fce6f':'#e0a93a'};background:${has?'#16200f':'#1f170c'}`,
+              paintTsTitle:'setting.txt → TextureSet  '+((this.setting&&this.setting.textureSet)||'(field missing)')+(has?'   ·   loaded: '+this._paintTsName:'   ·   not found in the map folder'),
+              paintTsBtnLabel:has?'change…':'load…',
+              paintTexRows:[['block','Block','#e0433a',this.ptBlockRef],['safe','Safezone','#42b660',this.ptSafeRef]].map(([k,label,col,ref])=>({ label, ref, labelStyle:'font-size:10px;width:50px;flex:none;color:'+col,
+                inputTitle:'Texture file names starting with this get '+label+'. Several: separate with commas.',
+                addTitle:has?('Sets '+label+' where the texture matches. Nothing else is touched.'):'load the textureset first', rebuildTitle:has?('Sets '+label+' where the texture matches AND clears '+label+' everywhere else, so hand-painted '+label+' in non-matching cells is lost. Other flags are not touched.'):'load the textureset first',
+                addStyle:btn(has,false).replace('flex:1;','flex:none;width:38px;'), rebuildStyle:btn(has,true).replace('flex:1;','flex:none;width:54px;'),
+                onAdd:()=>{ if(has) this.paintFromTextures(false,k); }, onRebuild:()=>{ if(has) this.paintFromTextures(true,k); } })) }; })(),
+          paintMsgOn:!!st.paintMsg, paintMsg:st.paintMsg,
+          paintStaleText:st.attrStale?'server_attr is out of date':'server_attr: no unsaved paint', paintStaleStyle:`font-size:9.5px;color:${st.attrStale?'#e0a93a':'#6b5a3c'}` }; })(),
+      ptBlockRef:this.ptBlockRef, ptSafeRef:this.ptSafeRef, paintTsInputRef:this.paintTsInputRef, onPaintTsInput:(e)=>this.onPaintTsInput(e), generateServerAttr:()=>this.generateServerAttr(),
       toggleAllRegens:()=>this.toggleAllRegens(), allRegensOn:st.allRegens&&!st.empty, allRegensLegend:(st.allRegens&&!st.empty)?this.allRegensLegend():[],
       highlightStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,
       highlightNextStyle:`padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,
