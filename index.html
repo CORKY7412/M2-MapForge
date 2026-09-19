@@ -328,7 +328,7 @@
           </div>
           <div onDragOver="{{ onPaletteDragOver }}" onDrop="{{ onPaletteDrop }}" style="display:flex;gap:8px;flex-wrap:wrap;max-height:172px;overflow:auto;padding:2px 2px 6px;border-radius:8px">
             <sc-for list="{{ mergeMapCards }}" as="M" hint-placeholder-count="2">
-              <div draggable="true" onDragStart="{{ M.onDragStart }}" onClick="{{ M.onClick }}" style="{{ M.style }}">
+              <div draggable="true" onDragStart="{{ M.onDragStart }}" onDragOver="{{ M.onDragOver }}" onDrop="{{ M.onDrop }}" onClick="{{ M.onClick }}" style="{{ M.style }}">
                 <sc-if value="{{ M.placed }}" hint-placeholder-val="{{ false }}">
                   <div style="position:absolute;top:6px;left:6px;width:7px;height:7px;border-radius:50%;background:#8fce6f;z-index:2" title="placed on the grid"></div>
                 </sc-if>
@@ -1124,25 +1124,43 @@ class Component extends DCLogic {
     this.loadFiles(out, folder);
   }
   async onDrop(e) { try { await this.handleDrop(e); } catch (err) { console.error(err); this.setState({ statusText: 'drop failed: ' + ((err && err.message) || err) }); } }
-  async handleDrop(e) {
-    e.preventDefault();
-    const dt = e.dataTransfer; if (!dt) return; const out = {}, entries = [], hp = [];
-    // Everything must be read off the DataTransfer before the first await — it is emptied once the event handler yields.
-    // Plain files come from getAsFile(): the entry API (needed for folders) can return null, and entry.file() fails on file:// pages.
+  // Read whatever was dropped → { out: {path: File}, folder, handles }. Used by the page and by the merge dialog.
+  // Everything must be taken off the DataTransfer before the first await — it is emptied once the event handler yields.
+  // Plain files come from getAsFile(). Folders are walked through their FileSystemHandle where the browser has one, because the older
+  // entry API cannot read files on a page opened from file:// (entry.file() fails, which used to leave a dropped folder "empty");
+  // the entry API is the fallback, and is what Firefox / Safari use.
+  async readDrop(e) {
+    const dt = e.dataTransfer, out = {}, items = []; if (!dt) return { out, folder: null, handles: [] };
     for (const it of Array.from(dt.items || [])) {
       if (it.kind !== 'file') continue;
-      if (it.getAsFileSystemHandle) hp.push(it.getAsFileSystemHandle().catch(() => null));   // for workspaces; must be asked for before the first await
-      const en = it.webkitGetAsEntry ? it.webkitGetAsEntry() : null;
-      if (en && en.isDirectory) entries.push(en);
-      else { const f = it.getAsFile ? it.getAsFile() : null; if (f) out[f.name.toLowerCase()] = f; else if (en) entries.push(en); }
+      items.push({ hp: it.getAsFileSystemHandle ? it.getAsFileSystemHandle().catch(() => null) : null, en: it.webkitGetAsEntry ? it.webkitGetAsEntry() : null, f: it.getAsFile ? it.getAsFile() : null });
     }
-    if (!entries.length && !Object.keys(out).length) for (const f of Array.from(dt.files || [])) out[f.name.toLowerCase()] = f;
-    let folder = null;
-    for (const en of entries) { if (en.isDirectory && !folder) folder = en.name; await this.walkEntry(en, '', out); }
+    const loose = Array.from(dt.files || []);
+    let folder = null; const handles = [];
+    for (const x of items) {
+      const h = x.hp ? await x.hp : null; if (h) handles.push(h);
+      const isDir = (h && h.kind === 'directory') || (x.en && x.en.isDirectory);
+      if (!isDir) { if (x.f) out[x.f.name.toLowerCase()] = x.f; else if (x.en) await this.walkEntry(x.en, '', out); continue; }
+      const name = (h && h.name) || x.en.name; if (!folder) folder = name; const sub = {};
+      if (h && h.kind === 'directory') { try { await this.walkHandle(h, '', sub); } catch (err) {} }
+      if (!Object.keys(sub).length && x.en) await this.walkEntry(x.en, '', sub).then(() => { for (const k of Object.keys(sub)) if (k.startsWith(name.toLowerCase() + '/')) { sub[k.slice(name.length + 1)] = sub[k]; delete sub[k]; } });
+      for (const k of Object.keys(sub)) out[name.toLowerCase() + '/' + k] = sub[k];   // same shape the entry API gives: <folder>/<path>
+    }
+    if (!items.length) for (const f of loose) out[f.name.toLowerCase()] = f;
+    return { out, folder, handles };
+  }
+  async handleDrop(e) {
+    e.preventDefault();
+    if (this.state.mergeOpen) {   // the merge dialog is modal: a drop anywhere while it is open is a map for the merge, never for the page
+      if (e._mfMerge) return;     // one of the dialog's own drop targets already took it
+      if (e.dataTransfer && e.dataTransfer.getData('text/x-mf-map-id')) return;
+      const d = await this.readDrop(e); await this.ingestMergeMap(d.out, d.folder, null); return;
+    }
+    const dropped = await this.readDrop(e), out = dropped.out, hp = dropped.handles; let folder = dropped.folder;
     if (!Object.keys(out).length) { this.setState({ statusText: 'nothing readable in that drop — the browser handed over no files' }); return; }
     const keys = Object.keys(out); if (!keys.length) return;
     const base = k => k.split('/').pop();
-    const handles = (await Promise.all(hp)).filter(Boolean), hDir = handles.find(h => h.kind === 'directory'), hFile = n => handles.find(h => h.kind === 'file' && h.name.toLowerCase() === n);
+    const handles = hp, hDir = handles.find(h => h.kind === 'directory'), hFile = n => handles.find(h => h.kind === 'file' && h.name.toLowerCase() === n);
     if (keys.some(k => base(k) === 'setting.txt')) { await this.wsSaveView(); await this.loadFiles(out, folder); if (!this.state.empty) await this.wsMapOpened(hDir && hDir.name === folder ? hDir : null); return; }   // a client map folder
     // not a map: spawn files dropped loose, or a server-side folder holding them at its top level — and/or a mob_names.txt
     const wanted = new Set(Object.values(REGEN_FILES)), top = {}, aux = []; let names = null;
@@ -1709,15 +1727,11 @@ class Component extends DCLogic {
     if(this._mergeSelectedId==null) return;
     this.tryPlaceMergeMap(this._mergeSelectedId,r,c,{grow:false});
   }
-  async readDroppedFolder(e){
-    const items=e.dataTransfer.items; const out={}; const entries=[];
-    for(const it of items){ const en=it.webkitGetAsEntry&&it.webkitGetAsEntry(); if(en) entries.push(en); }
-    let folder=null;
-    for(const en of entries){ if(en.isDirectory&&!folder) folder=en.name; await this.walkEntry(en,'',out); }
-    return { out, folder };
-  }
+  async readDroppedFolder(e){ const d=await this.readDrop(e); return { out:d.out, folder:d.folder }; }
+  // drop targets inside the dialog mark the native event, so the page-wide drop handler (which sees it next) leaves it alone
+  mergeTook(e){ const n=(e&&e.nativeEvent)||e; if(n) n._mfMerge=true; }
   async ingestMergeMap(out, folder, placeAt){
-    if(!Object.keys(out||{}).length){ this.setState({mergeMsg:'no files found in that folder'}); return; }
+    if(!Object.keys(out||{}).length){ this.setState({mergeMsg:'nothing readable in that drop — drop the map folder itself (the one that holds setting.txt and the 000000… sector folders)'}); return; }
     const slot=await this.ingestSlot(out, folder);
     if(!slot.sectors.length){ this.setState({mergeMsg:'that folder has no XXXYYY sectors'}); return; }
     const id=this._mergeNextId++;
@@ -1736,7 +1750,7 @@ class Component extends DCLogic {
   }
   onPaletteDragOver(e){ e.preventDefault(); }
   async onPaletteDrop(e){
-    e.preventDefault();
+    e.preventDefault(); this.mergeTook(e);
     const raw=e.dataTransfer.getData('text/x-mf-map-id');
     if(raw){ this.unplaceMergeMap(parseInt(raw,10)); return; }
     const items=e.dataTransfer.items; if(!items||!items.length) return;
@@ -1755,7 +1769,7 @@ class Component extends DCLogic {
   onCardDragStart(id,e){ e.dataTransfer.setData('text/x-mf-map-id', String(id)); e.dataTransfer.effectAllowed='move'; this._mergeSelectedId=id; this.refreshMergeUi(); }
   onQuadrantDragOver(e){ e.preventDefault(); }
   async onQuadrantDrop(r,c,e){
-    e.preventDefault();
+    e.preventDefault(); this.mergeTook(e);
     const raw=e.dataTransfer.getData('text/x-mf-map-id');
     if(raw){ this.placeMergeMap(parseInt(raw,10), r, c); return; }
     const items=e.dataTransfer.items; if(!items||!items.length) return;
@@ -1797,9 +1811,25 @@ class Component extends DCLogic {
     const f=e.target.files&&e.target.files[0]; e.target.value=''; const id=this._tsMapId;
     const m=this.mergeMapById(id);
     if(!f||id==null||!m) return;
+    await this.attachTsFile(m,f);
+  }
+  // attach a textureset .txt to one loaded map (the "+ ts" button, or a file dropped on the map's card); false when it is not one
+  async attachTsFile(m,f){
     const parsed=this.parseTextureSet(await f.text());
+    if(!parsed.entries.length){ this.refreshMergeUi('✗ '+f.name+' has no textures in it — it does not look like a textureset .txt'); return false; }
     m.slot.tsFile=f; m.slot.tsPath=f.name; m.slot.tsCount=parsed.entries.length;
-    this.refreshMergeUi('attached textureset ('+parsed.entries.length+' textures) to '+m.slot.name);
+    this.refreshMergeUi('attached textureset '+f.name+' ('+parsed.entries.length+' textures) to '+m.slot.name); return true;
+  }
+  // a drop on a map's card: a textureset .txt is attached to that map; a map folder is added to the merge; another card dragged here does nothing special
+  async onCardDrop(id,e){
+    e.preventDefault(); if(e.stopPropagation) e.stopPropagation(); this.mergeTook(e);
+    const raw=e.dataTransfer&&e.dataTransfer.getData('text/x-mf-map-id'); if(raw) return;
+    const m=this.mergeMapById(id); if(!m) return; const d=await this.readDrop(e), keys=Object.keys(d.out);
+    if(keys.some(k=>/(^|\/)\d{6}\//.test(k))){ await this.ingestMergeMap(d.out,d.folder,null); return; }   // that was a map folder, not a textureset
+    const txt=keys.filter(k=>/\.txt$/i.test(k)); if(!txt.length){ this.refreshMergeUi('drop a textureset .txt on a map card to attach it to that map'); return; }
+    const want=((m.slot.setting.textureSet||'').toLowerCase().replace(/\\/g,'/').split('/').pop())||'';   // several files (or a whole folder): prefer the one setting.txt names
+    const pick=txt.find(k=>k.split('/').pop()===want)||txt.find(k=>/textureset/.test(k.split('/').pop()))||txt[0];
+    await this.attachTsFile(m,d.out[pick]);
   }
   async buildMergeThumb(slot){
     try{
@@ -2719,10 +2749,12 @@ class Component extends DCLogic {
         // debug hint (hover the button): shows exactly what setting.txt gave us and
         // where we looked, so a "not found" case is diagnosable at a glance instead
         // of a silent guess.
-        tsTitle:'setting.txt → TextureSet: '+(m.slot.setting.textureSet?('"'+m.slot.setting.textureSet+'"'):'(field missing)')+' · map folder: "'+m.slot.name+'" · linked textureset folder: '+(this.mergeTsPoolName?('"'+this.mergeTsPoolName+'" ('+Object.keys(this.mergeTsPool).length+' .txt files)'):'none'),
+        tsTitle:'Click to pick a textureset .txt, or drop one onto this card.  ·  setting.txt → TextureSet: '+(m.slot.setting.textureSet?('"'+m.slot.setting.textureSet+'"'):'(field missing)')+' · map folder: "'+m.slot.name+'" · linked textureset folder: '+(this.mergeTsPoolName?('"'+this.mergeTsPoolName+'" ('+Object.keys(this.mergeTsPool).length+' .txt files)'):'none'),
         onAttachTs:(e)=>this.attachTs(m.id,e),
         onRemove:(e)=>this.removeMergeMap(m.id,e),
         onDragStart:(e)=>this.onCardDragStart(m.id,e),
+        onDragOver:(e)=>{ e.preventDefault(); },
+        onDrop:(e)=>this.onCardDrop(m.id,e),
         onClick:(e)=>this.selectMergeMap(m.id,e),
         style:`position:relative;width:98px;min-height:${placed?134:112}px;border-radius:8px;padding:6px;cursor:pointer;box-sizing:border-box;border:1.5px solid ${selected?'#e8cf8f':(overlapping?'#d68a2e':(placed?'#6b862f':'#4a3820'))};background:#241a11`
       };
