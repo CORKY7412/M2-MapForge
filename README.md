@@ -74,6 +74,15 @@ Per-sector `areadata.txt` editor:
 - **Export all PNG** — one full-resolution PNG per layer (`<mapname>_<layer>.png`) in `<mapname>-layers-YYYYMMDD-HHMMSS.zip`; layers without data are left out.
 - **Import all PNG** — swap several layers at once. Pick PNG files and/or a `.zip`, pick a folder, or drag and drop any mix onto the page; the layer is read from the file name (`minimap`, `height`, `tile`, `shadow`, `attribute`, also `attr` / `heightmap` / `shadowmap`; with several matches the last word wins, so `<mapname>_<layer>.png` always works). Only the layers found are replaced, a prompt lists them first (layer imports are not covered by undo), images of another size are scaled to the map, and water is skipped. Zips from other tools (deflate) are read too.
 
+### Merge maps
+**File › Merge maps…** joins any number of maps into one.
+
+- Load maps with **+ add map** or by dropping their folders in. Each map keeps its real footprint — one grid cell per sector, so a 6×6 map covers 6×6 cells — and shows a minimap thumbnail. Drag a map onto the grid, or select it and click the cell it should go to; add or remove rows and columns as you need room (up to 40×40).
+- Maps may overlap. Where they do, the layer order decides which one wins: **↑ / ↓** on a map’s card move it forward or backward, and the overlap is flagged on the card and the grid. Sector files and objects follow the winning layer.
+- The result is trimmed to the area the maps actually cover. Cells inside it that no map covers become real, flat, walkable empty sectors (height, tile, attr, water, minimap and AreaProperty), so the merged map has no holes.
+- Texturesets: each map’s file is taken from a manual **+ ts** attachment, else from inside the map folder (matched against the `TextureSet` line in `setting.txt`), else from a **YmirWork/textureset** folder you link once in the dialog. They are merged into one, duplicates collapsed, and every `tile.raw` is remapped. `tile.raw` stores one byte per cell, so more than **255** distinct textures cannot work: the merge then stops and lists how many each map contributes, instead of producing wrong ground textures.
+- Sector numbers, map size, regen coordinates, areadata positions and water layers are all re-adapted. Maps with different CellScale / HeightScale are refused. Regenerate **server_attr** afterwards.
+
 ### Group selection (Regen and Objects)
 Hold **Ctrl** (**Cmd** on macOS) to work on several spawns or objects at once; plain left-drag still pans the map.
 
