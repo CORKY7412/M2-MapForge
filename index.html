@@ -363,7 +363,7 @@
                 <button onClick="{{ M.onRemove }}" style="position:absolute;top:5px;right:5px;width:18px;height:18px;border:1px solid #4a3820;background:#241a11;color:#b5573f;border-radius:4px;cursor:pointer;font-size:11px;line-height:1;z-index:2">&times;</button>
                 <div style="{{ M.thumbStyle }}">{{ M.thumbLabel }}</div>
                 <div style="font-weight:600;color:#e8cf8f;font-size:11px;margin-top:4px;word-break:break-all">{{ M.name }}</div>
-                <div class="mono" style="color:#a08b5f;font-size:9.5px">{{ M.dims }}</div>
+                <div class="mono" style="{{ M.dimsStyle }}" title="{{ M.dimsTitle }}">{{ M.dims }}</div>
                 <div class="mono" style="{{ M.tsRefStyle }}" title="{{ M.tsRefTitle }}">{{ M.tsRef }}</div>
                 <button onClick="{{ M.onAttachTs }}" class="mono" style="{{ M.tsStyle }}" title="{{ M.tsTitle }}">{{ M.tsLabel }}</button>
                 <sc-if value="{{ M.placed }}" hint-placeholder-val="{{ false }}">
@@ -2851,7 +2851,9 @@ class Component extends DCLogic {
       // never contains a literal, unresolved "{{ }}" as a fetchable URL.
       const thumbStyle=`width:100%;height:50px;border-radius:4px;background-color:#120d08;background-image:${m.thumb?('url("'+m.thumb+'")'):'none'};background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;color:#4a3820;font-size:9px`;
       return {
-        id:m.id, name:m.slot.name, dims:m.slot.w+'×'+m.slot.h+' cells · '+m.slot.sectors.length+' sec',
+        id:m.id, name:m.slot.name, // the sector count only matters when folders are missing: a complete 6×6 map has 36 by definition
+        dims:m.slot.w+'×'+m.slot.h+' cells'+(m.slot.sectors.length!==m.slot.w*m.slot.h?' · ⚠ '+m.slot.sectors.length+' of '+(m.slot.w*m.slot.h)+' sectors':''),
+        dimsStyle:'font-size:9.5px;color:'+(m.slot.sectors.length!==m.slot.w*m.slot.h?'#d68a2e':'#a08b5f'), dimsTitle:m.slot.sectors.length!==m.slot.w*m.slot.h?'setting.txt says '+m.slot.w+'×'+m.slot.h+' but the folder holds '+m.slot.sectors.length+' sector folders; the missing ones become empty sectors in the merge':'',
         // the file name setting.txt points at, so nobody has to open setting.txt to know which .txt to fetch; green once a textureset is in place
         tsRef:(()=>{ const ref=(m.slot.setting.textureSet||'').replace(/\\/g,'/').split('/').pop(); return ref?ref:'no TextureSet in setting.txt'; })(),
         tsRefTitle:'setting.txt → TextureSet  '+(m.slot.setting.textureSet||'(field missing)')+(tsFound?'   ·   using: '+tsFound.path+(tsFound.source==='attached'?' (attached)':tsFound.source==='pool'?' (linked folder)':' (map folder)'):'   ·   not found yet — attach this file with “+ ts”, drop it on the card, or link the textureset folder'),
