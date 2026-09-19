@@ -83,7 +83,8 @@
     <sc-for list="{{ layers }}" as="L" hint-placeholder-count="6">
       <button onClick="{{ L.onClick }}" style="{{ L.style }}">{{ L.label }}</button>
     </sc-for>
-    <button onClick="{{ toggleHighlight }}" style="{{ highlightStyle }}">Highlight attribute</button>
+    <button onClick="{{ toggleAllRegens }}" title="Show the spawns of all four files at once (regen · boss · stone · npc), each in its colour. Display only: editing still works on the current file." style="{{ allRegensStyle }}">Highlight all regens</button>
+    <button onClick="{{ toggleHighlight }}" style="{{ highlightNextStyle }}">Highlight attribute</button>
   </div>
 
   <!-- main -->
@@ -95,6 +96,13 @@
         <div class="mono" style="position:absolute;top:12px;left:12px;max-width:330px;max-height:calc(100% - 64px);overflow:auto;padding:8px 10px;border-radius:6px;background:rgba(28,20,13,.92);border:1px solid #4a3820;color:#d8c9a8;font-size:10.5px;line-height:1.55;z-index:5">
           <sc-for list="{{ statsLines }}" as="S" hint-placeholder-count="0">
             <div style="{{ S.style }}">{{ S.text }}</div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ allRegensOn }}" hint-placeholder-val="{{ false }}">
+        <div class="mono" style="position:absolute;bottom:12px;right:12px;display:flex;gap:10px;padding:5px 10px;border-radius:5px;background:rgba(28,20,13,.88);border:1px solid #4a3820;font-size:10.5px;pointer-events:none;z-index:4">
+          <sc-for list="{{ allRegensLegend }}" as="G" hint-placeholder-count="4">
+            <span style="{{ G.style }}">◆ {{ G.text }}</span>
           </sc-for>
         </div>
       </sc-if>
@@ -521,7 +529,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
     mergeOpen:false, mergeMsg:'', mergeRev:0
   };
   pendingConfirm = null;
@@ -754,7 +762,7 @@ class Component extends DCLogic {
   async wsRefresh(){ if(!this.wsCan()) return; try{ const raw=(await this.wsTx('readonly',st=>st.getAll()))||[], cfg=raw.find(r=>r.id==='__settings'); this._cfg=cfg?{...cfg}:{id:'__settings'}; this._lastNames=this._cfg.namesLink||null; const all=raw.filter(r=>!String(r.id).startsWith('__')); all.sort((a,b)=>(b.opened||0)-(a.opened||0)); this._ws=all; this.setState({wsList:all.map(w=>w.id)}); if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){ this.wsFail(e); } }
   wsGet(id){ return (this._ws||[]).find(w=>w.id===id); }
   async wsSave(w){ try{ await this.wsTx('readwrite',st=>st.put(w)); await this.wsRefresh(); }catch(e){ this.wsFail(e); } }
-  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight}; }
+  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens}; }
   // a map was opened through a handle: reuse the workspace that points at the same folder, or make one (named after the folder)
   async wsMapOpened(handle){
     if(!this.wsCan()||!handle){ this.setState({wsCur:''}); return; }
@@ -807,7 +815,7 @@ class Component extends DCLogic {
       if(!await this.wsPerm(w.map.handle)){ this.setState({statusText:'permission to read '+w.map.name+' was not given'}); return; }
       this.setState({statusText:'loading '+w.name+'…'}); const out={}; await this.walkHandle(w.map.handle,'',out); await this.loadFiles(out,w.map.handle.name);
       if(this.state.empty) return; this.setState({wsCur:w.id});
-      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats}); await this.renderLayer(); }
+      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens}); await this.renderLayer(); }
       if(w.regen){ try{ const files={}; if(w.regen.dir){ if(await this.wsPerm(w.regen.dir)) for await(const [name,h] of w.regen.dir.entries()) if(h.kind==='file') files[name.toLowerCase()]=await h.getFile(); } else for(const f of w.regen.files||[]) if(await this.wsPerm(f.handle)) files[f.name.toLowerCase()]=await f.handle.getFile();
           if(Object.keys(files).length){ const tab=this.state.mainTab, rt=this.state.regenTab; await this.applyRegenFolder(files,w.regen.name||''); this.setState({mainTab:tab,regenTab:rt}); } else miss.push(w.regen.dir||(w.regen.files||[]).some(f=>f.handle)?'regens (moved or permission refused)':'regens (not linked yet — load them once)'); }catch(e){ miss.push('regens (moved or permission refused)'); } }
       for(const kind of ['groups','ggroups']){ if(!w[kind]) continue; try{ if(w[kind].file && await this.wsPerm(w[kind].file) && await this.loadAuxFile(await w[kind].file.getFile(),kind)){ this._auxLink[kind]=w[kind]; await this.wsSetLast(kind+'Link',w[kind]); } else miss.push(w[kind].name+(w[kind].file?' (permission refused)':' (not linked yet — load the file once)')); }catch(e){ miss.push(w[kind].name+' (moved or deleted)'); } }
@@ -835,7 +843,7 @@ class Component extends DCLogic {
     let data; try{ data=JSON.parse(await f.text()); }catch(err){ this.setState({statusText:f.name+' is not valid JSON'}); return; }
     if(!data||data.kind!=='workspaces'||!Array.isArray(data.workspaces)){ this.setState({statusText:f.name+' is not a MapForge workspaces file'}); return; }
     try{ await this.wsRefresh(); const str=(v,d)=>String(v==null?d:v).slice(0,200), taken=new Set((this._ws||[]).map(w=>w.name)); let n=0;
-      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight'];
+      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens'];
       for(const x of data.workspaces.slice(0,500)){ if(!x||!x.map||!x.map.name) continue;
         let name=str(x.name,x.map.name).trim()||str(x.map.name); const base=name; let k=2; while(taken.has(name)) name=base+' (imported'+(k>2?' '+(k-1):'')+')', k++; taken.add(name);
         const w={id:'ws'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)+n,name,created:+x.created||Date.now(),opened:+x.opened||0,imported:true,map:{name:str(x.map.name),handle:null}};
@@ -1024,6 +1032,22 @@ class Component extends DCLogic {
   unloadMobNames(){ this.mobNames=new Map(); this._namesLink=null; this.wsSetLastNames(null); const w=this.wsGet(this.state.wsCur); if(w&&w.names){ delete w.names; this.wsSave(w); }   // unloading also takes the file off the open workspace
     this.setState({mobNames:0,vnumName:'',statusText:'mob names unloaded'+(w?' and unlinked from this workspace':'')}); this.refreshRows(); this.draw(); }
   mobName(type,vnum){ return (this.mobNames.size && /^[ms]/.test(type||''))?(this.mobNames.get(+vnum)||''):''; }
+
+  // ================= all regens overlay =================
+  // "Highlight all regens" (off by default): the spawns of all four files are drawn at once, each in its file colour, on every tab.
+  // It only draws. Selecting, dragging, placing, labels, arrows and warnings stay with the current file of the Regen tab, which is
+  // drawn on top as usual; the other files are a little smaller and see-through so the current one still stands out.
+  toggleAllRegens(){ this.setState({allRegens:!this.state.allRegens}); this.draw(); }
+  allRegensLegend(){ const cur=this.state.mainTab==='regen'?this.state.regenTab:null; return Object.keys(REGEN_FILES).map(k=>{ const n=(this.regen[k]||[]).filter(r=>r.type[0]!=='e'&&r.type[0]!=='s').length; return { text:REGEN_FILES[k]+' '+n.toLocaleString('en-US'), style:'color:'+MARK_COLOR[k]+(k===cur?';font-weight:700;text-decoration:underline':'')+(n?'':';opacity:.45') }; }); }
+  drawAllRegens(ctx){
+    if(!this.state.allRegens) return; const cur=this.state.mainTab==='regen'?this.state.regenTab:null, ms=(this.props.markerScale ?? 1)*(cur?5.5:7)/this.zoom;
+    ctx.save(); ctx.globalAlpha=cur?0.8:1; ctx.lineWidth=1/this.zoom;
+    for(const key of Object.keys(REGEN_FILES)){ if(key===cur) continue; const col=MARK_COLOR[key]||'#e05555';
+      for(const r of this.regen[key]||[]){ if(r.type[0]==='e'||r.type[0]==='s') continue;
+        if(r.sx>0||r.sy>0){ ctx.strokeStyle=col; ctx.globalAlpha=cur?0.3:0.45; ctx.strokeRect(r.x-r.sx,r.y-r.sy,r.sx*2,r.sy*2); ctx.globalAlpha=cur?0.8:1; }
+        ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(r.x,r.y-ms); ctx.lineTo(r.x+ms,r.y); ctx.lineTo(r.x,r.y+ms); ctx.lineTo(r.x-ms,r.y); ctx.closePath(); ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.stroke(); } }
+    ctx.restore();
+  }
 
   // ================= stats panel =================
   // Tools › Stats panel (off by default): counts for every regen file, the current file's types / top vnums / warnings, and the objects.
@@ -2426,6 +2450,7 @@ class Component extends DCLogic {
       ctx.strokeStyle='rgba(201,162,75,.28)'; ctx.lineWidth=1/this.zoom;
       for(const c of this.sectorList){ const x=+c.slice(0,3),y=+c.slice(3,6); ctx.strokeRect(x*TILE,y*TILE,TILE,TILE); }
     }
+    this.drawAllRegens(ctx);   // under the current file's markers
     if(this.state.mainTab==='regen'){
       const rows=this.currentRows(); const ms=(this.props.markerScale ?? 1)*7/this.zoom;
       const col=MARK_COLOR[this.state.regenTab]||'#e05555';
@@ -2948,7 +2973,10 @@ class Component extends DCLogic {
       empty:st.empty,
       convertActive:st.mainTab==='convert', regenActive:st.mainTab==='regen', objectsActive:st.mainTab==='objects',
       convertTabStyle:this.tabStyle(st.mainTab==='convert'), regenTabStyle:this.tabStyle(st.mainTab==='regen'), objectsTabStyle:this.tabStyle(st.mainTab==='objects'),
+      allRegensStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.allRegens?'#6b501f':'#4a3820'};background:${st.allRegens?'#3a2c1a':'#241a11'};color:${st.allRegens?'#e8cf8f':'#a08b5f'}`,
+      toggleAllRegens:()=>this.toggleAllRegens(), allRegensOn:st.allRegens&&!st.empty, allRegensLegend:(st.allRegens&&!st.empty)?this.allRegensLegend():[],
       highlightStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,
+      highlightNextStyle:`padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,
       statusText:st.statusText,
       iMapName:info.name, iDims:info.dims, iSectors:info.sectors, iBase:info.base, iCell:info.cell, iHeight:info.height, iView:info.view, iTex:info.tex, iEnv:info.env,
       openFolder:()=>this.openFolder(), onInput:(e)=>this.onInput(e), onRegenInput:(e)=>this.onRegenInput(e), onNamesInput:(e)=>this.onNamesInput(e), onRegenDirInput:(e)=>this.onRegenDirInput(e), onWsInput:(e)=>this.onWsInput(e), onGroupInput:(e)=>this.onGroupInput(e), loadRegenFolder:()=>this.loadRegenFolder(), onPngInput:(e)=>this.onPngInput(e), onPngAllInput:(e)=>this.onPngAllInput(e), exportAllPNG:()=>this.exportAllPNG(), importAllPNG:()=>this.importAllPNG(), importAllPNGFolder:()=>this.importAllPNGFolder(),
