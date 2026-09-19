@@ -322,6 +322,26 @@
         <div style="padding:0 20px 12px;color:#a08b5f;font-size:12px;line-height:1.5;flex:none">Load as many maps as you like: each one takes as many cells as it has sectors (a 6×6 map is 6 cells wide and 6 tall). Drag it onto the grid, or select it and click the cell it should go to — move it as far as you want. Add rows / columns when you need room. Cells left empty become flat empty ground. Each map's textureset is read from <b style="color:#c9b567">setting.txt</b>: if the file is not inside the map folder, link the <b style="color:#c9b567">YmirWork/textureset</b> folder below, once. Regenerate <b style="color:#c9b567">server_attr</b> after merging.</div>
 
         <div style="padding:0 20px 10px;flex:none">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+            <div style="font:600 10px 'IBM Plex Mono',monospace;color:#8a744c;letter-spacing:.5px">SETUPS — {{ mergeSetupCount }}</div>
+            <button onClick="{{ mergeSetupSave }}" class="mono" style="margin-left:auto;font-size:10px;padding:3px 8px;border-radius:5px;cursor:pointer;border:1px solid #4a3820;background:#15100a;color:#c9b567">{{ mergeSetupSaveLabel }}</button>
+            <sc-if value="{{ mergeSetupHasCur }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ mergeSetupSaveNew }}" class="mono" style="font-size:10px;padding:3px 8px;border-radius:5px;cursor:pointer;border:1px solid #4a3820;background:#15100a;color:#a08b5f">save as new…</button>
+            </sc-if>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;max-height:64px;overflow:auto;margin-bottom:8px">
+            <sc-for list="{{ mergeSetupChips }}" as="U" hint-placeholder-count="0">
+              <div class="mono" style="{{ U.style }}" title="{{ U.title }}">
+                <span style="color:#e8cf8f;font-weight:600">{{ U.name }}</span><span style="color:#8a744c">{{ U.info }}</span>
+                <button onClick="{{ U.onRestore }}" title="Restore: reload these maps from disk (the browser asks permission per folder)" style="border:1px solid #4a6b3a;background:#1e2a16;color:#8fce6f;border-radius:4px;cursor:pointer;font-size:9.5px;padding:1px 6px">restore</button>
+                <span onClick="{{ U.onRename }}" title="Rename" style="color:#a08b5f;cursor:pointer;padding:0 2px">✎</span>
+                <span onClick="{{ U.onDelete }}" title="Remove this setup (nothing on disk is touched)" style="color:#b5573f;cursor:pointer;padding:0 2px">&times;</span>
+              </div>
+            </sc-for>
+            <sc-if value="{{ mergeSetupEmpty }}" hint-placeholder-val="{{ true }}">
+              <div class="mono" style="color:#6b5a3c;font-size:10px;padding:3px 0">{{ mergeSetupHint }}</div>
+            </sc-if>
+          </div>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
             <div style="font:600 10px 'IBM Plex Mono',monospace;color:#8a744c;letter-spacing:.5px">LOADED MAPS — {{ mergeMapCount }}</div>
             <button onClick="{{ openMergeTsPoolPicker }}" class="mono" style="margin-left:auto;font-size:10px;padding:3px 8px;border-radius:5px;cursor:pointer;border:1px solid #4a3820;background:#15100a;color:#a08b5f">📁 {{ mergeTsPoolLabel }}</button>
@@ -839,6 +859,51 @@ class Component extends DCLogic {
   wsLinks(w){ const un=' (not linked)', p=['map: '+w.map.name+(w.map.handle?'':un)]; if(w.regen){ const dir=w.regen.dir||w.regen.folder, linked=w.regen.dir||(w.regen.files||[]).some(f=>f.handle); p.push('regens: '+(dir?(w.regen.name||'folder'):(w.regen.files||[]).map(f=>f.name).join(' '))+(linked?'':un)); } if(w.names) p.push((w.names.name||'mob_names.txt')+(w.names.file?'':un)); for(const kind of ['groups','ggroups']) if(w[kind]) p.push(w[kind].name+(w[kind].file?'':un)); return p.join('  ·  '); }
   wsWhen(t){ if(!t) return ''; const d=(Date.now()-t)/1000; if(d<90) return 'just now'; if(d<5400) return Math.round(d/60)+' min ago'; if(d<129600) return Math.round(d/3600)+' h ago'; if(d<2592000) return Math.round(d/86400)+' days ago'; return new Date(t).toLocaleDateString(); }
 
+  // ================= merge setups =================
+  // A named setup remembers a merge dialog: which map folders, where each sits on the grid, the layer order, the grid size, the linked
+  // textureset folder and any textureset attached to a map. Like workspaces it stores references, never map data, in the same
+  // IndexedDB store (ids start with '__merge:', which keeps them out of the workspace list). Restoring happens on a button, because
+  // the browser asks for read permission once per folder.
+  async mergeSetupsRefresh(){ if(!this.wsCan()){ this._mergeSetups=[]; return; } try{ const raw=(await this.wsTx('readonly',st=>st.getAll()))||[]; this._mergeSetups=raw.filter(r=>String(r.id).startsWith('__merge:')).sort((a,b)=>(b.saved||0)-(a.saved||0)); this.refreshMergeUi(); }catch(e){ this._mergeSetups=[]; this.wsFail(e); } }
+  mergeSetupById(id){ return (this._mergeSetups||[]).find(x=>x.id===id)||null; }
+  // asNew = always make a new entry; otherwise the setup that was restored / saved last is overwritten
+  async mergeSetupSave(asNew){
+    if(!this.wsCan()){ this.refreshMergeUi('setups need Chrome or Edge (Brave: enable the File System Access flag)'); return; }
+    const keep=this.mergeMaps.filter(m=>m.handle), lost=this.mergeMaps.length-keep.length;
+    if(!keep.length){ this.refreshMergeUi(this.mergeMaps.length?'✗ these maps were loaded without a folder reference — add them with “+ add map” or drag and drop to be able to save the setup':'load some maps first'); return; }
+    const cur=asNew?null:this.mergeSetupById(this._mergeSetupId); let name=cur?cur.name:'';
+    if(!cur){ name=(window.prompt('Name for this merge setup',keep.map(m=>m.slot.name).slice(0,3).join(' + ')+(keep.length>3?' …':''))||'').trim(); if(!name) return; }
+    const rec={ id:cur?cur.id:'__merge:'+Date.now().toString(36)+Math.random().toString(36).slice(2,7), kind:'merge', name, saved:Date.now(), grid:{rows:this.mergeGrid.rows,cols:this.mergeGrid.cols},
+      pool:this.mergeTsPoolHandle?{handle:this.mergeTsPoolHandle,name:this.mergeTsPoolHandle.name}:null,
+      maps:keep.map(m=>({ name:m.slot.name, handle:m.handle, pos:m.pos?{r:m.pos.r,c:m.pos.c}:null, w:m.slot.w, h:m.slot.h, ts:m.slot.tsHandle?{handle:m.slot.tsHandle,name:m.slot.tsPath||m.slot.tsHandle.name}:null })) };   // array order = layer order
+    try{ await this.wsTx('readwrite',st=>st.put(rec)); this._mergeSetupId=rec.id; await this.mergeSetupsRefresh();
+      this.refreshMergeUi('saved setup “'+name+'” — '+keep.length+' map'+(keep.length>1?'s':'')+(lost?' · '+lost+' not remembered (loaded without a folder reference)':'')+(this.mergeTsPoolName&&!this.mergeTsPoolHandle?' · textureset folder not remembered (link it with the button to keep it)':'')); }
+    catch(e){ this.wsFail(e); this.refreshMergeUi('✗ could not save the setup'); }
+  }
+  async mergePermState(h){ try{ if((await h.queryPermission({mode:'read'}))==='granted') return 'granted'; const r=await h.requestPermission({mode:'read'}); return r==='granted'?'granted':'denied'; }catch(e){ return (e&&(e.name==='SecurityError'||e.name==='NotAllowedError'))?'click':'denied'; } }
+  // Replaces what is in the dialog. Permissions are settled first for every folder; if the browser wants another click part-way
+  // through, nothing is loaded yet and pressing Restore again carries on (what was already granted is not asked twice).
+  async mergeSetupRestore(id,e){
+    if(e&&e.stopPropagation) e.stopPropagation(); const su=this.mergeSetupById(id); if(!su) return;
+    const all=[...su.maps.map(m=>m.handle),...(su.pool?[su.pool.handle]:[]),...su.maps.filter(m=>m.ts).map(m=>m.ts.handle)].filter(Boolean), state=new Map(); let needClick=0;
+    this.refreshMergeUi('asking permission for “'+su.name+'”…');
+    for(const h of all){ const p=await this.mergePermState(h); state.set(h,p); if(p==='click') needClick++; }
+    if(needClick){ this.refreshMergeUi('the browser wants another click: '+needClick+' folder'+(needClick>1?'s still need':' still needs')+' permission — press Restore on “'+su.name+'” again'); return; }
+    for(const m of this.mergeMaps){ if(m.thumb&&m.thumb.startsWith('blob:')) URL.revokeObjectURL(m.thumb); }
+    this.mergeMaps=[]; this._mergeNextId=1; this._mergeSelectedId=null; this.mergeTsPool={}; this.mergeTsPoolName=null; this.mergeTsPoolHandle=null;
+    this.mergeGrid={rows:Math.min(MERGE_MAX_DIM,Math.max(1,su.grid.rows|0)),cols:Math.min(MERGE_MAX_DIM,Math.max(1,su.grid.cols|0))}; const miss=[];
+    if(su.pool){ try{ if(state.get(su.pool.handle)!=='granted') throw 0; await this.loadMergeTsPool(su.pool.handle); }catch(err){ miss.push('textureset folder '+su.pool.name); } }
+    for(const sm of su.maps){
+      try{ if(state.get(sm.handle)!=='granted') throw 0; this.refreshMergeUi('loading '+sm.name+'…'); const out={}; await this.walkHandle(sm.handle,'',out);
+        const entry=await this.ingestMergeMap(out,sm.handle.name,null,sm.handle); if(!entry) throw 0;
+        entry.pos=(sm.pos && sm.pos.r+entry.slot.h<=this.mergeGrid.rows && sm.pos.c+entry.slot.w<=this.mergeGrid.cols)?{r:sm.pos.r,c:sm.pos.c}:entry.pos;   // the saved spot, overlaps included
+        if(sm.ts){ try{ if(state.get(sm.ts.handle)!=='granted') throw 0; await this.attachTsFile(entry,await sm.ts.handle.getFile(),sm.ts.handle); }catch(err){ miss.push('textureset '+sm.ts.name+' of '+sm.name); } } }
+      catch(err){ miss.push(sm.name); } }
+    this._mergeSetupId=su.id; this.refreshMergeUi('restored “'+su.name+'” — '+this.mergeMaps.length+' of '+su.maps.length+' maps'+(miss.length?' · not loaded (moved, deleted or permission refused): '+miss.join(', '):''));
+  }
+  mergeSetupRename(id,e){ if(e&&e.stopPropagation) e.stopPropagation(); const su=this.mergeSetupById(id); if(!su) return; const name=(window.prompt('Setup name',su.name)||'').trim(); if(!name||name===su.name) return; su.name=name; this.wsTx('readwrite',st=>st.put(su)).then(()=>this.mergeSetupsRefresh()).catch(err=>this.wsFail(err)); }
+  mergeSetupDelete(id,e){ if(e&&e.stopPropagation) e.stopPropagation(); const su=this.mergeSetupById(id); if(!su) return; if(!window.confirm('Remove the merge setup “'+su.name+'”? Nothing on disk is touched.')) return; this.wsTx('readwrite',st=>st.delete(id)).then(()=>{ if(this._mergeSetupId===id) this._mergeSetupId=null; return this.mergeSetupsRefresh(); }).catch(err=>this.wsFail(err)); }
+
   // ================= regen folder =================
   // Client maps often ship without spawn files, so load all four at once from the server-side map folder. Only the top level of the
   // picked folder is read; a file that is not there leaves the current one untouched. One undo step.
@@ -1154,7 +1219,7 @@ class Component extends DCLogic {
     if (this.state.mergeOpen) {   // the merge dialog is modal: a drop anywhere while it is open is a map for the merge, never for the page
       if (e._mfMerge) return;     // one of the dialog's own drop targets already took it
       if (e.dataTransfer && e.dataTransfer.getData('text/x-mf-map-id')) return;
-      const d = await this.readDrop(e); await this.ingestMergeMap(d.out, d.folder, null); return;
+      const d = await this.readDrop(e); await this.ingestMergeMap(d.out, d.folder, null, d.handles.find(h => h.kind === 'directory' && h.name === d.folder) || null); return;
     }
     const dropped = await this.readDrop(e), out = dropped.out, hp = dropped.handles; let folder = dropped.folder;
     if (!Object.keys(out).length) { this.setState({ statusText: 'nothing readable in that drop — the browser handed over no files' }); return; }
@@ -1641,8 +1706,8 @@ class Component extends DCLogic {
   openMerge(){
     for(const m of this.mergeMaps){ if(m.thumb&&m.thumb.startsWith('blob:')) URL.revokeObjectURL(m.thumb); }
     this.mergeMaps=[]; this.mergeGrid={rows:4,cols:4}; this._mergeNextId=1; this._mergeSelectedId=null;
-    this.mergeTsPool={}; this.mergeTsPoolName=null;
-    this.setState({ menu:'', mergeOpen:true, mergeMsg:'', mergeRev:0 });
+    this.mergeTsPool={}; this.mergeTsPoolName=null; this.mergeTsPoolHandle=null; this._mergeSetupId=null;
+    this.setState({ menu:'', mergeOpen:true, mergeMsg:'', mergeRev:0 }); this.mergeSetupsRefresh();
   }
   mergedName(filled){ return filled.length<=4 ? filled.map(f=>f.s.name).join('_')+'_merged' : filled.length+'maps_merged'; }
   closeMerge(){ this.setState({ mergeOpen:false }); }
@@ -1727,15 +1792,16 @@ class Component extends DCLogic {
     if(this._mergeSelectedId==null) return;
     this.tryPlaceMergeMap(this._mergeSelectedId,r,c,{grow:false});
   }
-  async readDroppedFolder(e){ const d=await this.readDrop(e); return { out:d.out, folder:d.folder }; }
+  async readDroppedFolder(e){ const d=await this.readDrop(e); return { out:d.out, folder:d.folder, handle:d.handles.find(h=>h.kind==='directory'&&h.name===d.folder)||null }; }
   // drop targets inside the dialog mark the native event, so the page-wide drop handler (which sees it next) leaves it alone
   mergeTook(e){ const n=(e&&e.nativeEvent)||e; if(n) n._mfMerge=true; }
-  async ingestMergeMap(out, folder, placeAt){
+  // handle = the folder's FileSystemDirectoryHandle when the browser gave one; it is what lets a setup be saved and restored later
+  async ingestMergeMap(out, folder, placeAt, handle){
     if(!Object.keys(out||{}).length){ this.setState({mergeMsg:'nothing readable in that drop — drop the map folder itself (the one that holds setting.txt and the 000000… sector folders)'}); return; }
     const slot=await this.ingestSlot(out, folder);
     if(!slot.sectors.length){ this.setState({mergeMsg:'that folder has no XXXYYY sectors'}); return; }
     const id=this._mergeNextId++;
-    const entry={ id, slot, thumb:null, pos:null };
+    const entry={ id, slot, thumb:null, pos:null, handle:handle||null };
     this.mergeMaps.push(entry);
     this.mergeGrowGridToFit(slot.w, slot.h);
     if(placeAt){
@@ -1747,6 +1813,7 @@ class Component extends DCLogic {
     }
     this.refreshMergeUi('loaded '+slot.name+' ('+slot.w+'×'+slot.h+' cells)'+(entry.pos?(' → R'+(entry.pos.r+1)+'C'+(entry.pos.c+1)):' — no free room: drag it onto the grid or enlarge the grid'));
     this.buildMergeThumb(slot).then(url=>{ entry.thumb=url; this.refreshMergeUi(); }).catch(()=>{});
+    return entry;
   }
   onPaletteDragOver(e){ e.preventDefault(); }
   async onPaletteDrop(e){
@@ -1754,11 +1821,13 @@ class Component extends DCLogic {
     const raw=e.dataTransfer.getData('text/x-mf-map-id');
     if(raw){ this.unplaceMergeMap(parseInt(raw,10)); return; }
     const items=e.dataTransfer.items; if(!items||!items.length) return;
-    const {out,folder}=await this.readDroppedFolder(e);
-    await this.ingestMergeMap(out, folder, null);
+    const {out,folder,handle}=await this.readDroppedFolder(e);
+    await this.ingestMergeMap(out, folder, null, handle);
   }
-  openMergeAddPicker(){
-    this.mergeAddInput.click();
+  async openMergeAddPicker(){
+    if(!window.showDirectoryPicker){ this.mergeAddInput.click(); return; }   // no folder reference this way, so such a map cannot be part of a saved setup
+    try{ const dir=await window.showDirectoryPicker(); const out={}; await this.walkHandle(dir,'',out); await this.ingestMergeMap(out,dir.name,null,dir); }
+    catch(e){ if(e&&e.name!=='AbortError') this.mergeAddInput.click(); }
   }
   onMergeAddInput(e){
     const fl=Array.from(e.target.files||[]); e.target.value=''; if(!fl.length) return;
@@ -1773,8 +1842,8 @@ class Component extends DCLogic {
     const raw=e.dataTransfer.getData('text/x-mf-map-id');
     if(raw){ this.placeMergeMap(parseInt(raw,10), r, c); return; }
     const items=e.dataTransfer.items; if(!items||!items.length) return;
-    const {out,folder}=await this.readDroppedFolder(e);
-    await this.ingestMergeMap(out, folder, {r,c});
+    const {out,folder,handle}=await this.readDroppedFolder(e);
+    await this.ingestMergeMap(out, folder, {r,c}, handle);
   }
   removeMergeMap(id,e){
     if(e&&e.stopPropagation) e.stopPropagation();
@@ -1806,7 +1875,10 @@ class Component extends DCLogic {
     this.mergeGrid.cols--;
     this.refreshMergeUi();
   }
-  attachTs(id,e){ if(e&&e.stopPropagation) e.stopPropagation(); const m=this.mergeMapById(id); if(!m) return; this._tsMapId=id; this.tsInput.click(); }
+  async attachTs(id,e){ if(e&&e.stopPropagation) e.stopPropagation(); const m=this.mergeMapById(id); if(!m) return; this._tsMapId=id;
+    if(!window.showOpenFilePicker){ this.tsInput.click(); return; }
+    try{ const [h]=await window.showOpenFilePicker({types:[{description:'textureset .txt',accept:{'text/plain':['.txt']}}]}); await this.attachTsFile(m,await h.getFile(),h); }
+    catch(err){ if(err&&err.name!=='AbortError') this.tsInput.click(); } }
   async onTsInput(e){
     const f=e.target.files&&e.target.files[0]; e.target.value=''; const id=this._tsMapId;
     const m=this.mergeMapById(id);
@@ -1814,10 +1886,10 @@ class Component extends DCLogic {
     await this.attachTsFile(m,f);
   }
   // attach a textureset .txt to one loaded map (the "+ ts" button, or a file dropped on the map's card); false when it is not one
-  async attachTsFile(m,f){
+  async attachTsFile(m,f,handle){
     const parsed=this.parseTextureSet(await f.text());
     if(!parsed.entries.length){ this.refreshMergeUi('✗ '+f.name+' has no textures in it — it does not look like a textureset .txt'); return false; }
-    m.slot.tsFile=f; m.slot.tsPath=f.name; m.slot.tsCount=parsed.entries.length;
+    m.slot.tsFile=f; m.slot.tsPath=f.name; m.slot.tsCount=parsed.entries.length; m.slot.tsHandle=handle||null;
     this.refreshMergeUi('attached textureset '+f.name+' ('+parsed.entries.length+' textures) to '+m.slot.name); return true;
   }
   // a drop on a map's card: a textureset .txt is attached to that map; a map folder is added to the merge; another card dragged here does nothing special
@@ -1825,11 +1897,11 @@ class Component extends DCLogic {
     e.preventDefault(); if(e.stopPropagation) e.stopPropagation(); this.mergeTook(e);
     const raw=e.dataTransfer&&e.dataTransfer.getData('text/x-mf-map-id'); if(raw) return;
     const m=this.mergeMapById(id); if(!m) return; const d=await this.readDrop(e), keys=Object.keys(d.out);
-    if(keys.some(k=>/(^|\/)\d{6}\//.test(k))){ await this.ingestMergeMap(d.out,d.folder,null); return; }   // that was a map folder, not a textureset
+    if(keys.some(k=>/(^|\/)\d{6}\//.test(k))){ await this.ingestMergeMap(d.out,d.folder,null,d.handles.find(h=>h.kind==='directory'&&h.name===d.folder)||null); return; }   // that was a map folder, not a textureset
     const txt=keys.filter(k=>/\.txt$/i.test(k)); if(!txt.length){ this.refreshMergeUi('drop a textureset .txt on a map card to attach it to that map'); return; }
     const want=((m.slot.setting.textureSet||'').toLowerCase().replace(/\\/g,'/').split('/').pop())||'';   // several files (or a whole folder): prefer the one setting.txt names
     const pick=txt.find(k=>k.split('/').pop()===want)||txt.find(k=>/textureset/.test(k.split('/').pop()))||txt[0];
-    await this.attachTsFile(m,d.out[pick]);
+    await this.attachTsFile(m,d.out[pick],d.handles.find(h=>h.kind==='file'&&h.name.toLowerCase()===pick.split('/').pop())||null);
   }
   async buildMergeThumb(slot){
     try{
@@ -1933,7 +2005,12 @@ class Component extends DCLogic {
     for(const k of Object.keys(s.files)){ if(/textureset.*\.txt$/.test(k)) return {file:s.files[k],path:k,source:'infolder'}; }
     return null;
   }
-  openMergeTsPoolPicker(){ this.mergeTsPoolInput.click(); }
+  async openMergeTsPoolPicker(){
+    if(!window.showDirectoryPicker){ this.mergeTsPoolInput.click(); return; }
+    try{ const dir=await window.showDirectoryPicker(); await this.loadMergeTsPool(dir); }catch(e){ if(e&&e.name!=='AbortError') this.mergeTsPoolInput.click(); }
+  }
+  async loadMergeTsPool(dir){ const out={}; await this.walkHandle(dir,'',out); const pool={}; for(const k of Object.keys(out)) if(/\.txt$/i.test(k)) pool[k.split('/').pop()]=out[k];
+    this.mergeTsPool=pool; this.mergeTsPoolName=dir.name; this.mergeTsPoolHandle=dir; const n=Object.keys(pool).length; this.refreshMergeUi('linked textureset folder "'+dir.name+'" — '+n+' .txt file'+(n===1?'':'s')); }
   onMergeTsPoolInput(e){
     const fl=Array.from(e.target.files||[]); e.target.value=''; if(!fl.length) return;
     const pool={}; let folderName=null;
@@ -1943,7 +2020,7 @@ class Component extends DCLogic {
       if(!/\.txt$/i.test(f.name)) continue;
       pool[f.name.toLowerCase()]=f;
     }
-    this.mergeTsPool=pool; this.mergeTsPoolName=folderName||'folder';
+    this.mergeTsPool=pool; this.mergeTsPoolName=folderName||'folder'; this.mergeTsPoolHandle=null;
     { const n=Object.keys(pool).length; this.refreshMergeUi('linked textureset folder "'+this.mergeTsPoolName+'" — '+n+' .txt file'+(n===1?'':'s')); }
   }
   parseWater(buf){
@@ -2863,6 +2940,13 @@ class Component extends DCLogic {
       mergeTsPoolLabel:this.mergeTsPoolName?('✓ '+this.mergeTsPoolName+' ('+Object.keys(this.mergeTsPool).length+' files)'):'link textureset folder',
       mergeMapCount:this.mergeMaps.length, mergeCanAddMap:true,
       mergeMapCards:st.mergeOpen?this.buildMergeMapCards():[],
+      ...(()=>{ const list=st.mergeOpen?(this._mergeSetups||[]):[], cur=this.mergeSetupById(this._mergeSetupId); return {
+        mergeSetupCount:list.length, mergeSetupEmpty:!list.length, mergeSetupHasCur:!!cur,
+        mergeSetupHint:!this.wsCan()?'Setups need Chrome or Edge (Brave: enable the File System Access flag) — this browser cannot remember a folder.':'No saved setups yet. Load and arrange your maps, then “save setup…” remembers the folders, positions, layers and texturesets.',
+        mergeSetupSaveLabel:cur?('save “'+cur.name+'”'):'save setup…', mergeSetupSave:()=>this.mergeSetupSave(false), mergeSetupSaveNew:()=>this.mergeSetupSave(true),
+        mergeSetupChips:list.map(u=>({ name:u.name, info:' · '+u.maps.length+' map'+(u.maps.length>1?'s':'')+' · '+u.grid.cols+'×'+u.grid.rows, title:u.maps.map(m=>m.name).join(', ')+(u.pool?'  ·  textureset folder: '+u.pool.name:''),
+          onRestore:(e)=>this.mergeSetupRestore(u.id,e), onRename:(e)=>this.mergeSetupRename(u.id,e), onDelete:(e)=>this.mergeSetupDelete(u.id,e),
+          style:`display:flex;align-items:center;gap:6px;padding:3px 6px 3px 8px;border-radius:6px;font-size:10px;border:1px solid ${u.id===this._mergeSetupId?'#e8cf8f':'#3a2c1a'};background:#15100a` })) }; })(),
       onPaletteDragOver:(e)=>this.onPaletteDragOver(e), onPaletteDrop:(e)=>this.onPaletteDrop(e),
       mergeRowsN:this.mergeGrid.rows, mergeColsN:this.mergeGrid.cols,
       addMergeRow:()=>this.addMergeRow(), removeMergeRow:()=>this.removeMergeRow(),
