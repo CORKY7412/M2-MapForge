@@ -422,7 +422,9 @@
         <div style="padding:18px 20px 6px;font-family:'Cinzel',serif;color:#e8cf8f;font-size:15px">{{ confirmTitle }}</div>
         <div style="padding:0 20px 18px;color:#c9b89a;font-size:13px;line-height:1.55;white-space:pre-wrap">{{ confirmMsg }}</div>
         <div style="display:flex;gap:8px;padding:0 16px 16px;justify-content:flex-end">
-          <button onClick="{{ confirmNo }}" style="border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:8px 16px;font:500 12px 'IBM Plex Sans';cursor:pointer" style-hover="filter:brightness(1.2)">Cancel</button>
+          <sc-if value="{{ confirmHasCancel }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ confirmNo }}" style="border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:8px 16px;font:500 12px 'IBM Plex Sans';cursor:pointer" style-hover="filter:brightness(1.2)">Cancel</button>
+          </sc-if>
           <button onClick="{{ confirmYes }}" style="{{ confirmBtnStyle }}" style-hover="filter:brightness(1.1)">{{ confirmYesLabel }}</button>
         </div>
       </div>
@@ -522,6 +524,9 @@ const ATTR_FLAGS = [
 ];
 // The merge board: a fixed MERGE_MAX_DIM × MERGE_MAX_DIM sheet of sector cells to lay maps out on. It is only working room — the
 // merge result is trimmed to the area the placed maps cover — so there is nothing to resize.
+// Shown by Tools › About MapForge. Add a name to CONTRIBUTORS to credit someone.
+const APP_AUTHOR = 'martysama0134';
+const CONTRIBUTORS = ['loknarash'];
 const MERGE_MAX_DIM = 40, MERGE_CELL_PX = 20, MERGE_CELL_GAP = 2;
 
 class Component extends DCLogic {
@@ -1161,8 +1166,14 @@ class Component extends DCLogic {
   }
   reselect(){ const k=this.state.mainTab==='regen'?'row':this.state.mainTab==='objects'?'obj':null; if(k){ if(this.gItems(k)[this.gPrimary(k)]) this.setPrimary(k,this.gPrimary(k)); else this.deselect(k); } this.draw(); }
 
+  // ================= about =================
+  showAbout(){
+    const msg='Metin2 map editor for the browser: layers, spawns, objects, merging.\n\nAuthor\n    '+APP_AUTHOR+'\n\nContributors\n'+CONTRIBUTORS.map(n=>'    '+n).join('\n')+'\n\nMIT License · runs entirely in your browser, nothing is uploaded.';
+    this.askConfirm(msg,null,{title:'About MapForge',yes:'OK',safe:true,notice:true});
+  }
+
   // ================= confirm =================
-  askConfirm(msg, fn, opts){ this.pendingConfirm=fn; this.pendingNo=(opts&&opts.onNo)||null; this.setState({ menu:'', confirm:{ msg, title:(opts&&opts.title)||'Are you sure?', yes:(opts&&opts.yes)||'Delete', danger:!(opts&&opts.safe) } }); }
+  askConfirm(msg, fn, opts){ this.pendingConfirm=fn; this.pendingNo=(opts&&opts.onNo)||null; this.setState({ menu:'', confirm:{ msg, title:(opts&&opts.title)||'Are you sure?', yes:(opts&&opts.yes)||'Delete', danger:!(opts&&opts.safe), notice:!!(opts&&opts.notice) } }); }
   confirmYes(){ const f=this.pendingConfirm; this.pendingConfirm=null; this.pendingNo=null; this.setState({confirm:null}); if(f) f(); }
   confirmNo(){ const f=this.pendingNo; this.pendingConfirm=null; this.pendingNo=null; this.setState({confirm:null}); if(f) f(); }
 
@@ -2817,7 +2828,7 @@ class Component extends DCLogic {
       this.mkItem('Converter tab',()=>this.tabConvert(),{check:st.mainTab==='convert'}),
       this.mkItem('Objects (areadata) tab',()=>this.tabObjects(),{check:st.mainTab==='objects'}),
       this.mkItem('Export areadata .txt',()=>this.exportAreadata()),
-      this.mkItem('About MapForge',()=>this.setState({statusText:'MapForge web · Metin2 map editor'}))
+      this.mkItem('About MapForge',()=>this.showAbout())
     ];
     return [['file','File',F],['edit','Edit',E],['map','Map',M],['attr','Server Attr',A],['regen','Regen',R],['util','Tools',U]]
       .map(([key,label,items])=>({ key, label, items, open:st.menu===key, style:this.menuBtnStyle(st.menu===key), onClick:()=>this.toggleMenu(key) }));
@@ -2948,7 +2959,7 @@ class Component extends DCLogic {
     return {
       layers, subtabs, rows, sectorOpts, objRows, layerName:layerLabel, oSectorVal:st.oSector,
       menus, menuBarRef:this.menuBarRef,
-      confirmOpen:!!st.confirm, confirmTitle:cf.title||'', confirmMsg:cf.msg||'', confirmYesLabel:cf.yes||'Delete',
+      confirmOpen:!!st.confirm, confirmHasCancel:!cf.notice, confirmTitle:cf.title||'', confirmMsg:cf.msg||'', confirmYesLabel:cf.yes||'Delete',
       confirmBtnStyle:`border:1px solid ${cf.danger?'#7a2f22':'#6b501f'};background:${cf.danger?'linear-gradient(#c25236,#9a3d26)':'linear-gradient(#d9b845,#a5802e)'};color:${cf.danger?'#fff':'#2a1d09'};border-radius:6px;padding:8px 16px;font:600 12px 'IBM Plex Sans';cursor:pointer`,
       confirmYes:()=>this.confirmYes(), confirmNo:()=>this.confirmNo(),
       mergeOpen:st.mergeOpen, mergeMsg:st.mergeMsg, mergeMsgRef:this.mergeMsgRef, mergeGridRef:this.mergeGridRef, mergeGhostRef:this.mergeGhostRef, mergeDragEnd:()=>this.mergeDragEnd(), mergeBoardDragLeave:(e)=>this.mergeBoardDragLeave(e),
