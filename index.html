@@ -138,7 +138,7 @@
               <span class="mono" style="width:34px;text-align:right;font-size:10.5px;color:#e8cf8f">{{ paintSizeText }}</span>
             </div>
             <div style="margin-top:10px;padding-top:8px;border-top:1px solid #3a2c1a">
-              <div class="mono" style="font-size:9.5px;color:#8a744c;letter-spacing:.4px;margin-bottom:5px" title="Paints the whole map in one go from the ground textures: every tile whose texture file name starts with one of these prefixes gets the flag.">BATCH PAINT · by texture name</div>
+              <div class="mono" style="font-size:9.5px;color:#8a744c;letter-spacing:.4px;margin-bottom:5px" title="Paints the whole map in one go. Block and Safezone come from the ground textures: every tile whose texture file name starts with one of the prefixes gets the flag. Water comes from water.wtr.">BATCH PAINT · whole map</div>
               <div style="display:flex;gap:5px;align-items:stretch;margin-bottom:6px">
                 <div class="mono" title="{{ paintTsTitle }}" style="{{ paintTsLineStyle }}">{{ paintTsLine }}</div>
                 <button onClick="{{ pickPaintTextureset }}" title="{{ paintTsTitle }}" style="flex:none;border:1px solid #3a2c1a;background:transparent;color:#a08b5f;border-radius:5px;padding:4px 7px;font:500 10.5px 'IBM Plex Sans';cursor:pointer">{{ paintTsBtnLabel }}</button>
@@ -148,9 +148,13 @@
                   <span class="mono" style="{{ T.labelStyle }}">{{ T.label }}</span>
                   <input ref="{{ T.ref }}" class="mono" title="{{ T.inputTitle }}" style="flex:1;min-width:0;background:#120d08;border:1px solid #3a2c1a;border-radius:4px;padding:4px 6px;color:#d8c9a8;font-size:10.5px">
                   <button onClick="{{ T.onAdd }}" title="{{ T.addTitle }}" style="{{ T.addStyle }}">Add</button>
-                  <button onClick="{{ T.onRebuild }}" title="{{ T.rebuildTitle }}" style="{{ T.rebuildStyle }}">Rebuild</button>
                 </div>
               </sc-for>
+              <div style="display:flex;gap:4px;align-items:center;margin-top:4px">
+                <span class="mono" style="font-size:10px;width:50px;flex:none;color:#3a78e0">Water</span>
+                <span class="mono" title="Every attr cell that lies under a water cell of water.wtr AND whose ground (height.raw, interpolated at the cell) is below that water plane gets the Water flag. Shores and islands that stick out above the water are left alone. It does not create or change any water." style="flex:1;min-width:0;font-size:9.5px;color:#8a744c;padding:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">water.wtr, ground below it</span>
+                <button onClick="{{ paintWaterAdd }}" title="Sets the Water flag where there is water above the ground. Nothing is ever cleared." style="{{ paintWaterAddStyle }}">Add</button>
+              </div>
               <sc-if value="{{ paintMsgOn }}" hint-placeholder-val="{{ false }}">
                 <div class="mono" style="margin-top:6px;font-size:9.5px;line-height:1.45;color:#c9b567;word-break:break-word">{{ paintMsg }}</div>
               </sc-if>
@@ -159,7 +163,7 @@
               <span class="mono" style="{{ paintStaleStyle }}">{{ paintStaleText }}</span>
               <button onClick="{{ generateServerAttr }}" style="margin-left:auto;border:1px solid #6b501f;background:#3a2c1a;color:#e8cf8f;border-radius:5px;padding:5px 8px;font:600 10.5px 'IBM Plex Sans';cursor:pointer">Generate server_attr</button>
             </div>
-            <div class="mono" style="margin-top:7px;font-size:9px;color:#6b5a3c;line-height:1.5">B brush · R rectangle · C circle · I pick · X set/clear · [ ] size · 1–8 flags · Space or right-drag pans · Ctrl+Z undo</div>
+            <div class="mono" style="margin-top:7px;font-size:9px;color:#6b5a3c;line-height:1.5">B brush · R rectangle · C circle · I pick · X next mode (Set → Clear → Replace) · [ ] size · 1–8 flags · right-drag moves the map · Ctrl+Z undo</div>
           </div>
         </div>
       </sc-if>
@@ -751,12 +755,11 @@ class Component extends DCLogic {
       else if(e.key==='Delete' && this.state.mainTab==='regen' && this.group('row').length && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteGroup('row'); }
       else if(e.key==='Delete' && this.state.mainTab==='objects' && this.group('obj').length && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteGroup('obj'); } };
     window.addEventListener('keydown', this._keyDown);
-    this._keyUp=e=>{ if(e.key===' ') this._space=false; }; window.addEventListener('keyup',this._keyUp);
     this._vis=()=>{ if(document.visibilityState==='hidden') this.wsSaveView(); }; document.addEventListener('visibilitychange',this._vis); this.wsRefresh();
     this._copy=e=>this.onCopy(e,false); this._cut=e=>this.onCopy(e,true); this._paste=e=>this.onPaste(e);
     document.addEventListener('copy',this._copy); document.addEventListener('cut',this._cut); document.addEventListener('paste',this._paste);
   }
-  componentWillUnmount(){ window.removeEventListener('keyup',this._keyUp); document.removeEventListener('visibilitychange',this._vis); window.removeEventListener('dragover',this._dragOver); window.removeEventListener('drop',this._drop); document.removeEventListener('copy',this._copy); document.removeEventListener('cut',this._cut); document.removeEventListener('paste',this._paste); this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); }
+  componentWillUnmount(){ document.removeEventListener('visibilitychange',this._vis); window.removeEventListener('dragover',this._dragOver); window.removeEventListener('drop',this._drop); document.removeEventListener('copy',this._copy); document.removeEventListener('cut',this._cut); document.removeEventListener('paste',this._paste); this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); }
 
   // ================= multi-select =================
   // A group is a Set of row / object references on top of the primary selection (selRow / selObj), which still drives the form.
@@ -1146,8 +1149,8 @@ class Component extends DCLogic {
 
   // ================= paint attributes =================
   // A floating palette (Converter › Paint attributes…) that edits the attr.atr flag grid: one byte per 1 m cell, 8 bit flags.
-  // While it is open the flag overlay is forced on over whatever layer is shown, left-drag paints, and right / middle drag or
-  // holding Space pans. A sector's grid is copied into memory the first time it is touched (attrEdit); when a stroke ends the touched
+  // While it is open the flag overlay is forced on over whatever layer is shown, left-drag paints, and right / middle drag
+  // moves the map. A sector's grid is copied into memory the first time it is touched (attrEdit); when a stroke ends the touched
   // sectors are written back into this.files as attr.atr, so export, server_attr generation and the layer renderer all see the edit
   // without knowing about painting. Every stroke is one undo step holding a copy of each touched sector from before the stroke.
   paint={tool:'brush',mode:'set',mask:0x01,size:8,tip:'round',x:14,y:58};
@@ -1155,11 +1158,11 @@ class Component extends DCLogic {
   openPaint(){
     if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
     if(this.state.paint) return; this._hlBefore=this.state.highlight; this.rulerPts=[]; this.rulerLive=null;
-    this.setState({paint:true,highlight:true,ruler:false,menu:'',statusText:'paint on — left-drag paints · right / middle drag or Space pans · Esc closes'});
+    this.setState({paint:true,highlight:true,ruler:false,menu:'',statusText:'paint on — left-drag paints · right-drag moves the map · wheel zooms · Esc closes'});
     this.ensureHighlight(this.jobId).then(()=>this.draw());
     this.paintTextureEntries().then(()=>this.setState({paintRev:(this.state.paintRev||0)+1})).catch(()=>{});
   }
-  closePaint(){ if(!this.state.paint) return; this.paintShape=null; this.paintHover=null; this._space=false; this.setState({paint:false,highlight:!!this._hlBefore,statusText:'paint off'}); if(this.canvas) this.canvas.style.cursor=''; this.draw(); }
+  closePaint(){ if(!this.state.paint) return; this.paintShape=null; this.paintHover=null; this.setState({paint:false,highlight:!!this._hlBefore,statusText:'paint off'}); if(this.canvas) this.canvas.style.cursor=''; this.draw(); }
   paintSet(patch){ Object.assign(this.paint,patch); this.setState({paintRev:(this.state.paintRev||0)+1}); this.draw(); }
   // what one cell becomes: Set turns the chosen flags on, Clear turns them off, Replace writes exactly the chosen flags
   paintValue(b){ const m=this.paint.mask&255, md=this.paint.mode; return md==='set'?(b|m):md==='clear'?(b&~m&255):m; }
@@ -1226,10 +1229,9 @@ class Component extends DCLogic {
   startPaintDrag(e){ if(e.button!==0) return; e.preventDefault(); const sx=e.clientX, sy=e.clientY, px=this.paint.x, py=this.paint.y; const move=ev=>{ this.paintSet({x:Math.max(0,px+ev.clientX-sx),y:Math.max(0,py+ev.clientY-sy)}); }; const up=()=>{ window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); }
   paintKey(e){
     if(!this.state.paint||this.state.confirm||this.state.menu||e.ctrlKey||e.metaKey||e.altKey||/^(INPUT|SELECT|TEXTAREA)$/.test((e.target&&e.target.tagName)||'')) return false; const k=e.key;
-    if(k===' '){ this._space=true; return true; }
     if(k==='Escape'){ if(this.paintShape){ this.paintShape=null; this._stroke=null; this.draw(); } else this.closePaint(); return true; }
     const tool={b:'brush',r:'rect',c:'circle',i:'pick'}[k.toLowerCase()]; if(tool){ this.paintSet({tool}); return true; }
-    if(k==='x'||k==='X'){ this.paintSet({mode:this.paint.mode==='set'?'clear':'set'}); return true; }
+    if(k==='x'||k==='X'){ const order=['set','clear','replace']; this.paintSet({mode:order[(order.indexOf(this.paint.mode)+1)%3]}); return true; }
     if(k==='['||k===']'){ this.paintSet({size:Math.min(64,Math.max(1,(this.paint.size|0)+(k===']'?1:-1)*(e.shiftKey?8:1)))}); return true; }
     if(/^[1-8]$/.test(k)){ this.paintSet({mask:this.paint.mask^(1<<(+k-1))}); return true; }
     return false;
@@ -1258,6 +1260,26 @@ class Component extends DCLogic {
     this.setState({paintMsg:'✗ no textureset among the dropped files',paintRev:(this.state.paintRev||0)+1}); return false;
   }
   async onPaintTsInput(e){ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f) await this.usePaintTextureset(f); }
+  // Water flag from water.wtr + height.raw. A water plane in water.wtr is a flat sheet that usually reaches past the shore and under
+  // islands, so a cell only counts as water where the ground is BELOW the plane. Grids: water 128 × 128 per sector (2 m cells),
+  // attributes 256 × 256 (1 m), heights 131 × 131 vertices 2 m apart with a one-vertex border (vertex (r,c) sits at x=(c-1)*2, y=(r-1)*2).
+  // Both heights are raw units on the same scale (world Z = raw × HeightScale), so they compare directly. The ground height is
+  // interpolated at the centre of each 1 m cell. A sector without height.raw falls back to "wherever water.wtr has water".
+  async paintFromWater(rebuild){
+    const s=this._stroke={touched:new Set(),dirty:new Set(),changed:0,undo:null,label:rebuild?'rebuilt Water from water.wtr:':'added Water from water.wtr:'}; let added=0, cleared=0, withWater=0, noFile=0, dry=0, noHeight=0;
+    this.setState({paintMsg:'working…'});
+    for(const c of this.sectorList){ const wf=this.getFile(c+'/water.wtr'); let w=null; if(wf){ try{ w=this.parseWater(await wf.arrayBuffer()); }catch(e){ w=null; } } if(!w) noFile++; if(!w&&!rebuild) continue;
+      let H=null; if(w){ const hf=this.getFile(c+'/height.raw'); if(hf){ const hb=await hf.arrayBuffer(); if(hb.byteLength===131*131*2) H=new Uint16Array(hb); } }
+      const a=await this.paintCells(c); if(!a) continue; let any=false, usedHeight=false;
+      for(let y=0;y<256;y++) for(let x=0;x<256;x++){ const i=y*256+x, v=w?w.cells[(y>>1)*128+(x>>1)]:0xFF; let wet=(v!==0xFF && v<w.heights.length);
+        if(wet && H){ usedHeight=true; const fx=(x+0.5)/2+1, fy=(y+0.5)/2+1, x0=Math.floor(fx), y0=Math.floor(fy), tx=fx-x0, ty=fy-y0, p=y0*131+x0;
+          const ground=(H[p]*(1-tx)+H[p+1]*tx)*(1-ty)+(H[p+131]*(1-tx)+H[p+132]*tx)*ty; if(!(ground<w.heights[v])){ wet=false; dry++; } }
+        if(wet) any=true;
+        const nv=wet?(a[i]|0x02):(rebuild?(a[i]&~0x02&255):a[i]); if(nv===a[i]) continue; this.strokeTouch(c,rebuild?'rebuild Water from water.wtr':'add Water from water.wtr'); if(wet) added++; else cleared++; a[i]=nv; s.changed++; }
+      if(any) withWater++; if(w&&!usedHeight&&w.cells.some(v=>v!==0xFF)) noHeight++; }
+    await this.paintCommit(s);
+    this.setState({paintMsg:(s.changed?'':'nothing to change · ')+'Water +'+added.toLocaleString('en-US')+(rebuild&&cleared?' · cleared on '+cleared.toLocaleString('en-US')+' cell'+(cleared===1?'':'s'):'')+' · '+withWater+' sector'+(withWater===1?'':'s')+' with water'+(dry?' · '+dry.toLocaleString('en-US')+' cell'+(dry===1?'':'s')+' skipped (ground above the water)':'')+(noHeight?' · '+noHeight+' sector'+(noHeight===1?'':'s')+' without height.raw: taken from water.wtr alone':'')+(noFile?' · '+noFile+' without water.wtr':''),paintRev:(this.state.paintRev||0)+1});
+  }
   async paintFromTextures(rebuild,which){
     const entries=await this.paintTextureEntries(); if(!entries){ /* the buttons are disabled in this state; this is the keyboard / stale-click path */ this.setState({paintMsg:'✗ textureset not found ('+((this.setting&&this.setting.textureSet)||'no TextureSet in setting.txt')+') — load it with the button below',paintRev:(this.state.paintRev||0)+1}); return; }
     const list=el=>String(el?el.value:'').toLowerCase().split(/[,;\s]+/).filter(Boolean), bp=which==='safe'?[]:list(this._ptBlock), sp=which==='block'?[]:list(this._ptSafe); if(!bp.length&&!sp.length){ this.setState({paintMsg:'type a prefix for '+(which==='safe'?'Safezone':which==='block'?'Block':'Block or Safezone')+' first',paintRev:(this.state.paintRev||0)+1}); return; }
@@ -2732,7 +2754,7 @@ class Component extends DCLogic {
     this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null; this.dragObj=null; this.dragHandle=null; this.dragGroup=null; this.box=null;
     if(e.button!==0||this.state.empty) return;
     const r=this.canvas.getBoundingClientRect(); const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
-    if(this.state.paint){ if(this._space) return; this.down.paint=true; this.paintDown(wx,wy); return; }   // paint on: left-drag paints; Space (or right / middle drag) still pans
+    if(this.state.paint){ this.down.paint=true; this.paintDown(wx,wy); return; }   // paint on: left-drag paints; the map is moved with right / middle drag
     if(this.state.ruler){ this.down.ruler=true; return; }   // ruler on: a click measures, a drag pans, nothing is selected or placed
     const tab=this.state.mainTab, k=tab==='regen'?'row':tab==='objects'?'obj':null; if(!k) return;
     if(e.ctrlKey||e.metaKey){   // Ctrl = group selection: click toggles one item, drag from empty map draws a box (Alt = take out)
@@ -2771,7 +2793,7 @@ class Component extends DCLogic {
   onMove(e){
     if(this.state.empty){ return; }
     const r=this.canvas.getBoundingClientRect(); const inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
-    if(this.state.paint){ const pwx=(e.clientX-r.left-this.ox)/this.zoom, pwy=(e.clientY-r.top-this.oy)/this.zoom; this.paintHover={x:Math.floor(pwx),y:Math.floor(pwy),inside}; if(this.down&&this.down.paint) this.paintMove(pwx,pwy); else if(!this.down){ this.canvas.style.cursor=inside?(this._space?'grab':'crosshair'):''; this.draw(); } }
+    if(this.state.paint){ const pwx=(e.clientX-r.left-this.ox)/this.zoom, pwy=(e.clientY-r.top-this.oy)/this.zoom; this.paintHover={x:Math.floor(pwx),y:Math.floor(pwy),inside}; if(this.down&&this.down.paint) this.paintMove(pwx,pwy); else if(!this.down){ this.canvas.style.cursor=inside?'crosshair':''; this.draw(); } }
     if(this.down && !this.down.paint){ const dx=e.clientX-this.down.x,dy=e.clientY-this.down.y; if(Math.abs(dx)+Math.abs(dy)>3) this.moved=true;
       if(this.moved){
         const wxm=(e.clientX-r.left-this.ox)/this.zoom, wym=(e.clientY-r.top-this.oy)/this.zoom;
@@ -2810,7 +2832,7 @@ class Component extends DCLogic {
   onUp(e){
     if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn, ctrlDown=!!this.down.ctrl, rulerDown=!!this.down.ruler, paintDown=!!this.down.paint; this.down=null;
     if(paintDown){ this.paintUp(); return; }
-    if(this.state.paint) return;   // palette open: a click never places or selects (this was a Space / right-drag pan)
+    if(this.state.paint) return;   // palette open: a click never places or selects (this was a right / middle drag)
     if(rulerDown){ if(!wasMoved){ const rr=this.canvas.getBoundingClientRect(); if(e.clientX>=rr.left&&e.clientX<=rr.right&&e.clientY>=rr.top&&e.clientY<=rr.bottom) this.rulerClick((e.clientX-rr.left-this.ox)/this.zoom,(e.clientY-rr.top-this.oy)/this.zoom); } return; }
     if(this.box){ const b=this.box; this.box=null; if(wasMoved) this.boxSel(b.k,b); this.draw(); return; }
     if(this.dragGroup){ const d=this.dragGroup; this.dragGroup=null; if(wasMoved){ this.setState({statusText:this.gName(d.k,d.items.length)+' moved'}); if(d.k==='obj') this.refreshObjs(); else this.refreshRows(); } return; }
@@ -3194,7 +3216,7 @@ class Component extends DCLogic {
           startPaintDrag:(e)=>this.startPaintDrag(e), closePaint:()=>this.closePaint(),
           paintFlags:ATTR_FLAGS.map((F,i)=>{ const act=!!(P.mask&F.bit); return { label:F.name, title:F.name+' · bit '+i+' (0x'+F.bit.toString(16).padStart(2,'0')+') · key '+(i+1)+(F.bit===0x02?' · marks water cells; the visible water itself comes from water.wtr':''), onClick:()=>this.paintSet({mask:P.mask^F.bit}), dot:`display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;background:rgb(${F.col.join(',')});opacity:${act?1:.45}`, style:chip(act,'display:flex;align-items:center;justify-content:flex-start;white-space:nowrap;overflow:hidden') }; }),
           paintMaskText:(P.mode==='set'?'turns on: ':P.mode==='clear'?'turns off: ':'cell becomes exactly: ')+(this.flagNames(P.mask)||'nothing')+'  (0x'+(P.mask&255).toString(16).padStart(2,'0')+')'+(P.mode!=='replace'?' · other flags stay':''),
-          paintModes:[['set','Set','Turn the chosen flags on; every other flag of the cell stays as it is'],['clear','Clear','Turn the chosen flags off; every other flag stays (X swaps Set / Clear)'],['replace','Replace','The cell gets exactly the chosen flags; everything else is wiped']].map(([k,label,title])=>({label,title,onClick:()=>this.paintSet({mode:k}),style:chip(P.mode===k,'flex:1')})),
+          paintModes:[['set','Set','Turn the chosen flags on; every other flag of the cell stays as it is (X steps through Set, Clear, Replace)'],['clear','Clear','Turn the chosen flags off; every other flag stays'],['replace','Replace','The cell gets exactly the chosen flags; everything else is wiped']].map(([k,label,title])=>({label,title,onClick:()=>this.paintSet({mode:k}),style:chip(P.mode===k,'flex:1')})),
           paintTools:[['brush','Brush','Freehand (B)'],['rect','Rectangle','Drag a filled rectangle (R)'],['circle','Circle','Drag from the centre outwards (C)'],['pick','Pick','Click a cell to take its flags (I)']].map(([k,label,title])=>({label,title,onClick:()=>this.paintSet({tool:k}),style:chip(P.tool===k,'flex:1')})),
           paintTips:[['round','●'],['square','■']].map(([k,label])=>({label,onClick:()=>this.paintSet({tip:k}),style:chip(P.tip===k,'width:26px;padding:3px 0')})),
           paintSize:P.size, paintSizeText:P.size+' m', onPaintSize:(e)=>this.paintSet({size:Math.min(64,Math.max(1,parseInt(e.target.value)||1))}),
@@ -3204,11 +3226,12 @@ class Component extends DCLogic {
               paintTsLineStyle:`flex:1;min-width:0;padding:4px 6px;border-radius:4px;font-size:10px;line-height:1.35;word-break:break-all;border:1px dashed ${has?'#4a6b3a':'#6b501f'};color:${has?'#8fce6f':'#e0a93a'};background:${has?'#16200f':'#1f170c'}`,
               paintTsTitle:'setting.txt → TextureSet  '+((this.setting&&this.setting.textureSet)||'(field missing)')+(has?'   ·   loaded: '+this._paintTsName:'   ·   not found in the map folder'),
               paintTsBtnLabel:has?'change…':'load…',
+              paintWaterAdd:()=>this.paintFromWater(false), paintWaterAddStyle:btn(true,false).replace('flex:1;','flex:none;width:52px;'),
               paintTexRows:[['block','Block','#e0433a',this.ptBlockRef],['safe','Safezone','#42b660',this.ptSafeRef]].map(([k,label,col,ref])=>({ label, ref, labelStyle:'font-size:10px;width:50px;flex:none;color:'+col,
                 inputTitle:'Texture file names starting with this get '+label+'. Several: separate with commas.',
-                addTitle:has?('Sets '+label+' where the texture matches. Nothing else is touched.'):'load the textureset first', rebuildTitle:has?('Sets '+label+' where the texture matches AND clears '+label+' everywhere else, so hand-painted '+label+' in non-matching cells is lost. Other flags are not touched.'):'load the textureset first',
-                addStyle:btn(has,false).replace('flex:1;','flex:none;width:38px;'), rebuildStyle:btn(has,true).replace('flex:1;','flex:none;width:54px;'),
-                onAdd:()=>{ if(has) this.paintFromTextures(false,k); }, onRebuild:()=>{ if(has) this.paintFromTextures(true,k); } })) }; })(),
+                addTitle:has?('Sets '+label+' where the texture matches. Nothing is ever cleared: use the Clear mode with a brush or a shape for that.'):'load the textureset first',
+                addStyle:btn(has,false).replace('flex:1;','flex:none;width:52px;'),
+                onAdd:()=>{ if(has) this.paintFromTextures(false,k); } })) }; })(),
           paintMsgOn:!!st.paintMsg, paintMsg:st.paintMsg,
           paintStaleText:st.attrStale?'server_attr is out of date':'server_attr: no unsaved paint', paintStaleStyle:`font-size:9.5px;color:${st.attrStale?'#e0a93a':'#6b5a3c'}` }; })(),
       ptBlockRef:this.ptBlockRef, ptSafeRef:this.ptSafeRef, paintTsInputRef:this.paintTsInputRef, onPaintTsInput:(e)=>this.onPaintTsInput(e), generateServerAttr:()=>this.generateServerAttr(),
