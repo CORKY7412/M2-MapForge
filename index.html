@@ -673,7 +673,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, view3d:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, view3d:false, water3d:true, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
     mergeOpen:false, mergeMsg:'', mergeRev:0
   };
   pendingConfirm = null;
@@ -909,7 +909,7 @@ class Component extends DCLogic {
   async wsRefresh(){ if(!this.wsCan()) return; try{ const raw=(await this.wsTx('readonly',st=>st.getAll()))||[], cfg=raw.find(r=>r.id==='__settings'); this._cfg=cfg?{...cfg}:{id:'__settings'}; this._lastNames=this._cfg.namesLink||null; const all=raw.filter(r=>!String(r.id).startsWith('__')); all.sort((a,b)=>(b.opened||0)-(a.opened||0)); this._ws=all; this.setState({wsList:all.map(w=>w.id)}); if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){ this.wsFail(e); } }
   wsGet(id){ return (this._ws||[]).find(w=>w.id===id); }
   async wsSave(w){ try{ await this.wsTx('readwrite',st=>st.put(w)); await this.wsRefresh(); }catch(e){ this.wsFail(e); } }
-  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens,shadowHl:st.shadowHl,reliefHl:st.reliefHl}; }
+  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens,shadowHl:st.shadowHl,reliefHl:st.reliefHl,water3d:st.water3d}; }
   // a map was opened through a handle: reuse the workspace that points at the same folder, or make one (named after the folder)
   async wsMapOpened(handle){
     if(!this.wsCan()||!handle){ this.setState({wsCur:''}); return; }
@@ -962,7 +962,7 @@ class Component extends DCLogic {
       if(!await this.wsPerm(w.map.handle)){ this.setState({statusText:'permission to read '+w.map.name+' was not given'}); return; }
       this.setState({statusText:'loading '+w.name+'…'}); const out={}; await this.walkHandle(w.map.handle,'',out); await this.loadFiles(out,w.map.handle.name);
       if(this.state.empty) return; this.setState({wsCur:w.id});
-      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens,shadowHl:!!v.shadowHl,reliefHl:!!v.reliefHl}); await this.renderLayer(); }
+      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens,shadowHl:!!v.shadowHl,reliefHl:!!v.reliefHl,water3d:v.water3d!==false}); await this.renderLayer(); }
       if(w.regen){ try{ const files={}; if(w.regen.dir){ if(await this.wsPerm(w.regen.dir)) for await(const [name,h] of w.regen.dir.entries()) if(h.kind==='file') files[name.toLowerCase()]=await h.getFile(); } else for(const f of w.regen.files||[]) if(await this.wsPerm(f.handle)) files[f.name.toLowerCase()]=await f.handle.getFile();
           if(Object.keys(files).length){ const tab=this.state.mainTab, rt=this.state.regenTab; await this.applyRegenFolder(files,w.regen.name||''); this.setState({mainTab:tab,regenTab:rt}); } else miss.push(w.regen.dir||(w.regen.files||[]).some(f=>f.handle)?'regens (moved or permission refused)':'regens (not linked yet — load them once)'); }catch(e){ miss.push('regens (moved or permission refused)'); } }
       for(const kind of ['groups','ggroups']){ if(!w[kind]) continue; try{ if(w[kind].file && await this.wsPerm(w[kind].file) && await this.loadAuxFile(await w[kind].file.getFile(),kind)){ this._auxLink[kind]=w[kind]; await this.wsSetLast(kind+'Link',w[kind]); } else miss.push(w[kind].name+(w[kind].file?' (permission refused)':' (not linked yet — load the file once)')); }catch(e){ miss.push(w[kind].name+' (moved or deleted)'); } }
@@ -991,7 +991,7 @@ class Component extends DCLogic {
     let data; try{ data=JSON.parse(await f.text()); }catch(err){ this.setState({statusText:f.name+' is not valid JSON'}); return; }
     if(!data||data.kind!=='workspaces'||!Array.isArray(data.workspaces)){ this.setState({statusText:f.name+' is not a MapForge workspaces file'}); return; }
     try{ await this.wsRefresh(); const str=(v,d)=>String(v==null?d:v).slice(0,200), taken=new Set((this._ws||[]).map(w=>w.name)); let n=0;
-      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens','shadowHl','reliefHl'];
+      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens','shadowHl','reliefHl','water3d'];
       for(const x of data.workspaces.slice(0,500)){ if(!x||!x.map||!x.map.name) continue;
         let name=str(x.name,x.map.name).trim()||str(x.map.name); const base=name; let k=2; while(taken.has(name)) name=base+' (imported'+(k>2?' '+(k-1):'')+')', k++; taken.add(name);
         const w={id:'ws'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)+n,name,created:+x.created||Date.now(),opened:+x.opened||0,imported:true,map:{name:str(x.map.name),handle:null}};
@@ -1555,6 +1555,15 @@ class Component extends DCLogic {
       out[o++]=(c-1)*2; out[o++]=H[i]*m; out[o++]=(r-1)*2; out[o++]=-dx/l; out[o++]=1/l; out[o++]=-dz/l; out[o++]=(c-1)/128; out[o++]=(r-1)/128; }
     return out;
   }
+  // water of one sector as flat quads (two triangles each, positions only), sector-local metres. water.wtr has one cell per 2 m;
+  // runs of cells of the same plane within a row are merged into one quad. Returns null when the sector has no water.
+  waterMesh(w){
+    if(!w||!w.heights||!w.heights.length) return null; const m=this.heightScaleM(), out=[];
+    for(let j=0;j<128;j++){ let i=0; while(i<128){ const v=w.cells[j*128+i]; if(v===0xFF||v>=w.heights.length){ i++; continue; } let k=i; while(k+1<128&&w.cells[j*128+k+1]===v) k++;
+        const x0=i*2, x1=(k+1)*2, z0=j*2, z1=j*2+2, y=w.heights[v]*m; out.push(x0,y,z0, x0,y,z1, x1,y,z0, x1,y,z0, x0,y,z1, x1,y,z1); i=k+1; } }
+    return out.length?new Float32Array(out):null;
+  }
+  toggleWater3d(){ const on=!this.state.water3d; this.setState({water3d:on,statusText:'water in 3D Preview '+(on?'on':'off')}); this.pv3Queue(); }
   // ground height in metres at a map position, from the sectors already loaded (null when unknown)
   groundM(wx,wy){ const vx=wx/2, vy=wy/2, x0=Math.floor(vx), y0=Math.floor(vy), tx=vx-x0, ty=vy-y0, a=this.readV(x0,y0), b=this.readV(x0+1,y0), c=this.readV(x0,y0+1), d=this.readV(x0+1,y0+1); if(a==null||b==null||c==null||d==null) return null; return ((a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty)*this.heightScaleM(); }
   // camera: eye position relative to the target, and its right / up / back axes
@@ -1569,7 +1578,7 @@ class Component extends DCLogic {
   v3Ref=el=>{ if(!el||el===this._pvCv) return; this.pv3Free(); this._pvCv=el; this.pv3Init(el); };
   pv3Free(){ const p=this._pv; this._pv=null; this._pvCv=null; this._pvDirty=null; if(p&&p.gl){ try{ const x=p.gl.getExtension('WEBGL_lose_context'); if(x) x.loseContext(); }catch(e){} } }
   // a new map: drop the meshes, keep the context (the canvas stays mounted)
-  pv3Reset(){ const p=this._pv; this.v3.tx=null; this._pvGround=0; if(!p) return; for(const m of p.meshes.values()) if(m){ p.gl.deleteBuffer(m.vbo); if(m.tex) p.gl.deleteTexture(m.tex); } p.meshes.clear(); this._pvDirty=new Set(); }
+  pv3Reset(keep){ const p=this._pv; if(!keep){ this.v3.tx=null; this._pvGround=0; } if(!p) return; for(const m of p.meshes.values()) if(m){ p.gl.deleteBuffer(m.vbo); if(m.wvbo) p.gl.deleteBuffer(m.wvbo); if(m.tex) p.gl.deleteTexture(m.tex); } p.meshes.clear(); this._pvDirty=new Set(); }
   pv3Init(el){
     let gl=null; try{ gl=el.getContext('webgl',{antialias:true})||el.getContext('experimental-webgl'); }catch(e){}
     if(!gl){ this.setState({statusText:'3D Preview needs WebGL, which this browser did not provide'}); return; }
@@ -1577,12 +1586,14 @@ class Component extends DCLogic {
     const FS='precision mediump float;uniform sampler2D uTex;uniform vec3 uL;uniform vec3 uBrush;varying vec3 vN;varying vec2 vUv;varying vec2 vW;void main(){vec3 c=texture2D(uTex,vUv).rgb;c*=0.42+0.78*max(dot(normalize(vN),uL),0.0);float r=distance(vW,uBrush.xy);float ring=1.0-smoothstep(0.0,0.9,abs(r-uBrush.z));c=mix(c,vec3(0.95,0.85,0.54),ring*0.85*step(0.25,uBrush.z));gl_FragColor=vec4(c,1.0);}';
     const sh=(t,src)=>{ const s=gl.createShader(t); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
     let prog; try{ prog=gl.createProgram(); gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS)); gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS)); gl.linkProgram(prog); if(!gl.getProgramParameter(prog,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog)); }catch(e){ console.error(e); this.setState({statusText:'3D Preview: shader failed — '+e.message}); return; }
+    let wprog; try{ wprog=gl.createProgram(); gl.attachShader(wprog,sh(gl.VERTEX_SHADER,'attribute vec3 aPos;uniform mat4 uMVP;uniform vec3 uOff;void main(){gl_Position=uMVP*vec4(aPos+uOff,1.0);}')); gl.attachShader(wprog,sh(gl.FRAGMENT_SHADER,'precision mediump float;void main(){gl_FragColor=vec4(0.22,0.62,0.90,0.48);}')); gl.linkProgram(wprog); if(!gl.getProgramParameter(wprog,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(wprog)); }catch(e){ console.error(e); wprog=null; }
+    const wloc=wprog?{uMVP:gl.getUniformLocation(wprog,'uMVP'),uOff:gl.getUniformLocation(wprog,'uOff'),aPos:gl.getAttribLocation(wprog,'aPos')}:null;
     const idx=new Uint16Array(128*128*6); let o=0; for(let r=0;r<128;r++) for(let c=0;c<128;c++){ const a=r*129+c; idx[o++]=a; idx[o++]=a+129; idx[o++]=a+1; idx[o++]=a+1; idx[o++]=a+129; idx[o++]=a+130; }
     const ibo=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,idx,gl.STATIC_DRAW);
     const blank=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,blank); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([150,138,104,255]));
     const loc={}; for(const n of ['uMVP','uOff','uTex','uL','uBrush']) loc[n]=gl.getUniformLocation(prog,n); for(const n of ['aPos','aNrm','aUv']) loc[n]=gl.getAttribLocation(prog,n);
     const comp=document.createElement('canvas'); comp.width=256; comp.height=256;
-    this._pv={gl,prog,loc,ibo,blank,comp,meshes:new Map(),loading:new Set()}; this._pvDirty=new Set();
+    this._pv={gl,prog,loc,wprog,wloc,ibo,blank,comp,meshes:new Map(),loading:new Set()}; this._pvDirty=new Set();
     const at=e=>{ const r=el.getBoundingClientRect(); return this.v3Pick((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height,r.width/r.height); };
     const hover=(e,hit)=>{ this.paintHover=hit?{x:Math.floor(hit.x),y:Math.floor(hit.y),inside:true}:null; this.sculptPos=hit&&this.state.heightPaint?{x:hit.x,y:hit.y}:null; };
     el.addEventListener('contextmenu',e=>e.preventDefault());
@@ -1601,8 +1612,9 @@ class Component extends DCLogic {
   pv3Queue(){ if(!this._pv||this._pvRaf||typeof requestAnimationFrame==='undefined') return; this._pvRaf=requestAnimationFrame(()=>{ this._pvRaf=0; try{ this.pv3Render(); }catch(e){ console.error(e); } }); }
   async pv3Load(c){
     const p=this._pv; if(!p||p.loading.has(c)||p.meshes.has(c)) return; p.loading.add(c);
-    try{ const H=await this.heightVerts(c); if(this._pv!==p) return; const gl=p.gl; if(!H){ p.meshes.set(c,null); return; }
-      const vbo=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vbo); gl.bufferData(gl.ARRAY_BUFFER,this.sectorMesh(H),gl.DYNAMIC_DRAW); p.meshes.set(c,{vbo,tex:null,src:null}); if(this._pvDirty) this._pvDirty.delete(c);
+    try{ const H=await this.heightVerts(c); let wm=null; if(H){ const wf=this.getFile(c+'/water.wtr'); if(wf){ try{ wm=this.waterMesh(this.parseWater(await wf.arrayBuffer())); }catch(e){ wm=null; } } }
+      if(this._pv!==p) return; const gl=p.gl; if(!H){ p.meshes.set(c,null); return; }
+      const vbo=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vbo); gl.bufferData(gl.ARRAY_BUFFER,this.sectorMesh(H),gl.DYNAMIC_DRAW); let wvbo=null; if(wm){ wvbo=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,wvbo); gl.bufferData(gl.ARRAY_BUFFER,wm,gl.STATIC_DRAW); } p.meshes.set(c,{vbo,tex:null,src:null,wvbo,wn:wm?wm.length/3:0}); if(this._pvDirty) this._pvDirty.delete(c);
     } finally { p.loading.delete(c); this.pv3Queue(); }
   }
   // what the 2D view would draw for this sector, flattened into one texture; redone only when one of the source bitmaps was replaced
@@ -1630,7 +1642,10 @@ class Component extends DCLogic {
     for(const c of want){ const m=p.meshes.get(c); if(!m) continue; this.v3Tex(p,c,m); gl.bindBuffer(gl.ARRAY_BUFFER,m.vbo);
       gl.enableVertexAttribArray(p.loc.aPos); gl.vertexAttribPointer(p.loc.aPos,3,gl.FLOAT,false,32,0); gl.enableVertexAttribArray(p.loc.aNrm); gl.vertexAttribPointer(p.loc.aNrm,3,gl.FLOAT,false,32,12); gl.enableVertexAttribArray(p.loc.aUv); gl.vertexAttribPointer(p.loc.aUv,2,gl.FLOAT,false,32,24);
       gl.bindTexture(gl.TEXTURE_2D,m.tex||p.blank); gl.uniform3f(p.loc.uOff,(+c.slice(0,3))*TILE-V.tx,-gy,(+c.slice(3,6))*TILE-V.ty); gl.drawElements(gl.TRIANGLES,128*128*6,gl.UNSIGNED_SHORT,0); }
-    if(p.meshes.size>90) for(const [c,m] of [...p.meshes]) if(!want.includes(c)){ if(m){ gl.deleteBuffer(m.vbo); if(m.tex) gl.deleteTexture(m.tex); } p.meshes.delete(c); }
+    if(this.state.water3d&&p.wprog){ gl.disableVertexAttribArray(p.loc.aNrm); gl.disableVertexAttribArray(p.loc.aUv); gl.useProgram(p.wprog); gl.uniformMatrix4fv(p.wloc.uMVP,false,mvp); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+      for(const c of want){ const m=p.meshes.get(c); if(!m||!m.wvbo) continue; gl.bindBuffer(gl.ARRAY_BUFFER,m.wvbo); gl.enableVertexAttribArray(p.wloc.aPos); gl.vertexAttribPointer(p.wloc.aPos,3,gl.FLOAT,false,12,0); gl.uniform3f(p.wloc.uOff,(+c.slice(0,3))*TILE-V.tx,-gy,(+c.slice(3,6))*TILE-V.ty); gl.drawArrays(gl.TRIANGLES,0,m.wn); }
+      gl.depthMask(true); gl.disable(gl.BLEND); }
+    if(p.meshes.size>90) for(const [c,m] of [...p.meshes]) if(!want.includes(c)){ if(m){ gl.deleteBuffer(m.vbo); if(m.wvbo) gl.deleteBuffer(m.wvbo); if(m.tex) gl.deleteTexture(m.tex); } p.meshes.delete(c); }
   }
   // column-major 4 × 4 helpers; the camera looks at the origin because everything is drawn relative to the cursor
   mat4Persp(fov,asp,n,f){ const t=1/Math.tan(fov/2); return [t/asp,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0]; }
@@ -2168,7 +2183,7 @@ class Component extends DCLogic {
       if(layer==='shadow'){ const g=new Uint8Array(65536); for(let i=0;i<65536;i++) g[i]=id.data[i*4]; this.shadowEdit[c]=g; this.shadowWrite([c]); delete this.cache['shadow:'+c]; delete this.cache['sh:'+c]; n++; continue; }
       const {name,buf}=this.encodeLayer(layer,c,id); if(!buf) continue;
       this.files[(c+'/'+name).toLowerCase()]=new File([buf],name);
-      delete this.cache[layer+':'+c]; if(layer==='height'){ delete this.heightEdit[c]; delete this.cache['hs:'+c]; } if(layer==='attribute'){ delete this.cache['hl:'+c]; delete this.attrEdit[c]; }
+      delete this.cache[layer+':'+c]; if(layer==='height'){ delete this.heightEdit[c]; delete this.cache['hs:'+c]; } if((layer==='height'||layer==='water')&&this._pv&&this._pv.meshes.size) this.pv3Reset(true); if(layer==='attribute'){ delete this.cache['hl:'+c]; delete this.attrEdit[c]; }
       n++;
     }
     return n;
@@ -3401,6 +3416,7 @@ class Component extends DCLogic {
       this.mkItem('Direction arrows (point spawns, selected objects)',()=>{ this.setState({dirArrows:!st.dirArrows}); this.draw(); },{check:st.dirArrows}),
       this.mkItem('Stats panel',()=>{ if(has) this.toggleStats(); },{check:st.stats}),
       this.mkItem('Ruler (1 px = 1 m)',()=>{ if(has) this.toggleRuler(); },{check:st.ruler}),
+      this.mkItem('Water in 3D Preview',()=>this.toggleWater3d(),{check:st.water3d}),
       this.mkItem('Converter tab',()=>this.tabConvert(),{check:st.mainTab==='convert'}),
       this.mkItem('Objects (areadata) tab',()=>this.tabObjects(),{check:st.mainTab==='objects'}),
       this.mkItem('Export areadata .txt',()=>this.exportAreadata()),

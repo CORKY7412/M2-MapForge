@@ -58,6 +58,7 @@ The **3D Preview** chip at the right end of the layer bar swaps the flat map for
 
 - Left-drag orbits, middle-drag orbits, right-drag moves, the wheel zooms. Switching it on keeps the spot and zoom of the 2D view, switching it off centres the 2D view on the 3D target.
 - The three paint palettes (attributes, shadows, sculpt) work in it: with a palette open, left-drag paints on the terrain under the cursor (the brush shows as a gold ring) and middle-drag orbits. Rectangle / circle attribute shapes work but show no outline in 3D.
+- Water from `water.wtr` is drawn as semi-transparent azure planes at their real heights, so the ground shows through and shores and islands stick out. **Tools › Water in 3D Preview** switches it off and on (on by default, remembered in the workspace view settings).
 - True vertical scale (`raw × HeightScale`). Only the sectors around the camera target are drawn (up to 7 × 7), so a very large map is never shown whole. Regen markers, objects, grid and ruler are not drawn in 3D; go back to 2D for those. Needs WebGL.
 
 ### Sculpt height
