@@ -87,6 +87,7 @@
     <button onClick="{{ toggleReliefHl }}" title="Hillshade from height.raw over whichever layer is shown: the terrain reads as relief, lit from the north-west" style="{{ reliefHlStyle }}">Highlight relief</button>
     <button onClick="{{ toggleShadowHl }}" title="Lay the baked terrain shadows over whichever layer is shown" style="{{ shadowHlStyle }}">Highlight shadow</button>
     <button onClick="{{ toggleHighlight }}" style="{{ highlightNextStyle }}">Highlight attribute</button>
+    <button onClick="{{ toggleView3d }}" title="Show the map as a 3D terrain built from height.raw, textured with the current layer and the highlight overlays. The paint palettes work in it. Left-drag orbits (or paints), middle-drag orbits, right-drag moves, wheel zooms." style="{{ view3dStyle }}">3D Preview</button>
   </div>
 
   <!-- main -->
@@ -94,6 +95,9 @@
     <!-- viewport -->
     <div ref="{{ viewRef }}" style="position:relative;flex:1;background:#120d08;overflow:hidden;min-width:0">
       <canvas ref="{{ canvasRef }}" style="position:absolute;inset:0;width:100%;height:100%;display:block"></canvas>
+      <sc-if value="{{ view3dOn }}" hint-placeholder-val="{{ false }}">
+        <canvas ref="{{ v3Ref }}" style="position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;background:#120d08"></canvas>
+      </sc-if>
       <sc-if value="{{ statsOn }}" hint-placeholder-val="{{ false }}">
         <div class="mono" style="position:absolute;top:12px;left:12px;max-width:330px;max-height:calc(100% - 64px);overflow:auto;padding:8px 10px;border-radius:6px;background:rgba(28,20,13,.92);border:1px solid #4a3820;color:#d8c9a8;font-size:10.5px;line-height:1.55;z-index:5">
           <sc-for list="{{ statsLines }}" as="S" hint-placeholder-count="0">
@@ -111,7 +115,7 @@
       <sc-if value="{{ sculptOn }}" hint-placeholder-val="{{ false }}">
         <div style="{{ sculptBoxStyle }}">
           <div onMouseDown="{{ startSculptDrag }}" style="display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;cursor:move;border-bottom:1px solid #3a2c1a;background:#241a11;border-radius:9px 9px 0 0;user-select:none">
-            <div style="font-family:'Cinzel',serif;color:#e8cf8f;font-size:12.5px;flex:1">Sculpt height <span class="mono" style="font-size:9px;color:#8a744c">experiment</span></div>
+            <div style="font-family:'Cinzel',serif;color:#e8cf8f;font-size:12.5px;flex:1">Sculpt height</div>
             <button onClick="{{ closeHeightPaint }}" title="Close (Esc)" style="width:20px;height:20px;border:1px solid #4a3820;background:#1c140d;color:#b5573f;border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:0">&times;</button>
           </div>
           <div style="padding:9px 10px 10px">
@@ -135,17 +139,8 @@
                 <button onClick="{{ P.onClick }}" title="{{ P.title }}" style="{{ P.style }}">{{ P.label }}</button>
               </sc-for>
             </div>
-            <div class="mono" style="margin-top:8px;font-size:9px;color:#6b5a3c;line-height:1.5">Writes height.raw only: minimap, shadows, water attr and object Z are not refreshed. Hold the button to keep going. X raise / lower · [ ] size · − + strength · right-drag moves the map · Ctrl+Z undo</div>
+            <div class="mono" style="margin-top:8px;font-size:9px;color:#6b5a3c;line-height:1.5">Writes height.raw only: minimap, shadows, water attr and object Z are not refreshed. Hold the button to keep going; works in 3D Preview too. X raise / lower · [ ] size · − + strength · right-drag moves the map · Ctrl+Z undo</div>
           </div>
-        </div>
-      </sc-if>
-      <sc-if value="{{ pv3On }}" hint-placeholder-val="{{ false }}">
-        <div style="{{ pv3BoxStyle }}">
-          <div onMouseDown="{{ startPv3Drag }}" style="display:flex;align-items:center;gap:8px;padding:6px 8px 6px 12px;cursor:move;border-bottom:1px solid #3a2c1a;background:#241a11;border-radius:9px 9px 0 0;user-select:none">
-            <div style="font-family:'Cinzel',serif;color:#e8cf8f;font-size:12px;flex:1">3D preview <span class="mono" style="font-size:9px;color:#8a744c">follows the cursor · drag orbits · wheel zooms</span></div>
-            <button onClick="{{ closePv3 }}" title="Hide the preview" style="width:20px;height:20px;border:1px solid #4a3820;background:#1c140d;color:#b5573f;border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:0">&times;</button>
-          </div>
-          <canvas ref="{{ pv3Ref }}" style="{{ pv3CanvasStyle }}"></canvas>
         </div>
       </sc-if>
       <sc-if value="{{ shadeOn }}" hint-placeholder-val="{{ false }}">
@@ -324,7 +319,7 @@
             <button onClick="{{ openShadowPaint }}" title="Opens a small palette over the map: darken or lighten the baked terrain shadows with a brush." style="{{ shadeOpenBtnStyle }}">{{ shadeOpenLabel }}</button>
           </div>
           <div style="display:flex;gap:6px;margin-top:6px">
-            <button onClick="{{ openHeightPaint }}" title="Experiment: raise, lower, smooth or flatten the terrain with a brush, with a hillshade overlay and a live 3D preview window." style="{{ sculptOpenBtnStyle }}">{{ sculptOpenLabel }}</button>
+            <button onClick="{{ openHeightPaint }}" title="Raise, lower, smooth or flatten the terrain with a brush, with a hillshade overlay. Switch on 3D Preview to sculpt on the terrain itself." style="{{ sculptOpenBtnStyle }}">{{ sculptOpenLabel }}</button>
           </div>
           <div style="font-family:'Cinzel',serif;color:#c9a24b;font-size:12px;letter-spacing:.5px;margin:18px 0 10px">ALL LAYERS</div>
           <div style="display:flex;gap:6px">
@@ -678,7 +673,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, view3d:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
     mergeOpen:false, mergeMsg:'', mergeRev:0
   };
   pendingConfirm = null;
@@ -1439,15 +1434,13 @@ class Component extends DCLogic {
   }
   startShadeDrag(e){ if(e.button!==0) return; e.preventDefault(); const sx=e.clientX, sy=e.clientY, px=this.shade.x, py=this.shade.y; const move=ev=>{ this.shadeSet({x:Math.max(0,px+ev.clientX-sx),y:Math.max(0,py+ev.clientY-sy)}); }; const up=()=>{ window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); }
 
-  // ================= sculpt height (experiment) =================
+  // ================= sculpt height =================
   // height.raw is a 131 × 131 grid of uint16 per sector: vertices every 2 m, vertex 1..129 span the sector's 256 m and vertex 0 / 130
   // are copies of the neighbours' vertices, so that the client can shade across the seam. A vertex near a sector edge therefore lives
   // in up to four files, and every one of them must get the same value or the terrain cracks. The sculpt tool works on "global
   // vertices" (gx, gy = metres / 2) and writes each changed vertex into every sector that holds a copy of it.
-  // Two aids make the top-down edit readable as 3D: a hillshade overlay ("Highlight relief") and a small WebGL preview window that
-  // shows the 3 × 3 sectors around the cursor, live. The preview is view-only; all editing happens on the 2D map.
-  heightEdit={}; sculpt={mode:'raise',strength:30,size:24,soft:true,view3d:true,x:14,y:58}; sculptPos=null;
-  pv={x:300,y:58,w:380,h:280,yaw:-0.5,pitch:0.85,dist:230};
+  // Two aids make the edit readable as 3D: a hillshade overlay ("Highlight relief") on the flat map, and the 3D view further down.
+  heightEdit={}; sculpt={mode:'raise',strength:30,size:24,soft:true,x:14,y:58}; sculptPos=null;
   openHeightPaint(){
     if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
     if(this.state.heightPaint) return; if(this.state.paint) this.closePaint(); if(this.state.shadowPaint) this.closeShadowPaint();
@@ -1455,8 +1448,8 @@ class Component extends DCLogic {
     this.setState({heightPaint:true,reliefHl:true,ruler:false,menu:'',statusText:'sculpt on — left-drag sculpts (hold to keep going) · right-drag moves the map · wheel zooms · Esc closes'});
     this.ensureReliefHl(this.jobId).then(()=>this.draw());
   }
-  closeHeightPaint(){ if(!this.state.heightPaint) return; this.sculptEnd(); this.paintHover=null; this.sculptPos=null; this.pv3Free(); this.setState({heightPaint:false,reliefHl:!!this._rlBefore,statusText:'sculpt off'}); if(this.canvas) this.canvas.style.cursor=''; this.draw(); }
-  sculptSet(patch){ Object.assign(this.sculpt,patch); if('view3d' in patch&&!patch.view3d) this.pv3Free(); this.setState({paintRev:(this.state.paintRev||0)+1}); this.draw(); this.pv3Queue(); }
+  closeHeightPaint(){ if(!this.state.heightPaint) return; this.sculptEnd(); this.paintHover=null; this.sculptPos=null; this.setState({heightPaint:false,reliefHl:!!this._rlBefore,statusText:'sculpt off'}); if(this.canvas) this.canvas.style.cursor=''; this.draw(); }
+  sculptSet(patch){ Object.assign(this.sculpt,patch); this.setState({paintRev:(this.state.paintRev||0)+1}); this.draw(); this.pv3Queue(); }
   toggleReliefHl(){ const nv=!this.state.reliefHl; this.setState({reliefHl:nv}); if(nv) this.ensureReliefHl(this.jobId).then(()=>this.draw()); else this.draw(); }
   // metres per raw height unit (world Z = raw × HeightScale, in cm)
   heightScaleM(){ const v=parseFloat(this.setting&&this.setting.heightScale); return (v>0?v:0.5)/100; }
@@ -1539,10 +1532,22 @@ class Component extends DCLogic {
     return false;
   }
   startSculptDrag(e){ this.boxDrag(e,this.sculpt,()=>this.sculptSet({})); }
-  startPv3Drag(e){ this.boxDrag(e,this.pv,()=>this.sculptSet({})); }
   boxDrag(e,box,changed){ if(e.button!==0) return; e.preventDefault(); const sx=e.clientX, sy=e.clientY, px=box.x, py=box.y; const move=ev=>{ box.x=Math.max(0,px+ev.clientX-sx); box.y=Math.max(0,py+ev.clientY-sy); changed(); }; const up=()=>{ window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); }
 
-  // ----- 3D preview (WebGL, view-only) -----
+  // ----- 3D view (WebGL) -----
+  // "3D Preview" swaps the flat map for a terrain mesh built from height.raw and textured with whatever the 2D view would show:
+  // the current layer plus the shadow / attribute overlays. The mouse is turned back into map coordinates by walking a ray down to
+  // the ground, so the three paint palettes work in it exactly as they do in 2D. Only the sectors around the camera target are drawn.
+  v3={tx:null,ty:null,yaw:-0.5,pitch:0.85,dist:400};
+  toggleView3d(){
+    if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
+    const on=!this.state.view3d, cv=this.canvas, r=cv?cv.getBoundingClientRect():{width:800,height:600};
+    if(on){ this.v3.tx=(r.width/2-this.ox)/this.zoom; this.v3.ty=(r.height/2-this.oy)/this.zoom; this.v3.dist=Math.min(2500,Math.max(40,r.height/this.zoom*1.1)); this.v3Clamp(); }
+    else { this.ox=r.width/2-this.v3.tx*this.zoom; this.oy=r.height/2-this.v3.ty*this.zoom; this.pv3Free(); this.paintHover=null; }
+    this.setState({view3d:on,statusText:on?'3D on — left-drag '+(this.anyPaint()?'paints':'orbits')+' · middle-drag orbits · right-drag moves · wheel zooms':'3D off'}); this.draw();
+  }
+  anyPaint(){ return !!(this.state.paint||this.state.shadowPaint||this.state.heightPaint); }
+  v3Clamp(){ const b=this.bounds||{minx:0,miny:0,maxx:0,maxy:0}, V=this.v3; if(V.tx==null){ V.tx=(b.minx+b.maxx+1)*TILE/2; V.ty=(b.miny+b.maxy+1)*TILE/2; } V.tx=Math.min((b.maxx+1)*TILE,Math.max(b.minx*TILE,V.tx)); V.ty=Math.min((b.maxy+1)*TILE,Math.max(b.miny*TILE,V.ty)); }
   // vertex data of one sector, sector-local metres: x east, y up, z south. 8 floats per vertex: position, normal, uv.
   sectorMesh(H){
     const m=this.heightScaleM(), out=new Float32Array(129*129*8); let o=0;
@@ -1552,52 +1557,80 @@ class Component extends DCLogic {
   }
   // ground height in metres at a map position, from the sectors already loaded (null when unknown)
   groundM(wx,wy){ const vx=wx/2, vy=wy/2, x0=Math.floor(vx), y0=Math.floor(vy), tx=vx-x0, ty=vy-y0, a=this.readV(x0,y0), b=this.readV(x0+1,y0), c=this.readV(x0,y0+1), d=this.readV(x0+1,y0+1); if(a==null||b==null||c==null||d==null) return null; return ((a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty)*this.heightScaleM(); }
-  pv3Ref=el=>{ if(!el||el===this._pvCv) return; this.pv3Free(); this._pvCv=el; this.pv3Init(el); };
+  // camera: eye position relative to the target, and its right / up / back axes
+  v3Cam(){ const V=this.v3, cp=Math.cos(V.pitch), e=[V.dist*cp*Math.sin(V.yaw),V.dist*Math.sin(V.pitch),V.dist*cp*Math.cos(V.yaw)], l=Math.hypot(e[0],e[1],e[2]), z=[e[0]/l,e[1]/l,e[2]/l], xl=Math.hypot(z[2],z[0])||1, x=[z[2]/xl,0,-z[0]/xl], y=[z[1]*x[2]-z[2]*x[1],z[2]*x[0]-z[0]*x[2],z[0]*x[1]-z[1]*x[0]]; return {e,x,y,z}; }
+  // screen position (0..1 across the view, y down) -> map position under it, or null when the ray misses the loaded terrain
+  v3Pick(u,v,asp){
+    const C=this.v3Cam(), t=Math.tan(0.4), nx=(u*2-1)*t*asp, ny=(1-v*2)*t, d=[C.x[0]*nx+C.y[0]*ny-C.z[0],C.x[1]*nx+C.y[1]*ny-C.z[1],C.x[2]*nx+C.y[2]*ny-C.z[2]], dl=Math.hypot(d[0],d[1],d[2]); d[0]/=dl; d[1]/=dl; d[2]/=dl;
+    const ox=this.v3.tx+C.e[0], oy=(this._pvGround||0)+C.e[1], oz=this.v3.ty+C.e[2], far=this.v3.dist*4+1500, under=s=>{ const g=this.groundM(ox+d[0]*s,oz+d[2]*s); return g==null?null:(oy+d[1]*s)-g; };
+    let prev=0, seen=false; for(let s=0;s<=far;s+=1.5){ const h=under(s); if(h==null){ seen=false; continue; } if(h<=0){ if(!seen) return null; let a=prev, b=s; for(let i=0;i<12;i++){ const m=(a+b)/2, hm=under(m); if(hm!=null&&hm<=0) b=m; else a=m; } return {x:ox+d[0]*b,y:oz+d[2]*b}; } prev=s; seen=true; }
+    return null;
+  }
+  v3Ref=el=>{ if(!el||el===this._pvCv) return; this.pv3Free(); this._pvCv=el; this.pv3Init(el); };
   pv3Free(){ const p=this._pv; this._pv=null; this._pvCv=null; this._pvDirty=null; if(p&&p.gl){ try{ const x=p.gl.getExtension('WEBGL_lose_context'); if(x) x.loseContext(); }catch(e){} } }
+  // a new map: drop the meshes, keep the context (the canvas stays mounted)
+  pv3Reset(){ const p=this._pv; this.v3.tx=null; this._pvGround=0; if(!p) return; for(const m of p.meshes.values()) if(m){ p.gl.deleteBuffer(m.vbo); if(m.tex) p.gl.deleteTexture(m.tex); } p.meshes.clear(); this._pvDirty=new Set(); }
   pv3Init(el){
-    const dpr=Math.min(2,(typeof window!=='undefined'&&window.devicePixelRatio)||1); el.width=Math.round(this.pv.w*dpr); el.height=Math.round(this.pv.h*dpr);
     let gl=null; try{ gl=el.getContext('webgl',{antialias:true})||el.getContext('experimental-webgl'); }catch(e){}
-    if(!gl){ this.setState({statusText:'3D preview needs WebGL, which this browser did not provide — the 2D relief still works'}); return; }
+    if(!gl){ this.setState({statusText:'3D Preview needs WebGL, which this browser did not provide'}); return; }
     const VS='attribute vec3 aPos;attribute vec3 aNrm;attribute vec2 aUv;uniform mat4 uMVP;uniform vec3 uOff;varying vec3 vN;varying vec2 vUv;varying vec2 vW;void main(){vec3 p=aPos+uOff;vN=aNrm;vUv=aUv;vW=p.xz;gl_Position=uMVP*vec4(p,1.0);}';
-    const FS='precision mediump float;uniform sampler2D uTex;uniform vec3 uL;uniform vec3 uBrush;varying vec3 vN;varying vec2 vUv;varying vec2 vW;void main(){vec3 c=texture2D(uTex,vUv).rgb;c*=0.42+0.78*max(dot(normalize(vN),uL),0.0);float r=distance(vW,uBrush.xy);float ring=1.0-smoothstep(0.0,0.9,abs(r-uBrush.z));c=mix(c,vec3(0.95,0.85,0.54),ring*0.85*step(0.5,uBrush.z));gl_FragColor=vec4(c,1.0);}';
+    const FS='precision mediump float;uniform sampler2D uTex;uniform vec3 uL;uniform vec3 uBrush;varying vec3 vN;varying vec2 vUv;varying vec2 vW;void main(){vec3 c=texture2D(uTex,vUv).rgb;c*=0.42+0.78*max(dot(normalize(vN),uL),0.0);float r=distance(vW,uBrush.xy);float ring=1.0-smoothstep(0.0,0.9,abs(r-uBrush.z));c=mix(c,vec3(0.95,0.85,0.54),ring*0.85*step(0.25,uBrush.z));gl_FragColor=vec4(c,1.0);}';
     const sh=(t,src)=>{ const s=gl.createShader(t); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
-    let prog; try{ prog=gl.createProgram(); gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS)); gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS)); gl.linkProgram(prog); if(!gl.getProgramParameter(prog,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog)); }catch(e){ console.error(e); this.setState({statusText:'3D preview: shader failed — '+e.message}); return; }
+    let prog; try{ prog=gl.createProgram(); gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS)); gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS)); gl.linkProgram(prog); if(!gl.getProgramParameter(prog,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog)); }catch(e){ console.error(e); this.setState({statusText:'3D Preview: shader failed — '+e.message}); return; }
     const idx=new Uint16Array(128*128*6); let o=0; for(let r=0;r<128;r++) for(let c=0;c<128;c++){ const a=r*129+c; idx[o++]=a; idx[o++]=a+129; idx[o++]=a+1; idx[o++]=a+1; idx[o++]=a+129; idx[o++]=a+130; }
     const ibo=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,idx,gl.STATIC_DRAW);
     const blank=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,blank); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([150,138,104,255]));
     const loc={}; for(const n of ['uMVP','uOff','uTex','uL','uBrush']) loc[n]=gl.getUniformLocation(prog,n); for(const n of ['aPos','aNrm','aUv']) loc[n]=gl.getAttribLocation(prog,n);
-    this._pv={gl,prog,loc,ibo,blank,meshes:new Map(),loading:new Set()}; this._pvDirty=new Set();
+    const comp=document.createElement('canvas'); comp.width=256; comp.height=256;
+    this._pv={gl,prog,loc,ibo,blank,comp,meshes:new Map(),loading:new Set()}; this._pvDirty=new Set();
+    const at=e=>{ const r=el.getBoundingClientRect(); return this.v3Pick((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height,r.width/r.height); };
+    const hover=(e,hit)=>{ this.paintHover=hit?{x:Math.floor(hit.x),y:Math.floor(hit.y),inside:true}:null; this.sculptPos=hit&&this.state.heightPaint?{x:hit.x,y:hit.y}:null; };
     el.addEventListener('contextmenu',e=>e.preventDefault());
-    el.addEventListener('wheel',e=>{ e.preventDefault(); e.stopPropagation(); this.pv.dist=Math.min(900,Math.max(25,this.pv.dist*(e.deltaY<0?1/1.12:1.12))); this.pv3Queue(); },{passive:false});
-    el.addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation(); const sx=e.clientX, sy=e.clientY, y0=this.pv.yaw, p0=this.pv.pitch; const move=ev=>{ this.pv.yaw=y0-(ev.clientX-sx)*0.008; this.pv.pitch=Math.min(1.5,Math.max(0.12,p0+(ev.clientY-sy)*0.006)); this.pv3Queue(); }; const up=()=>{ window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); });
+    el.addEventListener('wheel',e=>{ e.preventDefault(); this.v3.dist=Math.min(2500,Math.max(25,this.v3.dist*(e.deltaY<0?1/1.12:1.12))); this.pv3Queue(); },{passive:false});
+    el.addEventListener('mousemove',e=>{ if(this._v3Drag||!this.anyPaint()) return; hover(e,at(e)); this.pv3Queue(); });
+    el.addEventListener('mouseleave',()=>{ if(this._v3Drag) return; this.paintHover=null; this.sculptPos=null; this.pv3Queue(); });
+    el.addEventListener('mousedown',e=>{
+      e.preventDefault(); if(this.state.menu) this.setState({menu:''}); const sx=e.clientX, sy=e.clientY, V=this.v3, y0=V.yaw, p0=V.pitch, tx0=V.tx, ty0=V.ty; let move;
+      if(e.button===0&&this.anyPaint()){ const hit=at(e); if(!hit) return; hover(e,hit); this.paintDown(hit.x,hit.y); move=ev=>{ const h=at(ev); if(!h) return; hover(ev,h); this.paintMove(h.x,h.y); this.pv3Queue(); }; }
+      else if(e.button===2){ const r=el.getBoundingClientRect(), k=V.dist*2*Math.tan(0.4)/r.height; move=ev=>{ const dx=(ev.clientX-sx)*k, dy=(ev.clientY-sy)*k/Math.max(0.35,Math.sin(V.pitch)); V.tx=tx0-dx*Math.cos(V.yaw)-dy*Math.sin(V.yaw); V.ty=ty0+dx*Math.sin(V.yaw)-dy*Math.cos(V.yaw); this.v3Clamp(); this.pv3Queue(); }; }
+      else move=ev=>{ V.yaw=y0-(ev.clientX-sx)*0.008; V.pitch=Math.min(1.5,Math.max(0.12,p0+(ev.clientY-sy)*0.006)); this.pv3Queue(); };
+      this._v3Drag=true; const painting=e.button===0&&this.anyPaint(); const up=()=>{ this._v3Drag=false; window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); if(painting) this.paintUp(); this.pv3Queue(); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); this.pv3Queue();
+    });
     this.pv3Queue();
   }
   pv3Queue(){ if(!this._pv||this._pvRaf||typeof requestAnimationFrame==='undefined') return; this._pvRaf=requestAnimationFrame(()=>{ this._pvRaf=0; try{ this.pv3Render(); }catch(e){ console.error(e); } }); }
   async pv3Load(c){
     const p=this._pv; if(!p||p.loading.has(c)||p.meshes.has(c)) return; p.loading.add(c);
-    try{ const H=await this.heightVerts(c); let bmp=this.cache['minimap:'+c]; if(H&&!bmp){ try{ bmp=await this.buildSector('minimap',c); if(bmp) this.cache['minimap:'+c]=bmp; }catch(e){} }
-      if(this._pv!==p) return; const gl=p.gl; if(!H){ p.meshes.set(c,null); return; }
-      const vbo=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vbo); gl.bufferData(gl.ARRAY_BUFFER,this.sectorMesh(H),gl.DYNAMIC_DRAW);
-      let tex=null; if(bmp){ tex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,tex); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,bmp); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE); }
-      p.meshes.set(c,{vbo,tex}); if(this._pvDirty) this._pvDirty.delete(c);
+    try{ const H=await this.heightVerts(c); if(this._pv!==p) return; const gl=p.gl; if(!H){ p.meshes.set(c,null); return; }
+      const vbo=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vbo); gl.bufferData(gl.ARRAY_BUFFER,this.sectorMesh(H),gl.DYNAMIC_DRAW); p.meshes.set(c,{vbo,tex:null,src:null}); if(this._pvDirty) this._pvDirty.delete(c);
     } finally { p.loading.delete(c); this.pv3Queue(); }
   }
+  // what the 2D view would draw for this sector, flattened into one texture; redone only when one of the source bitmaps was replaced
+  v3Tex(p,c,m){
+    const st=this.state, src=[this.cache[st.layer+':'+c]||null,st.shadowHl?this.cache['sh:'+c]||null:null,st.highlight?this.cache['hl:'+c]||null:null];
+    if(m.src&&m.src[0]===src[0]&&m.src[1]===src[1]&&m.src[2]===src[2]) return; m.src=src; const gl=p.gl;
+    if(!src[0]&&!src[1]&&!src[2]){ if(m.tex){ gl.deleteTexture(m.tex); m.tex=null; } return; }
+    const ctx=p.comp.getContext('2d'); ctx.imageSmoothingEnabled=false; ctx.fillStyle='#968a68'; ctx.fillRect(0,0,256,256); for(const b of src) if(b) ctx.drawImage(b,0,0,256,256);
+    if(!m.tex) m.tex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,m.tex); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,p.comp); gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  }
   pv3Render(){
-    const p=this._pv; if(!p||!this.state.heightPaint) return; const gl=p.gl, cv=this._pvCv, b=this.bounds;
-    const at=this.sculptPos||{x:(b.minx+b.maxx+1)*TILE/2,y:(b.miny+b.maxy+1)*TILE/2}, sx=Math.floor(at.x/TILE), sy=Math.floor(at.y/TILE), want=[];
-    for(let j=-1;j<=1;j++) for(let i=-1;i<=1;i++){ if(sx+i<0||sy+j<0) continue; const c=this.pad3(sx+i)+this.pad3(sy+j); if(this.sectorList.includes(c)) want.push(c); }
+    const p=this._pv; if(!p||!this.state.view3d||this.state.empty) return; const gl=p.gl, cv=this._pvCv, V=this.v3; this.v3Clamp();
+    const dpr=Math.min(2,window.devicePixelRatio||1), W=Math.max(1,Math.round(cv.clientWidth*dpr)), Hh=Math.max(1,Math.round(cv.clientHeight*dpr)); if(cv.width!==W||cv.height!==Hh){ cv.width=W; cv.height=Hh; }
+    const sx=Math.floor(V.tx/TILE), sy=Math.floor(V.ty/TILE), R=Math.min(3,Math.max(1,Math.ceil(V.dist/300))), want=[];
+    for(let j=-R;j<=R;j++) for(let i=-R;i<=R;i++){ if(sx+i<0||sy+j<0) continue; const c=this.pad3(sx+i)+this.pad3(sy+j); if(this.sectorList.includes(c)) want.push(c); }
     for(const c of want) if(!p.meshes.has(c)) this.pv3Load(c);
     for(const c of [...this._pvDirty]){ const m=p.meshes.get(c); if(m&&this.heightEdit[c]){ gl.bindBuffer(gl.ARRAY_BUFFER,m.vbo); gl.bufferData(gl.ARRAY_BUFFER,this.sectorMesh(this.heightEdit[c]),gl.DYNAMIC_DRAW); } this._pvDirty.delete(c); }
-    const g=this.groundM(at.x,at.y); if(g!=null) this._pvGround=g; const ty=this._pvGround||0;
-    const V=this.pv, cp=Math.cos(V.pitch), eye=[V.dist*cp*Math.sin(V.yaw),V.dist*Math.sin(V.pitch),V.dist*cp*Math.cos(V.yaw)];
-    const mvp=this.mat4Mul(this.mat4Persp(0.8,cv.width/cv.height,1,6000),this.mat4Look(eye));
-    gl.viewport(0,0,cv.width,cv.height); gl.clearColor(0.07,0.05,0.03,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
-    gl.useProgram(p.prog); gl.uniformMatrix4fv(p.loc.uMVP,false,mvp); gl.uniform3f(p.loc.uL,-0.5298,0.6623,-0.5298); gl.uniform3f(p.loc.uBrush,0,0,this.sculptPos?this.sculpt.size/2:0); gl.uniform1i(p.loc.uTex,0); gl.activeTexture(gl.TEXTURE0);
+    const g=this.groundM(V.tx,V.ty); if(g!=null) this._pvGround=g; const gy=this._pvGround||0, C=this.v3Cam();
+    const mvp=this.mat4Mul(this.mat4Persp(0.8,W/Hh,1,9000),this.mat4Look(C.e));
+    gl.viewport(0,0,W,Hh); gl.clearColor(0.07,0.05,0.03,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+    const h=this.paintHover, st=this.state, rad=!h?0:st.heightPaint?this.sculpt.size/2:st.shadowPaint?this.shade.size/2:(st.paint&&this.paint.tool==='brush')?this.paint.size/2:st.paint?0.6:0, bp=st.heightPaint&&this.sculptPos?this.sculptPos:h?{x:h.x+0.5,y:h.y+0.5}:{x:0,y:0};
+    gl.useProgram(p.prog); gl.uniformMatrix4fv(p.loc.uMVP,false,mvp); gl.uniform3f(p.loc.uL,-0.5298,0.6623,-0.5298); gl.uniform3f(p.loc.uBrush,bp.x-V.tx,bp.y-V.ty,rad); gl.uniform1i(p.loc.uTex,0); gl.activeTexture(gl.TEXTURE0);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,p.ibo);
-    for(const c of want){ const m=p.meshes.get(c); if(!m) continue; gl.bindBuffer(gl.ARRAY_BUFFER,m.vbo);
+    for(const c of want){ const m=p.meshes.get(c); if(!m) continue; this.v3Tex(p,c,m); gl.bindBuffer(gl.ARRAY_BUFFER,m.vbo);
       gl.enableVertexAttribArray(p.loc.aPos); gl.vertexAttribPointer(p.loc.aPos,3,gl.FLOAT,false,32,0); gl.enableVertexAttribArray(p.loc.aNrm); gl.vertexAttribPointer(p.loc.aNrm,3,gl.FLOAT,false,32,12); gl.enableVertexAttribArray(p.loc.aUv); gl.vertexAttribPointer(p.loc.aUv,2,gl.FLOAT,false,32,24);
-      gl.bindTexture(gl.TEXTURE_2D,m.tex||p.blank); gl.uniform3f(p.loc.uOff,(+c.slice(0,3))*TILE-at.x,-ty,(+c.slice(3,6))*TILE-at.y); gl.drawElements(gl.TRIANGLES,128*128*6,gl.UNSIGNED_SHORT,0); }
-    if(p.meshes.size>24) for(const [c,m] of [...p.meshes]) if(!want.includes(c)){ if(m){ gl.deleteBuffer(m.vbo); if(m.tex) gl.deleteTexture(m.tex); } p.meshes.delete(c); }
+      gl.bindTexture(gl.TEXTURE_2D,m.tex||p.blank); gl.uniform3f(p.loc.uOff,(+c.slice(0,3))*TILE-V.tx,-gy,(+c.slice(3,6))*TILE-V.ty); gl.drawElements(gl.TRIANGLES,128*128*6,gl.UNSIGNED_SHORT,0); }
+    if(p.meshes.size>90) for(const [c,m] of [...p.meshes]) if(!want.includes(c)){ if(m){ gl.deleteBuffer(m.vbo); if(m.tex) gl.deleteTexture(m.tex); } p.meshes.delete(c); }
   }
   // column-major 4 × 4 helpers; the camera looks at the origin because everything is drawn relative to the cursor
   mat4Persp(fov,asp,n,f){ const t=1/Math.tan(fov/2); return [t/asp,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0]; }
@@ -1818,7 +1851,7 @@ class Component extends DCLogic {
   getFile(path){ return this.files[path.toLowerCase()]; }
 
   async loadFiles(map, folderName) {
-    this.attrEdit={}; this.shadowEdit={}; this.heightEdit={}; this.pv3Free(); this._paintTs=null; this._paintTsFile=null; this._stroke=null;
+    this.attrEdit={}; this.shadowEdit={}; this.heightEdit={}; this.pv3Reset(); this._paintTs=null; this._paintTsFile=null; this._stroke=null;
     this._folderName = folderName || null;
     let prefix = '';
     for (const k of Object.keys(map)) { const m = k.match(/(^|.*\/)(\d{6})\/[^/]+$/); if (m) { prefix = m[1]; break; } }
@@ -2982,6 +3015,7 @@ class Component extends DCLogic {
     return (m[layer]||'')+'\n\n'+ok+' / '+total+' sectors rendered.';
   }
   draw(){
+    if(this.state.view3d&&!this.state.empty){ this.pv3Queue(); return; }
     const cv=this.canvas; if(!cv) return; const ctx=cv.getContext('2d');
     ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
     ctx.fillStyle='#120d08'; ctx.fillRect(0,0,cv.width,cv.height);
@@ -3111,6 +3145,7 @@ class Component extends DCLogic {
   }
   onMove(e){
     if(this.state.empty){ return; }
+    if(this.state.view3d&&!this.down) return;
     const r=this.canvas.getBoundingClientRect(); const inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
     if(this.state.paint||this.state.shadowPaint||this.state.heightPaint){ const pwx=(e.clientX-r.left-this.ox)/this.zoom, pwy=(e.clientY-r.top-this.oy)/this.zoom; this.paintHover={x:Math.floor(pwx),y:Math.floor(pwy),inside}; if(this.state.heightPaint&&(e.target===this.canvas||(this.down&&this.down.paint))){ this.sculptPos={x:pwx,y:pwy}; this.pv3Queue(); } if(this.down&&this.down.paint) this.paintMove(pwx,pwy); else if(!this.down){ this.canvas.style.cursor=inside?'crosshair':''; this.draw(); } }
     if(this.down && !this.down.paint){ const dx=e.clientX-this.down.x,dy=e.clientY-this.down.y; if(Math.abs(dx)+Math.abs(dy)>3) this.moved=true;
@@ -3567,18 +3602,18 @@ class Component extends DCLogic {
           shadeSize:H.size, shadeSizeText:H.size+' m', onShadeSize:(e)=>this.shadeSet({size:Math.min(64,Math.max(1,parseInt(e.target.value)||1))}),
           shadeOpts:[['●','round tip',H.tip==='round',()=>this.shadeSet({tip:'round'})],['■','square tip',H.tip==='square',()=>this.shadeSet({tip:'square'})],['soft edge','the brush fades out towards its rim',H.soft,()=>this.shadeSet({soft:true})],['hard edge','the brush is solid to its rim',!H.soft,()=>this.shadeSet({soft:false})]].map(([label,title,act,onClick])=>({label,title,onClick,style:chip(act,label.length>1?'flex:1':'width:26px;padding:5px 0')})) }; })(),
       ...(()=>{ const H=this.sculpt, on=st.heightPaint&&!st.empty, chip=(act,extra)=>`border:1px solid ${act?'#c9a24b':'#3a2c1a'};background:${act?'#3a2c1a':'#15100a'};color:${act?'#f3e2b0':'#a08b5f'};border-radius:5px;padding:5px 4px;font:${act?600:500} 10.5px 'IBM Plex Sans';cursor:pointer;`+(extra||'');
-        const base={ toggleReliefHl:()=>this.toggleReliefHl(), openHeightPaint:()=>on?this.closeHeightPaint():this.openHeightPaint(), sculptOpenLabel:on?'Close sculpt':'Sculpt height… (experiment)',
+        const base={ toggleView3d:()=>this.toggleView3d(), view3dOn:st.view3d&&!st.empty, v3Ref:this.v3Ref,
+          view3dStyle:`padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.view3d?'#c9a24b':'#4a3820'};background:${st.view3d?'#c9a24b':'#241a11'};color:${st.view3d?'#1a1209':'#e8cf8f'}`,
+          toggleReliefHl:()=>this.toggleReliefHl(), openHeightPaint:()=>on?this.closeHeightPaint():this.openHeightPaint(), sculptOpenLabel:on?'Close sculpt':'Sculpt height…',
           reliefHlStyle:`padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.reliefHl?'#8a7a4a':'#4a3820'};background:${st.reliefHl?'#33301f':'#241a11'};color:${st.reliefHl?'#f3e9c4':'#a08b5f'}`,
           sculptOpenBtnStyle:`flex:1;border:1px solid ${on?'#c9a24b':'#6b501f'};background:${on?'#c9a24b':'#3a2c1a'};color:${on?'#1a1209':'#e8cf8f'};border-radius:6px;padding:9px 4px;font:600 12px 'IBM Plex Sans';cursor:pointer` };
-        if(!on) return { ...base, sculptOn:false, pv3On:false, sculptModes:[], sculptOpts:[] };
-        return { ...base, sculptOn:true, pv3On:!!H.view3d, startSculptDrag:(e)=>this.startSculptDrag(e), startPv3Drag:(e)=>this.startPv3Drag(e), closeHeightPaint:()=>this.closeHeightPaint(), closePv3:()=>this.sculptSet({view3d:false}), pv3Ref:this.pv3Ref,
+        if(!on) return { ...base, sculptOn:false, sculptModes:[], sculptOpts:[] };
+        return { ...base, sculptOn:true, startSculptDrag:(e)=>this.startSculptDrag(e), closeHeightPaint:()=>this.closeHeightPaint(),
           sculptBoxStyle:`position:absolute;left:${H.x}px;top:${H.y}px;width:270px;z-index:30;border:1px solid #4a3820;border-radius:10px;background:rgba(28,20,13,.97);box-shadow:0 14px 34px rgba(0,0,0,.55)`,
-          pv3BoxStyle:`position:absolute;left:${this.pv.x}px;top:${this.pv.y}px;width:${this.pv.w}px;z-index:29;border:1px solid #4a3820;border-radius:10px;background:#120d08;box-shadow:0 14px 34px rgba(0,0,0,.55);overflow:hidden`,
-          pv3CanvasStyle:`display:block;width:${this.pv.w}px;height:${this.pv.h}px;cursor:grab`,
           sculptModes:[['raise','Raise','Push the ground up (X swaps with Lower)'],['lower','Lower','Push the ground down'],['smooth','Smooth','Average each vertex with its neighbours'],['flatten','Flatten','Pull the ground to the height where the stroke started']].map(([k,label,title])=>({label,title,onClick:()=>this.sculptSet({mode:k}),style:chip(H.mode===k,'flex:1')})),
           sculptStrength:H.strength, sculptStrengthText:H.strength+'%', onSculptStrength:(e)=>this.sculptSet({strength:Math.min(100,Math.max(1,parseInt(e.target.value)||1))}),
           sculptSize:H.size, sculptSizeText:H.size+' m', onSculptSize:(e)=>this.sculptSet({size:Math.min(128,Math.max(2,parseInt(e.target.value)||2))}),
-          sculptOpts:[['soft edge','the brush fades out towards its rim',H.soft,()=>this.sculptSet({soft:true})],['hard edge','the brush is solid to its rim',!H.soft,()=>this.sculptSet({soft:false})],['3D preview','a small live 3D view of the terrain around the cursor',!!H.view3d,()=>this.sculptSet({view3d:!H.view3d})]].map(([label,title,act,onClick])=>({label,title,onClick,style:chip(act,'flex:1')})) }; })(),
+          sculptOpts:[['soft edge','the brush fades out towards its rim',H.soft,()=>this.sculptSet({soft:true})],['hard edge','the brush is solid to its rim',!H.soft,()=>this.sculptSet({soft:false})]].map(([label,title,act,onClick])=>({label,title,onClick,style:chip(act,'flex:1')})) }; })(),
       toggleAllRegens:()=>this.toggleAllRegens(), allRegensOn:st.allRegens&&!st.empty, allRegensLegend:(st.allRegens&&!st.empty)?this.allRegensLegend():[],
       highlightStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,
       highlightNextStyle:`padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,

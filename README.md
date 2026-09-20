@@ -53,11 +53,17 @@ All 8 `attr.atr` bit flags are color-coded. Base layer shows the dominant flag p
 - Each stroke is one undo step. When it ends, `shadowmap.raw` (RGB555) and `shadowmap.dds` (uncompressed X8R8G8B8) are both rewritten, because the client reads both and they must agree; a sector without shadow files starts unshadowed and gets both. Export map includes them.
 - The Shadow layer and the shadow PNG import now read and write `shadowmap.raw` as RGB555 (it was treated as 16-bit gray before, which showed it at half brightness), and a shadow PNG import also writes both files.
 
-### Sculpt height (experiment)
-**Converter › Sculpt height…** opens a palette that edits `height.raw` with a brush, from the usual top-down map. Two aids make the terrain read as 3D while you do it:
+### 3D Preview
+The **3D Preview** chip at the right end of the layer bar swaps the flat map for a 3D terrain built from `height.raw`. It is textured with whatever the 2D view would show: the current layer (minimap, height, tile, shadow, attribute, water) plus the **Highlight shadow** and **Highlight attribute** overlays, so switching layers or toggling a chip changes the scene too.
 
-- **Highlight relief** (layer bar): a hillshade computed from `height.raw`, lit from the north-west, laid over whichever layer is shown. It redraws live during a stroke, works with the palette closed too, and is remembered in the workspace view settings. The palette forces it on while it is open.
-- **3D preview**: a small floating WebGL window showing the 3 × 3 sectors around the cursor with the minimap as texture, the brush drawn as a ring, updated live. Drag inside it to orbit, wheel to zoom, drag its title bar to move it; the **3D preview** chip in the palette hides it. It is view-only: all editing happens on the 2D map. True vertical scale (`raw × HeightScale`, 0.5 cm per unit by default).
+- Left-drag orbits, middle-drag orbits, right-drag moves, the wheel zooms. Switching it on keeps the spot and zoom of the 2D view, switching it off centres the 2D view on the 3D target.
+- The three paint palettes (attributes, shadows, sculpt) work in it: with a palette open, left-drag paints on the terrain under the cursor (the brush shows as a gold ring) and middle-drag orbits. Rectangle / circle attribute shapes work but show no outline in 3D.
+- True vertical scale (`raw × HeightScale`). Only the sectors around the camera target are drawn (up to 7 × 7), so a very large map is never shown whole. Regen markers, objects, grid and ruler are not drawn in 3D; go back to 2D for those. Needs WebGL.
+
+### Sculpt height
+**Converter › Sculpt height…** opens a palette that edits `height.raw` with a brush, on the flat map or in **3D Preview**.
+
+- **Highlight relief** (layer bar): a hillshade computed from `height.raw`, lit from the north-west, laid over whichever layer is shown in 2D. It redraws live during a stroke, works with the palette closed too, and is remembered in the workspace view settings. The palette forces it on while it is open.
 - Brushes: **Raise**, **Lower**, **Smooth** (average with the neighbours), **Flatten** (pull to the height where the stroke started). Strength 1–100 %, size 2–128 m, soft or hard edge. Hold the button to keep going: the brush is applied 25 times a second, at 100 % Raise / Lower move 0.25 m each time.
 - Left-drag sculpts, right-drag moves the map, the wheel zooms; **X** swaps Raise / Lower, **[ ]** size, **− +** strength, **Esc** closes. Only one of the three palettes is open at a time. Each stroke is one undo step.
 - Vertices sit every 2 m and the ones along a sector edge are stored in up to four `height.raw` files (each sector keeps a one-vertex copy of its neighbours). Every changed vertex is written to all of its copies, so seams do not crack.
