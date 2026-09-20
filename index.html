@@ -97,6 +97,7 @@
       <canvas ref="{{ canvasRef }}" style="position:absolute;inset:0;width:100%;height:100%;display:block"></canvas>
       <sc-if value="{{ view3dOn }}" hint-placeholder-val="{{ false }}">
         <canvas ref="{{ v3Ref }}" style="position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;background:#120d08"></canvas>
+        <canvas ref="{{ v3OverRef }}" style="position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none"></canvas>
       </sc-if>
       <sc-if value="{{ statsOn }}" hint-placeholder-val="{{ false }}">
         <div class="mono" style="position:absolute;top:12px;left:12px;max-width:330px;max-height:calc(100% - 64px);overflow:auto;padding:8px 10px;border-radius:6px;background:rgba(28,20,13,.92);border:1px solid #4a3820;color:#d8c9a8;font-size:10.5px;line-height:1.55;z-index:5">
@@ -1538,6 +1539,7 @@ class Component extends DCLogic {
   // "3D Preview" swaps the flat map for a terrain mesh built from height.raw and textured with whatever the 2D view would show:
   // the current layer plus the shadow / attribute overlays. The mouse is turned back into map coordinates by walking a ray down to
   // the ground, so the three paint palettes work in it exactly as they do in 2D. Only the sectors around the camera target are drawn.
+  // Regen and object markers are laid over it, see v3DrawMarks().
   v3={tx:null,ty:null,yaw:-0.5,pitch:0.85,dist:400};
   toggleView3d(){
     if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
@@ -1601,11 +1603,11 @@ class Component extends DCLogic {
     el.addEventListener('mousemove',e=>{ if(this._v3Drag||!this.anyPaint()) return; hover(e,at(e)); this.pv3Queue(); });
     el.addEventListener('mouseleave',()=>{ if(this._v3Drag) return; this.paintHover=null; this.sculptPos=null; this.pv3Queue(); });
     el.addEventListener('mousedown',e=>{
-      e.preventDefault(); if(this.state.menu) this.setState({menu:''}); const sx=e.clientX, sy=e.clientY, V=this.v3, y0=V.yaw, p0=V.pitch, tx0=V.tx, ty0=V.ty; let move;
+      e.preventDefault(); if(this.state.menu) this.setState({menu:''}); const sx=e.clientX, sy=e.clientY, V=this.v3, y0=V.yaw, p0=V.pitch, tx0=V.tx, ty0=V.ty; let move, moved=false;
       if(e.button===0&&this.anyPaint()){ const hit=at(e); if(!hit) return; hover(e,hit); this.paintDown(hit.x,hit.y); move=ev=>{ const h=at(ev); if(!h) return; hover(ev,h); this.paintMove(h.x,h.y); this.pv3Queue(); }; }
       else if(e.button===2){ const r=el.getBoundingClientRect(), k=V.dist*2*Math.tan(0.4)/r.height; move=ev=>{ const dx=(ev.clientX-sx)*k, dy=(ev.clientY-sy)*k/Math.max(0.35,Math.sin(V.pitch)); V.tx=tx0-dx*Math.cos(V.yaw)-dy*Math.sin(V.yaw); V.ty=ty0+dx*Math.sin(V.yaw)-dy*Math.cos(V.yaw); this.v3Clamp(); this.pv3Queue(); }; }
-      else move=ev=>{ V.yaw=y0-(ev.clientX-sx)*0.008; V.pitch=Math.min(1.5,Math.max(0.12,p0+(ev.clientY-sy)*0.006)); this.pv3Queue(); };
-      this._v3Drag=true; const painting=e.button===0&&this.anyPaint(); const up=()=>{ this._v3Drag=false; window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); if(painting) this.paintUp(); this.pv3Queue(); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); this.pv3Queue();
+      else move=ev=>{ if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)>3) moved=true; V.yaw=y0-(ev.clientX-sx)*0.008; V.pitch=Math.min(1.5,Math.max(0.12,p0+(ev.clientY-sy)*0.006)); this.pv3Queue(); };
+      this._v3Drag=true; const painting=e.button===0&&this.anyPaint(); const up=()=>{ this._v3Drag=false; window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); if(painting) this.paintUp(); else if(e.button===0&&!moved) this.v3Click(e); this.pv3Queue(); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); this.pv3Queue();
     });
     this.pv3Queue();
   }
@@ -1645,7 +1647,60 @@ class Component extends DCLogic {
     if(this.state.water3d&&p.wprog){ gl.disableVertexAttribArray(p.loc.aNrm); gl.disableVertexAttribArray(p.loc.aUv); gl.useProgram(p.wprog); gl.uniformMatrix4fv(p.wloc.uMVP,false,mvp); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
       for(const c of want){ const m=p.meshes.get(c); if(!m||!m.wvbo) continue; gl.bindBuffer(gl.ARRAY_BUFFER,m.wvbo); gl.enableVertexAttribArray(p.wloc.aPos); gl.vertexAttribPointer(p.wloc.aPos,3,gl.FLOAT,false,12,0); gl.uniform3f(p.wloc.uOff,(+c.slice(0,3))*TILE-V.tx,-gy,(+c.slice(3,6))*TILE-V.ty); gl.drawArrays(gl.TRIANGLES,0,m.wn); }
       gl.depthMask(true); gl.disable(gl.BLEND); }
+    this.v3DrawMarks(mvp,(R+1)*TILE,gy,C);
     if(p.meshes.size>90) for(const [c,m] of [...p.meshes]) if(!want.includes(c)){ if(m){ gl.deleteBuffer(m.vbo); if(m.wvbo) gl.deleteBuffer(m.wvbo); if(m.tex) gl.deleteTexture(m.tex); } p.meshes.delete(c); }
+  }
+  // ----- regen and object markers in 3D -----
+  // Drawn on a transparent 2D canvas lying over the WebGL one: every position is projected with the same camera matrix, so the
+  // markers keep their 2D look (colours, selection, arrows, names) and a constant size on screen. Spawns stand on the ground; an
+  // object stands at its own Z, with a line down to the ground when the two differ. A marker behind a hill is drawn faded.
+  v3OverRef=el=>{ this._pvOver=el||null; };
+  // same choice of what is visible as the 2D view: the current regen file (plus the other three with "Highlight all regens"), or the objects
+  v3Marks(range){
+    const st=this.state, V=this.v3, out=[], cur=st.mainTab==='regen'?st.regenTab:null, near=(x,y)=>Math.abs(x-V.tx)<=range&&Math.abs(y-V.ty)<=range;
+    if(st.allRegens) for(const key of Object.keys(REGEN_FILES)){ if(key===cur) continue; for(const r of this.regen[key]||[]){ if(r.type[0]==='e'||r.type[0]==='s'||!near(r.x,r.y)) continue; out.push({k:'other',r,x:r.x,y:r.y,col:MARK_COLOR[key]||'#e05555',sel:false}); } }
+    if(cur) this.currentRows().forEach((r,i)=>{ if(r.type[0]==='e'||r.type[0]==='s'||!near(r.x,r.y)) return; out.push({k:'row',i,r,x:r.x,y:r.y,col:MARK_COLOR[cur]||'#e05555',sel:i===this.selRow||this.selSet.has(r)}); });
+    if(st.mainTab==='objects') for(const c of Object.keys(this.areadata)){ const objs=this.areadata[c]; if(!objs) continue; objs.forEach((o,i)=>{ const x=o.x/100, y=(-o.y)/100; if(!near(x,y)) return; const z=parseFloat(o.z); out.push({k:'obj',i,c,o,x,y,z:isFinite(z)?z/100:null,col:c===st.oSector?'#6ad0e0':'#3d7f8a',sel:c===st.oSector&&(i===this.selObj||this.selObjSet.has(o))}); }); }
+    return out;
+  }
+  // world position (metres, h = height) -> [screen x, screen y, depth] in CSS pixels, or null when behind the camera
+  v3Project(mvp,W,H,gy,x,h,y){ const V=this.v3, a=x-V.tx, b=h-gy, c=y-V.ty, w=mvp[3]*a+mvp[7]*b+mvp[11]*c+mvp[15]; if(w<=0.5) return null; return [((mvp[0]*a+mvp[4]*b+mvp[8]*c+mvp[12])/w+1)/2*W,(1-(mvp[1]*a+mvp[5]*b+mvp[9]*c+mvp[13])/w)/2*H,w]; }
+  // is the straight line from the eye to a point cut by the terrain?
+  v3Hidden(eye,x,h,y){ for(let k=1;k<=12;k++){ const t=k/13, g=this.groundM(eye[0]+(x-eye[0])*t,eye[2]+(y-eye[2])*t); if(g!=null&&g>eye[1]+(h-eye[1])*t+0.75) return true; } return false; }
+  v3DrawMarks(mvp,range,gy,C){
+    const cv=this._pvOver; if(!cv||!cv.getContext) return; const dpr=Math.min(2,window.devicePixelRatio||1), W=cv.clientWidth, H=cv.clientHeight; if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); }
+    const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H); this._v3Hits=[];
+    const V=this.v3, eye=[V.tx+C.e[0],gy+C.e[1],V.ty+C.e[2]], P=(x,h,y)=>this.v3Project(mvp,W,H,gy,x,h,y), sc=(this.props.markerScale ?? 1), list=[];
+    for(const m of this.v3Marks(range)){ const g=this.groundM(m.x,m.y); if(g==null) continue; const h=(m.k==='obj'&&m.z!=null)?m.z:g, a=P(m.x,h,m.y); if(!a||a[0]<-40||a[0]>W+40||a[1]<-40||a[1]>H+60) continue; m.g=g; m.h=h; m.a=a; list.push(m); }
+    list.sort((p,q)=>q.a[2]-p.a[2]); const occl=list.length<=1500, names=!!(this.mobNames.size&&this.state.mapNames)&&list.filter(m=>m.k==='row').length<=120, manyRanges=list.filter(m=>m.r&&(m.r.sx>0||m.r.sy>0)).length>300;
+    ctx.lineJoin='round'; ctx.textBaseline='middle'; ctx.font="500 11px 'IBM Plex Sans',sans-serif";
+    for(const m of list){
+      const col=m.sel?'#ffffff':m.col, hid=occl&&!m.sel&&this.v3Hidden(eye,m.x,m.h+0.5,m.y); ctx.globalAlpha=hid?0.28:(m.k==='other'?0.85:1);
+      // spawn range, draped over the ground
+      if(m.r&&(m.r.sx>0||m.r.sy>0)&&(m.sel||!manyRanges)){ const r=m.r, cs=[[r.x-r.sx,r.y-r.sy],[r.x+r.sx,r.y-r.sy],[r.x+r.sx,r.y+r.sy],[r.x-r.sx,r.y+r.sy]]; ctx.strokeStyle=col; ctx.lineWidth=m.sel?1.6:1; ctx.beginPath(); let pen=false;
+        for(let e=0;e<4;e++){ const p0=cs[e], p1=cs[(e+1)%4], n=Math.max(2,Math.min(24,Math.ceil(Math.hypot(p1[0]-p0[0],p1[1]-p0[1])/6))); for(let k=0;k<=n;k++){ const x=p0[0]+(p1[0]-p0[0])*k/n, y=p0[1]+(p1[1]-p0[1])*k/n, g=this.groundM(x,y), q=g==null?null:P(x,g+0.15,y); if(!q){ pen=false; continue; } if(pen) ctx.lineTo(q[0],q[1]); else { ctx.moveTo(q[0],q[1]); pen=true; } } } ctx.stroke(); }
+      // an object away from the ground: a line down to it
+      if(m.k==='obj'&&Math.abs(m.h-m.g)>0.3){ const q=P(m.x,m.g,m.y); if(q){ ctx.strokeStyle=col; ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(q[0],q[1]); ctx.lineTo(m.a[0],m.a[1]); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle=col; ctx.fillRect(q[0]-1.5,q[1]-1.5,3,3); } }
+      // heading: spawns without a range, and selected objects
+      const dv=!this.state.dirArrows?null:m.k==='obj'?(m.sel?rollVector(m.o.roll):null):(!(m.r.sx>0||m.r.sy>0)?dirVector(m.r.dir):null);
+      if(dv){ const L=m.k==='obj'?5:3.5, tx=m.x+dv.x*L, ty=m.y+dv.y*L, tg=this.groundM(tx,ty), q=P(tx,m.k==='obj'?m.h:(tg==null?m.h:tg),ty); if(q){ const ux=q[0]-m.a[0], uy=q[1]-m.a[1], ul=Math.hypot(ux,uy); if(ul>4){ const nx=ux/ul, ny=uy/ul, hw=4; ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(m.a[0],m.a[1]); ctx.lineTo(q[0]-nx*hw,q[1]-ny*hw); ctx.stroke(); ctx.beginPath(); ctx.moveTo(q[0],q[1]); ctx.lineTo(q[0]-nx*hw*1.6-ny*hw,q[1]-ny*hw*1.6+nx*hw); ctx.lineTo(q[0]-nx*hw*1.6+ny*hw,q[1]-ny*hw*1.6-nx*hw); ctx.closePath(); ctx.fill(); } } }
+      // the pin: a short stem up from the spot, the 2D marker shape on top
+      const hx=m.a[0], hy=m.a[1]-13, s=(m.k==='obj'?4:m.k==='other'?4.5:5.5)*sc; ctx.strokeStyle='rgba(0,0,0,.65)'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(m.a[0],m.a[1]); ctx.lineTo(hx,hy); ctx.stroke(); ctx.strokeStyle=col; ctx.lineWidth=1.4; ctx.beginPath(); ctx.moveTo(m.a[0],m.a[1]); ctx.lineTo(hx,hy); ctx.stroke();
+      ctx.fillStyle=col; ctx.beginPath(); if(m.k==='obj') ctx.arc(hx,hy,s,0,6.2832); else { ctx.moveTo(hx,hy-s); ctx.lineTo(hx+s,hy); ctx.lineTo(hx,hy+s); ctx.lineTo(hx-s,hy); ctx.closePath(); } ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.65)'; ctx.lineWidth=1; ctx.stroke();
+      if(m.k==='row'&&(m.sel||(names&&!hid))){ const t=this.rowName(m.r.type,m.r.vnum); if(t){ ctx.lineWidth=3; ctx.strokeStyle='rgba(18,13,8,.9)'; ctx.strokeText(t,hx+s+4,hy); ctx.fillStyle=m.sel?'#ffffff':'#e6d3a1'; ctx.fillText(t,hx+s+4,hy); } }
+      if(m.k!=='other') this._v3Hits.push({x:hx,y:hy,bx:m.a[0],by:m.a[1],m});
+    }
+    ctx.globalAlpha=1;
+  }
+  // a click that was not a drag: select the marker under it (Ctrl adds / removes), or clear the selection
+  v3Click(e){
+    const cv=this._pvCv; if(!cv||this.anyPaint()) return; const r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top; let best=null, bd=13;
+    for(const h of this._v3Hits||[]){ const d=Math.min(Math.hypot(h.x-mx,h.y-my),Math.hypot(h.bx-mx,h.by-my)); if(d<bd){ bd=d; best=h.m; } }
+    const tab=this.state.mainTab;
+    if(best&&best.k==='row'){ if(e.ctrlKey||e.metaKey) this.toggleSel('row',best.i); else this.selectRow(best.i); }
+    else if(best&&best.k==='obj'){ if((e.ctrlKey||e.metaKey)&&best.c===this.state.oSector) this.toggleSel('obj',best.i); else this.selectObj(best.i,best.c); }
+    else if(!(e.ctrlKey||e.metaKey)){ if(tab==='regen'&&this.group('row').length) this.deselect('row'); else if(tab==='objects'&&this.group('obj').length) this.deselect('obj'); }
+    this.draw();
   }
   // column-major 4 × 4 helpers; the camera looks at the origin because everything is drawn relative to the cursor
   mat4Persp(fov,asp,n,f){ const t=1/Math.tan(fov/2); return [t/asp,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0]; }
@@ -3618,7 +3673,7 @@ class Component extends DCLogic {
           shadeSize:H.size, shadeSizeText:H.size+' m', onShadeSize:(e)=>this.shadeSet({size:Math.min(64,Math.max(1,parseInt(e.target.value)||1))}),
           shadeOpts:[['●','round tip',H.tip==='round',()=>this.shadeSet({tip:'round'})],['■','square tip',H.tip==='square',()=>this.shadeSet({tip:'square'})],['soft edge','the brush fades out towards its rim',H.soft,()=>this.shadeSet({soft:true})],['hard edge','the brush is solid to its rim',!H.soft,()=>this.shadeSet({soft:false})]].map(([label,title,act,onClick])=>({label,title,onClick,style:chip(act,label.length>1?'flex:1':'width:26px;padding:5px 0')})) }; })(),
       ...(()=>{ const H=this.sculpt, on=st.heightPaint&&!st.empty, chip=(act,extra)=>`border:1px solid ${act?'#c9a24b':'#3a2c1a'};background:${act?'#3a2c1a':'#15100a'};color:${act?'#f3e2b0':'#a08b5f'};border-radius:5px;padding:5px 4px;font:${act?600:500} 10.5px 'IBM Plex Sans';cursor:pointer;`+(extra||'');
-        const base={ toggleView3d:()=>this.toggleView3d(), view3dOn:st.view3d&&!st.empty, v3Ref:this.v3Ref,
+        const base={ toggleView3d:()=>this.toggleView3d(), view3dOn:st.view3d&&!st.empty, v3Ref:this.v3Ref, v3OverRef:this.v3OverRef,
           view3dStyle:`padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.view3d?'#c9a24b':'#4a3820'};background:${st.view3d?'#c9a24b':'#241a11'};color:${st.view3d?'#1a1209':'#e8cf8f'}`,
           toggleReliefHl:()=>this.toggleReliefHl(), openHeightPaint:()=>on?this.closeHeightPaint():this.openHeightPaint(), sculptOpenLabel:on?'Close sculpt':'Sculpt height…',
           reliefHlStyle:`padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.reliefHl?'#8a7a4a':'#4a3820'};background:${st.reliefHl?'#33301f':'#241a11'};color:${st.reliefHl?'#f3e9c4':'#a08b5f'}`,
