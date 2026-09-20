@@ -84,6 +84,7 @@
       <button onClick="{{ L.onClick }}" style="{{ L.style }}">{{ L.label }}</button>
     </sc-for>
     <button onClick="{{ toggleAllRegens }}" title="Show the spawns of all four files at once (regen · boss · stone · npc), each in its colour. Display only: editing still works on the current file." style="{{ allRegensStyle }}">Highlight all regens</button>
+    <button onClick="{{ toggleShadowHl }}" title="Lay the baked terrain shadows over whichever layer is shown" style="{{ shadowHlStyle }}">Highlight shadow</button>
     <button onClick="{{ toggleHighlight }}" style="{{ highlightNextStyle }}">Highlight attribute</button>
   </div>
 
@@ -104,6 +105,38 @@
           <sc-for list="{{ allRegensLegend }}" as="G" hint-placeholder-count="4">
             <span style="{{ G.style }}">◆ {{ G.text }}</span>
           </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ shadeOn }}" hint-placeholder-val="{{ false }}">
+        <div style="{{ shadeBoxStyle }}">
+          <div onMouseDown="{{ startShadeDrag }}" style="display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;cursor:move;border-bottom:1px solid #3a2c1a;background:#241a11;border-radius:9px 9px 0 0;user-select:none">
+            <div style="font-family:'Cinzel',serif;color:#e8cf8f;font-size:12.5px;flex:1">Paint shadows</div>
+            <button onClick="{{ closeShadowPaint }}" title="Close (Esc)" style="width:20px;height:20px;border:1px solid #4a3820;background:#1c140d;color:#b5573f;border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:0">&times;</button>
+          </div>
+          <div style="padding:9px 10px 10px">
+            <div style="display:flex;gap:4px">
+              <sc-for list="{{ shadeModes }}" as="P" hint-placeholder-count="2">
+                <button onClick="{{ P.onClick }}" title="{{ P.title }}" style="{{ P.style }}">{{ P.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:8px">
+              <span class="mono" style="font-size:10px;color:#a08b5f;width:48px">darkness</span>
+              <input type="range" min="5" max="100" step="5" value="{{ shadeLevel }}" onChange="{{ onShadeLevel }}" onInput="{{ onShadeLevel }}" style="flex:1;min-width:0;accent-color:#c9a24b">
+              <span style="{{ shadeSwatchStyle }}"></span>
+              <span class="mono" style="width:34px;text-align:right;font-size:10.5px;color:#e8cf8f">{{ shadeLevelText }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+              <span class="mono" style="font-size:10px;color:#a08b5f;width:48px">size</span>
+              <input type="range" min="1" max="64" step="1" value="{{ shadeSize }}" onChange="{{ onShadeSize }}" onInput="{{ onShadeSize }}" style="flex:1;min-width:0;accent-color:#c9a24b">
+              <span class="mono" style="width:34px;text-align:right;font-size:10.5px;color:#e8cf8f">{{ shadeSizeText }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;margin-top:8px">
+              <sc-for list="{{ shadeOpts }}" as="P" hint-placeholder-count="4">
+                <button onClick="{{ P.onClick }}" title="{{ P.title }}" style="{{ P.style }}">{{ P.label }}</button>
+              </sc-for>
+            </div>
+            <div class="mono" style="margin-top:8px;font-size:9px;color:#6b5a3c;line-height:1.5">Writes shadowmap.raw and shadowmap.dds together. X shade / light · [ ] size · − + darkness · right-drag moves the map · Ctrl+Z undo</div>
+          </div>
         </div>
       </sc-if>
       <sc-if value="{{ paintOn }}" hint-placeholder-val="{{ false }}">
@@ -244,8 +277,11 @@
             <button onClick="{{ exportLayerPNG }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:9px;font:500 12px 'IBM Plex Sans';cursor:pointer">Export PNG</button>
             <button onClick="{{ importPng }}" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:9px;font:500 12px 'IBM Plex Sans';cursor:pointer">Import PNG</button>
           </div>
-          <div style="font-family:'Cinzel',serif;color:#c9a24b;font-size:12px;letter-spacing:.5px;margin:18px 0 10px">ATTRIBUTES</div>
-          <button onClick="{{ openPaint }}" title="Opens a floating palette over the map: paint Block, Safezone, Banshop and the other attr flags with a brush, rectangle or circle, or derive them from texture names." style="{{ paintOpenBtnStyle }}">{{ paintOpenLabel }}</button>
+          <div style="font-family:'Cinzel',serif;color:#c9a24b;font-size:12px;letter-spacing:.5px;margin:18px 0 10px">PAINT</div>
+          <div style="display:flex;gap:6px">
+            <button onClick="{{ openPaint }}" title="Opens a floating palette over the map: paint Block, Safezone, Banshop and the other attr flags with a brush, rectangle or circle, or derive them from texture names." style="{{ paintOpenBtnStyle }}">{{ paintOpenLabel }}</button>
+            <button onClick="{{ openShadowPaint }}" title="Opens a small palette over the map: darken or lighten the baked terrain shadows with a brush." style="{{ shadeOpenBtnStyle }}">{{ shadeOpenLabel }}</button>
+          </div>
           <div style="font-family:'Cinzel',serif;color:#c9a24b;font-size:12px;letter-spacing:.5px;margin:18px 0 10px">ALL LAYERS</div>
           <div style="display:flex;gap:6px">
             <button onClick="{{ exportAllPNG }}" title="One PNG per layer, zipped" style="flex:1;border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:9px;font:500 12px 'IBM Plex Sans';cursor:pointer">Export all PNG</button>
@@ -598,7 +634,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
     mergeOpen:false, mergeMsg:'', mergeRev:0
   };
   pendingConfirm = null;
@@ -748,7 +784,7 @@ class Component extends DCLogic {
         e.preventDefault(); this.selectAll(this.state.mainTab==='regen'?'row':'obj'); return; }
       if(/^Arrow(Up|Down|Left|Right)$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !this.state.empty && !this.state.confirm && !this.state.menu && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){
         const k=this.clipKind(); if(k && this.group(k).length){ e.preventDefault(); this.arrowNudge(k,e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0,e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:0,e.shiftKey); return; } }
-      if(this.paintKey(e)){ e.preventDefault(); return; }
+      if(this.paintKey(e)||this.shadowKey(e)){ e.preventDefault(); return; }
       if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.ruler && this.rulerPts.length){ this.rulerPts=[]; this.rulerLive=null; this.draw(); } else if(this.state.mainTab==='regen' && this.group('row').length && !this.dragRow && !this.dragHandle && !this.dragGroup){ this.deselect('row'); }
         else if(this.state.mainTab==='objects' && this.group('obj').length && !this.dragObj && !this.dragGroup){ this.deselect('obj'); } }
       else if(e.key==='Enter' && this.state.confirm){ e.preventDefault(); if(!e.repeat) this.confirmYes(); }
@@ -834,7 +870,7 @@ class Component extends DCLogic {
   async wsRefresh(){ if(!this.wsCan()) return; try{ const raw=(await this.wsTx('readonly',st=>st.getAll()))||[], cfg=raw.find(r=>r.id==='__settings'); this._cfg=cfg?{...cfg}:{id:'__settings'}; this._lastNames=this._cfg.namesLink||null; const all=raw.filter(r=>!String(r.id).startsWith('__')); all.sort((a,b)=>(b.opened||0)-(a.opened||0)); this._ws=all; this.setState({wsList:all.map(w=>w.id)}); if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){ this.wsFail(e); } }
   wsGet(id){ return (this._ws||[]).find(w=>w.id===id); }
   async wsSave(w){ try{ await this.wsTx('readwrite',st=>st.put(w)); await this.wsRefresh(); }catch(e){ this.wsFail(e); } }
-  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens}; }
+  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens,shadowHl:st.shadowHl}; }
   // a map was opened through a handle: reuse the workspace that points at the same folder, or make one (named after the folder)
   async wsMapOpened(handle){
     if(!this.wsCan()||!handle){ this.setState({wsCur:''}); return; }
@@ -887,7 +923,7 @@ class Component extends DCLogic {
       if(!await this.wsPerm(w.map.handle)){ this.setState({statusText:'permission to read '+w.map.name+' was not given'}); return; }
       this.setState({statusText:'loading '+w.name+'…'}); const out={}; await this.walkHandle(w.map.handle,'',out); await this.loadFiles(out,w.map.handle.name);
       if(this.state.empty) return; this.setState({wsCur:w.id});
-      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens}); await this.renderLayer(); }
+      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens,shadowHl:!!v.shadowHl}); await this.renderLayer(); }
       if(w.regen){ try{ const files={}; if(w.regen.dir){ if(await this.wsPerm(w.regen.dir)) for await(const [name,h] of w.regen.dir.entries()) if(h.kind==='file') files[name.toLowerCase()]=await h.getFile(); } else for(const f of w.regen.files||[]) if(await this.wsPerm(f.handle)) files[f.name.toLowerCase()]=await f.handle.getFile();
           if(Object.keys(files).length){ const tab=this.state.mainTab, rt=this.state.regenTab; await this.applyRegenFolder(files,w.regen.name||''); this.setState({mainTab:tab,regenTab:rt}); } else miss.push(w.regen.dir||(w.regen.files||[]).some(f=>f.handle)?'regens (moved or permission refused)':'regens (not linked yet — load them once)'); }catch(e){ miss.push('regens (moved or permission refused)'); } }
       for(const kind of ['groups','ggroups']){ if(!w[kind]) continue; try{ if(w[kind].file && await this.wsPerm(w[kind].file) && await this.loadAuxFile(await w[kind].file.getFile(),kind)){ this._auxLink[kind]=w[kind]; await this.wsSetLast(kind+'Link',w[kind]); } else miss.push(w[kind].name+(w[kind].file?' (permission refused)':' (not linked yet — load the file once)')); }catch(e){ miss.push(w[kind].name+' (moved or deleted)'); } }
@@ -916,7 +952,7 @@ class Component extends DCLogic {
     let data; try{ data=JSON.parse(await f.text()); }catch(err){ this.setState({statusText:f.name+' is not valid JSON'}); return; }
     if(!data||data.kind!=='workspaces'||!Array.isArray(data.workspaces)){ this.setState({statusText:f.name+' is not a MapForge workspaces file'}); return; }
     try{ await this.wsRefresh(); const str=(v,d)=>String(v==null?d:v).slice(0,200), taken=new Set((this._ws||[]).map(w=>w.name)); let n=0;
-      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens'];
+      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens','shadowHl'];
       for(const x of data.workspaces.slice(0,500)){ if(!x||!x.map||!x.map.name) continue;
         let name=str(x.name,x.map.name).trim()||str(x.map.name); const base=name; let k=2; while(taken.has(name)) name=base+' (imported'+(k>2?' '+(k-1):'')+')', k++; taken.add(name);
         const w={id:'ws'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)+n,name,created:+x.created||Date.now(),opened:+x.opened||0,imported:true,map:{name:str(x.map.name),handle:null}};
@@ -1157,7 +1193,7 @@ class Component extends DCLogic {
   attrEdit={}; _paintChain=Promise.resolve(); _stroke=null; paintShape=null; paintHover=null;
   openPaint(){
     if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
-    if(this.state.paint) return; this._hlBefore=this.state.highlight; this.rulerPts=[]; this.rulerLive=null;
+    if(this.state.paint) return; if(this.state.shadowPaint) this.closeShadowPaint(); this._hlBefore=this.state.highlight; this.rulerPts=[]; this.rulerLive=null;
     this.setState({paint:true,highlight:true,ruler:false,menu:'',statusText:'paint on — left-drag paints · right-drag moves the map · wheel zooms · Esc closes'});
     this.ensureHighlight(this.jobId).then(()=>this.draw());
     this.paintTextureEntries().then(()=>this.setState({paintRev:(this.state.paintRev||0)+1})).catch(()=>{});
@@ -1169,12 +1205,13 @@ class Component extends DCLogic {
   sectorOf(x,y){ return this.pad3(Math.floor(x/TILE))+this.pad3(Math.floor(y/TILE)); }
   async paintCells(coord){ if(this.attrEdit[coord]) return this.attrEdit[coord]; if(!this.sectorList.includes(coord)) return null; const g=await this.attrGrid(coord); return (this.attrEdit[coord]=g?new Uint8Array(g):new Uint8Array(65536)); }
   // first change to a sector within a stroke: open the undo step if needed and keep a copy of the sector as it was
-  strokeTouch(coord,label){ const s=this._stroke; if(s.touched.has(coord)) return; if(!s.undo){ this.pushUndo(label||'paint attributes',[]); s.undo=this.undoStack[this.undoStack.length-1]; } s.undo.scopes.push({kind:'attr',key:coord,data:new Uint8Array(this.attrEdit[coord])}); s.touched.add(coord); }
+  strokeTouch(coord,label){ const s=this._stroke; if(s.touched.has(coord)) return; if(!s.undo){ this.pushUndo(label||'paint attributes',[]); s.undo=this.undoStack[this.undoStack.length-1]; } const sk=s.kind==='shadow'?'shadow':'attr'; s.undo.scopes.push({kind:sk,key:coord,data:new Uint8Array((sk==='shadow'?this.shadowEdit:this.attrEdit)[coord])}); s.touched.add(coord); }
   // apply fn(byte)->byte to a list of [x,y] cells (world cell coordinates); sectors are loaded as needed, cells outside the map are skipped
   async paintApply(cells,fn,label){
-    const need=new Set(); for(const p of cells) need.add(this.sectorOf(p[0],p[1])); for(const c of need) await this.paintCells(c);
+    const sh=!!(this._stroke&&this._stroke.kind==='shadow'), store=sh?this.shadowEdit:this.attrEdit;
+    const need=new Set(); for(const p of cells) need.add(this.sectorOf(p[0],p[1])); for(const c of need) await (sh?this.shadowCells(c):this.paintCells(c));
     const s=this._stroke; if(!s) return;
-    for(const p of cells){ if(p[0]<0||p[1]<0) continue; const c=this.sectorOf(p[0],p[1]), a=this.attrEdit[c]; if(!a) continue; const i=(p[1]%TILE)*TILE+(p[0]%TILE), nv=fn(a[i])&255; if(nv===a[i]) continue; this.strokeTouch(c,label); a[i]=nv; s.changed++; s.dirty.add(c); }
+    for(const p of cells){ if(p[0]<0||p[1]<0) continue; const c=this.sectorOf(p[0],p[1]), a=store[c]; if(!a) continue; const i=(p[1]%TILE)*TILE+(p[0]%TILE), nv=fn(a[i],p[2])&255; if(nv===a[i]) continue; this.strokeTouch(c,label); a[i]=nv; s.changed++; s.dirty.add(c); }
     this.paintRefresh();
   }
   queuePaint(cells,fn,label){ this._paintChain=this._paintChain.then(()=>this.paintApply(cells,fn,label)).catch(e=>console.error(e)); return this._paintChain; }
@@ -1183,6 +1220,7 @@ class Component extends DCLogic {
   rectCells(a,b){ const x0=Math.min(a.x,b.x), x1=Math.max(a.x,b.x), y0=Math.min(a.y,b.y), y1=Math.max(a.y,b.y), out=[]; for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) out.push([x,y]); return out; }
   circleCells(c,e){ const r=Math.hypot(e.x-c.x,e.y-c.y), R=Math.ceil(r), out=[]; for(let y=-R;y<=R;y++) for(let x=-R;x<=R;x++) if(x*x+y*y<=r*r+0.25) out.push([c.x+x,c.y+y]); return out; }
   paintDown(wx,wy){
+    if(this.state.shadowPaint){ this.shadowDown(wx,wy); return; }
     const x=Math.floor(wx), y=Math.floor(wy), t=this.paint.tool;
     if(t==='pick'){ this.paintPick(x,y); return; }
     this._stroke={touched:new Set(),dirty:new Set(),changed:0,undo:null,last:{x,y}};
@@ -1190,6 +1228,7 @@ class Component extends DCLogic {
     else { this.paintShape={tool:t,a:{x,y},b:{x,y}}; this.draw(); }
   }
   paintMove(wx,wy){
+    if(this.state.shadowPaint){ this.shadowMove(wx,wy); return; }
     const s=this._stroke; if(!s) return; const x=Math.floor(wx), y=Math.floor(wy);
     if(this.paint.tool==='brush'){ if(x===s.last.x&&y===s.last.y) return; const seen=new Set(), cells=[]; for(const p of this.lineCells(s.last.x,s.last.y,x,y)) for(const q of this.tipCells(p[0],p[1])){ const k=q[0]+','+q[1]; if(!seen.has(k)){ seen.add(k); cells.push(q); } } s.last={x,y}; this.queuePaint(cells,b=>this.paintValue(b)); }
     else if(this.paintShape){ this.paintShape.b={x,y}; this.draw(); }
@@ -1204,6 +1243,7 @@ class Component extends DCLogic {
   // stroke finished: write the touched sectors back as attr.atr files and refresh their bitmaps
   async paintCommit(s){
     if(this._stroke===s) this._stroke=null; if(!s.touched.size){ if(s.undo&&!s.undo.scopes.length){ const i=this.undoStack.indexOf(s.undo); if(i>=0) this.undoStack.splice(i,1); } return; }
+    if(s.kind==='shadow'){ this.shadowWrite([...s.touched]); this.setState({statusText:(s.label||'shaded')+' '+s.changed.toLocaleString('en-US')+' cell'+(s.changed===1?'':'s')+' in '+s.touched.size+' sector'+(s.touched.size===1?'':'s')+' · shadowmap.raw and .dds updated'}); await this.shadowBitmaps([...s.touched]); this.draw(); return; }
     this.attrWrite([...s.touched]); this.setState({attrStale:true,statusText:(s.label||'painted')+' '+s.changed.toLocaleString('en-US')+' cell'+(s.changed===1?'':'s')+' in '+s.touched.size+' sector'+(s.touched.size===1?'':'s')+' · server_attr needs regenerating'});
     await this.attrRebuildBitmaps([...s.touched]); this.draw();
   }
@@ -1216,8 +1256,10 @@ class Component extends DCLogic {
       if(this.cache['attribute:'+c]||this.state.layer==='attribute'){ const img=new ImageData(256,256); for(let i=0;i<65536;i++){ const col=this.attrColor(a[i]), o=i*4; img.data[o]=col[0]; img.data[o+1]=col[1]; img.data[o+2]=col[2]; img.data[o+3]=255; } this.cache['attribute:'+c]=await createImageBitmap(img); } }
   }
   // live feedback while the mouse is still down: redraw the overlay of the sectors changed since the last frame
-  paintRefresh(){ const s=this._stroke; if(!s||this._paintRaf) return; const go=async()=>{ this._paintRaf=0; const d=[...s.dirty]; s.dirty.clear(); await this.attrRebuildBitmaps(d); this.draw(); }; this._paintRaf=(typeof requestAnimationFrame!=='undefined')?requestAnimationFrame(go):setTimeout(go,16); }
+  paintRefresh(){ const s=this._stroke; if(!s||this._paintRaf) return; const go=async()=>{ this._paintRaf=0; const d=[...s.dirty]; s.dirty.clear(); if(s.kind==='shadow') await this.shadowBitmaps(d); else await this.attrRebuildBitmaps(d); this.draw(); }; this._paintRaf=(typeof requestAnimationFrame!=='undefined')?requestAnimationFrame(go):setTimeout(go,16); }
   drawPaint(ctx){
+    if(this.state.shadowPaint){ const h=this.paintHover; if(!h||!h.inside) return; const z=this.zoom, n=Math.max(1,this.shade.size|0), x0=h.x-Math.floor((n-1)/2), y0=h.y-Math.floor((n-1)/2); ctx.save(); ctx.lineWidth=1.5/z; ctx.strokeStyle=this.shade.mode==='light'?'#ffffff':'#f3d98a'; if(this.shade.mode==='light') ctx.setLineDash([4/z,3/z]);
+      if(this.shade.tip==='round'&&n>2){ ctx.beginPath(); ctx.arc(x0+n/2,y0+n/2,n/2,0,6.2832); ctx.stroke(); } else ctx.strokeRect(x0,y0,n,n); ctx.restore(); return; }
     if(!this.state.paint) return; const z=this.zoom, F=ATTR_FLAGS.find(f=>this.paint.mask&f.bit), col=F?F.col:[232,207,143], erase=this.paint.mode==='clear';
     ctx.save(); ctx.lineWidth=1.5/z; ctx.strokeStyle=erase?'#ffffff':'rgb('+col.join(',')+')'; ctx.fillStyle='rgba('+col.join(',')+','+(erase?0.08:0.28)+')'; if(erase) ctx.setLineDash([4/z,3/z]);
     const sh=this.paintShape;
@@ -1294,6 +1336,61 @@ class Component extends DCLogic {
     this.setState({paintMsg:(s.changed?'':'nothing to change · ')+[bp.length?part('Block',nB,hitB):'',sp.length?part('Safezone',nS,hitS):''].filter(Boolean).join(' · ')+(rebuild&&removed>0?' · cleared on '+removed.toLocaleString('en-US')+' cell'+(removed===1?'':'s'):'')+(noTile?' · '+noTile+' sector'+(noTile===1?'':'s')+' without tile.raw skipped':''),paintRev:(this.state.paintRev||0)+1});
   }
 
+  // ================= paint shadows =================
+  // The baked terrain shadow of a sector is a 256 × 256 image, one texel per 1 m cell, white = no shadow. It exists twice and both files
+  // must agree: shadowmap.raw (RGB555 words, what the client samples for character shading) and shadowmap.dds (uncompressed X8R8G8B8,
+  // what it multiplies over the terrain). It is grayscale in practice, so it is edited as one gray byte per cell (shadowEdit) and both
+  // files are rewritten when a stroke ends. A simple tool on purpose: one brush that darkens to a chosen level or lightens back to
+  // white, with an optional soft edge. It shares the pointer handling, stroke queue and undo plumbing of the attribute painter.
+  shadowEdit={}; shade={mode:'dark',level:45,size:12,tip:'round',soft:true,x:14,y:58};
+  openShadowPaint(){
+    if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
+    if(this.state.shadowPaint) return; if(this.state.paint) this.closePaint();
+    this._shBefore=this.state.shadowHl; this.rulerPts=[]; this.rulerLive=null;
+    this.setState({shadowPaint:true,shadowHl:true,ruler:false,menu:'',statusText:'shadow paint on — left-drag paints · right-drag moves the map · wheel zooms · Esc closes'});
+    this.ensureShadowHl(this.jobId).then(()=>this.draw());
+  }
+  closeShadowPaint(){ if(!this.state.shadowPaint) return; this.paintHover=null; this.setState({shadowPaint:false,shadowHl:!!this._shBefore,statusText:'shadow paint off'}); if(this.canvas) this.canvas.style.cursor=''; this.draw(); }
+  shadeSet(patch){ Object.assign(this.shade,patch); this.setState({paintRev:(this.state.paintRev||0)+1}); this.draw(); }
+  toggleShadowHl(){ const nv=!this.state.shadowHl; this.setState({shadowHl:nv}); if(nv) this.ensureShadowHl(this.jobId).then(()=>this.draw()); else this.draw(); }
+  // RGB555 word -> gray 0..255 (the green channel, which is the one the client's own sampler uses)
+  shadowGrayOf(word){ const g5=(word>>5)&31; return (g5<<3)|(g5>>2); }
+  shadowWordOf(gray){ const v=gray>>3; return (v<<10)|(v<<5)|v; }
+  async shadowGrid(coord){
+    const raw=this.getFile(coord+'/shadowmap.raw'); if(raw){ const b=await raw.arrayBuffer(); if(b.byteLength===131072){ const w=new Uint16Array(b), g=new Uint8Array(65536); for(let i=0;i<65536;i++) g[i]=this.shadowGrayOf(w[i]); return g; } }
+    const dds=this.getFile(coord+'/shadowmap.dds'); if(dds){ let dec=null; try{ dec=this.decodeDDS(await dds.arrayBuffer()); }catch(e){} if(dec&&dec.w===256&&dec.h===256){ const g=new Uint8Array(65536); for(let i=0;i<65536;i++) g[i]=dec.data[i*4+1]; return g; } }
+    return null;
+  }
+  async shadowCells(coord){ if(this.shadowEdit[coord]) return this.shadowEdit[coord]; if(!this.sectorList.includes(coord)) return null; const g=await this.shadowGrid(coord); return (this.shadowEdit[coord]=g||new Uint8Array(65536).fill(255)); }
+  // both files, always together
+  shadowWrite(coords){ for(const c of coords){ const g=this.shadowEdit[c]; if(!g) continue; const w=new Uint16Array(65536), bgra=new Uint8Array(65536*4); for(let i=0;i<65536;i++){ const q=(g[i]>>3), v=(q<<3)|(q>>2); w[i]=this.shadowWordOf(g[i]); const o=i*4; bgra[o]=v; bgra[o+1]=v; bgra[o+2]=v; bgra[o+3]=255; }
+      this.files[(c+'/shadowmap.raw').toLowerCase()]=new File([w],'shadowmap.raw'); this.files[(c+'/shadowmap.dds').toLowerCase()]=new File([this.makeDDS(256,256,bgra)],'shadowmap.dds'); } }
+  async shadowBitmaps(coords){
+    if(typeof createImageBitmap==='undefined'||typeof ImageData==='undefined') return;
+    for(const c of coords){ const g=this.shadowEdit[c]; if(!g) continue; const hl=new ImageData(256,256); for(let i=0;i<65536;i++) hl.data[i*4+3]=255-g[i]; this.cache['sh:'+c]=await createImageBitmap(hl);
+      if(this.cache['shadow:'+c]||this.state.layer==='shadow'){ const img=new ImageData(256,256); for(let i=0;i<65536;i++){ const o=i*4; img.data[o]=g[i]; img.data[o+1]=g[i]; img.data[o+2]=g[i]; img.data[o+3]=255; } this.cache['shadow:'+c]=await createImageBitmap(img); } }
+  }
+  // overlay for "Highlight shadow": black, as opaque as the shadow is dark, so it sits on top of any layer
+  async ensureShadowHl(job){
+    if(typeof createImageBitmap==='undefined'||typeof ImageData==='undefined') return;
+    for(const c of this.sectorList){ const key='sh:'+c; if(this.cache[key]) continue; const g=this.shadowEdit[c]||await this.shadowGrid(c); if(job!==this.jobId) return; if(!g) continue; const hl=new ImageData(256,256); for(let i=0;i<65536;i++) hl.data[i*4+3]=255-g[i]; this.cache[key]=await createImageBitmap(hl); if(job!==this.jobId) return; }
+  }
+  // brush cells with a weight: 1 everywhere for a hard brush, falling off towards the rim for a soft one
+  shadeTip(cx,cy){ const n=Math.max(1,this.shade.size|0), x0=cx-Math.floor((n-1)/2), y0=cy-Math.floor((n-1)/2), mid=(n-1)/2, R=n/2, round=this.shade.tip==='round'&&n>2, out=[]; for(let j=0;j<n;j++) for(let i=0;i<n;i++){ const d=round?Math.hypot(i-mid,j-mid):Math.max(Math.abs(i-mid),Math.abs(j-mid)); if(round&&d>R) continue; let w=1; if(this.shade.soft&&n>2){ const t=Math.min(1,d/R); w=t<0.4?1:Math.max(0,1-(t-0.4)/0.6); } if(w>0) out.push([x0+i,y0+j,w]); } return out; }
+  // darken: never lighter than before, down to the chosen level at full weight. lighten: towards white.
+  shadeValue(b,w){ if(this.shade.mode==='light') return Math.round(b+(255-b)*w); const target=Math.round(255*(1-this.shade.level/100)); return Math.min(b,Math.round(255-(255-target)*w)); }
+  shadowDown(wx,wy){ const x=Math.floor(wx), y=Math.floor(wy); this._stroke={kind:'shadow',touched:new Set(),dirty:new Set(),changed:0,undo:null,last:{x,y},label:this.shade.mode==='light'?'lightened':'shaded'}; this.queuePaint(this.shadeTip(x,y),(b,w)=>this.shadeValue(b,w),'paint shadows'); }
+  shadowMove(wx,wy){ const s=this._stroke; if(!s) return; const x=Math.floor(wx), y=Math.floor(wy); if(x===s.last.x&&y===s.last.y) return; const best=new Map(); for(const p of this.lineCells(s.last.x,s.last.y,x,y)) for(const q of this.shadeTip(p[0],p[1])){ const k=q[0]+','+q[1], old=best.get(k); if(!old||q[2]>old[2]) best.set(k,q); } s.last={x,y}; this.queuePaint([...best.values()],(b,w)=>this.shadeValue(b,w),'paint shadows'); }
+  shadowKey(e){
+    if(!this.state.shadowPaint||this.state.confirm||this.state.menu||e.ctrlKey||e.metaKey||e.altKey||/^(INPUT|SELECT|TEXTAREA)$/.test((e.target&&e.target.tagName)||'')) return false; const k=e.key;
+    if(k==='Escape'){ this.closeShadowPaint(); return true; }
+    if(k==='x'||k==='X'){ this.shadeSet({mode:this.shade.mode==='dark'?'light':'dark'}); return true; }
+    if(k==='['||k===']'){ this.shadeSet({size:Math.min(64,Math.max(1,(this.shade.size|0)+(k===']'?1:-1)*(e.shiftKey?8:1)))}); return true; }
+    if(k==='-'||k==='='||k==='+'){ this.shadeSet({level:Math.min(100,Math.max(5,this.shade.level+(k==='-'?-5:5)))}); return true; }
+    return false;
+  }
+  startShadeDrag(e){ if(e.button!==0) return; e.preventDefault(); const sx=e.clientX, sy=e.clientY, px=this.shade.x, py=this.shade.y; const move=ev=>{ this.shadeSet({x:Math.max(0,px+ev.clientX-sx),y:Math.max(0,py+ev.clientY-sy)}); }; const up=()=>{ window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); }
+
   // ================= ruler =================
   // Tools › Ruler (off by default). While it is on, a left click drops a point instead of placing / selecting: first click = start,
   // second = end, a third starts over. Map units are meters (1 px of the map image = 1 m). Dragging still pans.
@@ -1356,7 +1453,8 @@ class Component extends DCLogic {
   undoStack=[]; redoStack=[];
   scopeRegen(){ return [{kind:'regen',key:this.state.regenTab}]; }
   scopeArea(...sectors){ return (sectors.length?sectors:[this.state.oSector]).map(key=>({kind:'area',key})); }
-  snapScope(sc){ if(sc.kind==='attr') return {kind:'attr',key:sc.key,data:this.attrEdit[sc.key]?new Uint8Array(this.attrEdit[sc.key]):null};
+  snapScope(sc){ if(sc.kind==='shadow') return {kind:'shadow',key:sc.key,data:this.shadowEdit[sc.key]?new Uint8Array(this.shadowEdit[sc.key]):null};
+    if(sc.kind==='attr') return {kind:'attr',key:sc.key,data:this.attrEdit[sc.key]?new Uint8Array(this.attrEdit[sc.key]):null};
     return sc.kind==='regen' ? {kind:'regen',key:sc.key,data:(this.regen[sc.key]||[]).map(r=>({...r}))} : {kind:'area',key:sc.key,data:(this.areadata[sc.key]||[]).map(o=>({...o,portals:[...(o.portals||[])]}))}; }
   snapView(){ return {mainTab:this.state.mainTab,regenTab:this.state.regenTab,oSector:this.state.oSector,selRow:this.selRow,selObj:this.selObj}; }
   uid(o){ const m=(this._uids=this._uids||new WeakMap()); if(!m.has(o)) m.set(o,(this._uidN=(this._uidN||0)+1)); return m.get(o); }
@@ -1375,9 +1473,10 @@ class Component extends DCLogic {
     if(this.state.empty||this.state.confirm) return;
     const e=from.pop(); if(!e){ this.setState({statusText:'nothing to '+verb}); return; }
     to.push({label:e.label,t:0,coalesce:null,view:this.snapView(),scopes:e.scopes.map(sc=>this.snapScope(sc))});
-    const attrs=[]; for(const sc of e.scopes){ if(sc.kind==='attr'){ if(sc.data){ this.attrEdit[sc.key]=sc.data; attrs.push(sc.key); } } else if(sc.kind==='regen') this.regen[sc.key]=sc.data; else this.areadata[sc.key]=sc.data; }
+    const attrs=[], shs=[]; for(const sc of e.scopes){ if(sc.kind==='shadow'){ if(sc.data){ this.shadowEdit[sc.key]=sc.data; shs.push(sc.key); } } else if(sc.kind==='attr'){ if(sc.data){ this.attrEdit[sc.key]=sc.data; attrs.push(sc.key); } } else if(sc.kind==='regen') this.regen[sc.key]=sc.data; else this.areadata[sc.key]=sc.data; }
+    if(shs.length){ this.shadowWrite(shs); this.shadowBitmaps(shs).then(()=>this.draw()); }
     if(attrs.length){ this.attrWrite(attrs); this.setState({attrStale:true}); this.attrRebuildBitmaps(attrs).then(()=>this.draw()); }
-    const onlyAttr=e.scopes.length>0&&e.scopes.every(sc=>sc.kind==='attr'); const v=onlyAttr?this.snapView():e.view; this.selRow=v.selRow; this.selObj=v.selObj; this.selSet.clear(); this.selObjSet.clear();
+    const onlyAttr=e.scopes.length>0&&e.scopes.every(sc=>sc.kind==='attr'||sc.kind==='shadow'); const v=onlyAttr?this.snapView():e.view; this.selRow=v.selRow; this.selObj=v.selObj; this.selSet.clear(); this.selObjSet.clear();
     this.setState({mainTab:v.mainTab,regenTab:v.regenTab,oSector:v.oSector,statusText:verb+': '+e.label});
     this.reselect(); setTimeout(()=>this.reselect(),0);   // again once a panel that was just switched to has mounted its fields
   }
@@ -1399,7 +1498,7 @@ class Component extends DCLogic {
   run(fn){ this.setState({menu:''}); if(fn) fn(); }
   gridOn(){ return this.state.showGrid!==null ? this.state.showGrid : (this.props.showSectorGrid ?? true); }
   toggleGrid(){ this.setState({ showGrid:!this.gridOn(), menu:'' }); this.draw(); }
-  clearMap(){ this.attrEdit={}; this._paintTs=null; this._paintTsFile=null; this._stroke=null; this.paintShape=null; this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.wsSaveView(); this.clearHistory(); this.rulerPts=[]; this.rulerLive=null; this.setState({ wsCur:'', paint:false, attrStale:false, paintMsg:'', empty:true, ruler:false, stats:false, dirty:false, objDirty:false, objWarn:null, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
+  clearMap(){ this.shadowEdit={}; this.attrEdit={}; this._paintTs=null; this._paintTsFile=null; this._stroke=null; this.paintShape=null; this.files={}; this.cache={}; this.sectorList=[]; this.regen={regen:[],boss:[],stone:[],npc:[]}; this.areadata={}; this.selRow=-1; this.selObj=-1; this.wsSaveView(); this.clearHistory(); this.rulerPts=[]; this.rulerLive=null; this.setState({ wsCur:'', shadowPaint:false, paint:false, attrStale:false, paintMsg:'', empty:true, ruler:false, stats:false, dirty:false, objDirty:false, objWarn:null, statusText:'no map loaded', oSector:'', info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' }, rev:this.state.rev+1 }); this.draw(); }
   attrExport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.exportLayerPNG(),120); }
   attrImport(){ this.setState({menu:''}); if(this.state.layer!=='attribute'){ this.setState({layer:'attribute'}); this.renderLayer(); } setTimeout(()=>this.importPng(),120); }
 
@@ -1504,7 +1603,7 @@ class Component extends DCLogic {
   getFile(path){ return this.files[path.toLowerCase()]; }
 
   async loadFiles(map, folderName) {
-    this.attrEdit={}; this._paintTs=null; this._paintTsFile=null; this._stroke=null;
+    this.attrEdit={}; this.shadowEdit={}; this._paintTs=null; this._paintTsFile=null; this._stroke=null;
     this._folderName = folderName || null;
     let prefix = '';
     for (const k of Object.keys(map)) { const m = k.match(/(^|.*\/)(\d{6})\/[^/]+$/); if (m) { prefix = m[1]; break; } }
@@ -1684,7 +1783,7 @@ class Component extends DCLogic {
         let file=f('shadowmap.raw');
         if(file){ const b=await file.arrayBuffer(); if(b.byteLength<256*256*2) return null;
           const h=new Uint16Array(b); const img=new ImageData(256,256);
-          for(let i=0;i<65536;i++){ const g=h[i]>>8; const o=i*4; img.data[o]=g;img.data[o+1]=g;img.data[o+2]=g;img.data[o+3]=255; }
+          for(let i=0;i<65536;i++){ const g=this.shadowGrayOf(h[i]); const o=i*4; img.data[o]=g;img.data[o+1]=g;img.data[o+2]=g;img.data[o+3]=255; }
           return await createImageBitmap(img); }
         file=f('shadowmap.dds'); if(!file) return null;
         const dec=this.decodeDDS(await file.arrayBuffer()); if(!dec) return null;
@@ -1818,6 +1917,7 @@ class Component extends DCLogic {
     for(const c of this.sectorList){
       const sx=(+c.slice(0,3)-b.minx)*TILE, sy=(+c.slice(3,6)-b.miny)*TILE;
       const id=ctx.getImageData(sx,sy,TILE,TILE);
+      if(layer==='shadow'){ const g=new Uint8Array(65536); for(let i=0;i<65536;i++) g[i]=id.data[i*4]; this.shadowEdit[c]=g; this.shadowWrite([c]); delete this.cache['shadow:'+c]; delete this.cache['sh:'+c]; n++; continue; }
       const {name,buf}=this.encodeLayer(layer,c,id); if(!buf) continue;
       this.files[(c+'/'+name).toLowerCase()]=new File([buf],name);
       delete this.cache[layer+':'+c]; if(layer==='attribute'){ delete this.cache['hl:'+c]; delete this.attrEdit[c]; }
@@ -2647,6 +2747,7 @@ class Component extends DCLogic {
       this.draw();
     }
     if(this.state.highlight) await this.ensureHighlight(job);
+    if(this.state.shadowHl) await this.ensureShadowHl(job);
     if(job!==this.jobId) return;
     this.setState({ statusText:'ready' });
     if(this.layerInfoEl) this.layerInfoEl.textContent = this.layerDesc(layer,ok,total);
@@ -2673,6 +2774,7 @@ class Component extends DCLogic {
     ctx.setTransform(this.zoom,0,0,this.zoom,this.ox,this.oy);
     const layer=this.state.layer;
     for(const c of this.sectorList){ const bmp=this.cache[layer+':'+c]; if(!bmp) continue; const x=+c.slice(0,3),y=+c.slice(3,6); ctx.drawImage(bmp,x*TILE,y*TILE,TILE,TILE); }
+    if(this.state.shadowHl) for(const c of this.sectorList){ const bmp=this.cache['sh:'+c]; if(!bmp) continue; const x=+c.slice(0,3),y=+c.slice(3,6); ctx.drawImage(bmp,x*TILE,y*TILE,TILE,TILE); }
     if(this.state.highlight) for(const c of this.sectorList){ const bmp=this.cache['hl:'+c]; if(!bmp) continue; const x=+c.slice(0,3),y=+c.slice(3,6); ctx.drawImage(bmp,x*TILE,y*TILE,TILE,TILE); }
     if(this.gridOn()){
       ctx.strokeStyle='rgba(201,162,75,.28)'; ctx.lineWidth=1/this.zoom;
@@ -2754,7 +2856,7 @@ class Component extends DCLogic {
     this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null; this.dragObj=null; this.dragHandle=null; this.dragGroup=null; this.box=null;
     if(e.button!==0||this.state.empty) return;
     const r=this.canvas.getBoundingClientRect(); const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
-    if(this.state.paint){ this.down.paint=true; this.paintDown(wx,wy); return; }   // paint on: left-drag paints; the map is moved with right / middle drag
+    if(this.state.paint||this.state.shadowPaint){ this.down.paint=true; this.paintDown(wx,wy); return; }   // paint on: left-drag paints; the map is moved with right / middle drag
     if(this.state.ruler){ this.down.ruler=true; return; }   // ruler on: a click measures, a drag pans, nothing is selected or placed
     const tab=this.state.mainTab, k=tab==='regen'?'row':tab==='objects'?'obj':null; if(!k) return;
     if(e.ctrlKey||e.metaKey){   // Ctrl = group selection: click toggles one item, drag from empty map draws a box (Alt = take out)
@@ -2793,7 +2895,7 @@ class Component extends DCLogic {
   onMove(e){
     if(this.state.empty){ return; }
     const r=this.canvas.getBoundingClientRect(); const inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
-    if(this.state.paint){ const pwx=(e.clientX-r.left-this.ox)/this.zoom, pwy=(e.clientY-r.top-this.oy)/this.zoom; this.paintHover={x:Math.floor(pwx),y:Math.floor(pwy),inside}; if(this.down&&this.down.paint) this.paintMove(pwx,pwy); else if(!this.down){ this.canvas.style.cursor=inside?'crosshair':''; this.draw(); } }
+    if(this.state.paint||this.state.shadowPaint){ const pwx=(e.clientX-r.left-this.ox)/this.zoom, pwy=(e.clientY-r.top-this.oy)/this.zoom; this.paintHover={x:Math.floor(pwx),y:Math.floor(pwy),inside}; if(this.down&&this.down.paint) this.paintMove(pwx,pwy); else if(!this.down){ this.canvas.style.cursor=inside?'crosshair':''; this.draw(); } }
     if(this.down && !this.down.paint){ const dx=e.clientX-this.down.x,dy=e.clientY-this.down.y; if(Math.abs(dx)+Math.abs(dy)>3) this.moved=true;
       if(this.moved){
         const wxm=(e.clientX-r.left-this.ox)/this.zoom, wym=(e.clientY-r.top-this.oy)/this.zoom;
@@ -2821,7 +2923,7 @@ class Component extends DCLogic {
         this.draw();
       }
     }
-    if(!this.down && !this.state.ruler && !this.state.paint){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
+    if(!this.down && !this.state.ruler && !this.state.paint && !this.state.shadowPaint){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
       const hh=(inside && tab==='regen' && !e.shiftKey)?this.hitHandle(wx,wy):null;
       const ctrlBox=inside && (e.ctrlKey||e.metaKey) && (tab==='regen'||tab==='objects');
       this.canvas.style.cursor=hh&&!ctrlBox?hh.cur:(inside && ((tab==='regen' && !e.shiftKey && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?(ctrlBox?'pointer':'grab'):(ctrlBox?'crosshair':''); }
@@ -2832,7 +2934,7 @@ class Component extends DCLogic {
   onUp(e){
     if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn, ctrlDown=!!this.down.ctrl, rulerDown=!!this.down.ruler, paintDown=!!this.down.paint; this.down=null;
     if(paintDown){ this.paintUp(); return; }
-    if(this.state.paint) return;   // palette open: a click never places or selects (this was a right / middle drag)
+    if(this.state.paint||this.state.shadowPaint) return;   // palette open: a click never places or selects (this was a right / middle drag)
     if(rulerDown){ if(!wasMoved){ const rr=this.canvas.getBoundingClientRect(); if(e.clientX>=rr.left&&e.clientX<=rr.right&&e.clientY>=rr.top&&e.clientY<=rr.bottom) this.rulerClick((e.clientX-rr.left-this.ox)/this.zoom,(e.clientY-rr.top-this.oy)/this.zoom); } return; }
     if(this.box){ const b=this.box; this.box=null; if(wasMoved) this.boxSel(b.k,b); this.draw(); return; }
     if(this.dragGroup){ const d=this.dragGroup; this.dragGroup=null; if(wasMoved){ this.setState({statusText:this.gName(d.k,d.items.length)+' moved'}); if(d.k==='obj') this.refreshObjs(); else this.refreshRows(); } return; }
@@ -3210,8 +3312,8 @@ class Component extends DCLogic {
       convertTabStyle:this.tabStyle(st.mainTab==='convert'), regenTabStyle:this.tabStyle(st.mainTab==='regen'), objectsTabStyle:this.tabStyle(st.mainTab==='objects'),
       allRegensStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.allRegens?'#6b501f':'#4a3820'};background:${st.allRegens?'#3a2c1a':'#241a11'};color:${st.allRegens?'#e8cf8f':'#a08b5f'}`,
       ...(()=>{ const P=this.paint, on=st.paint&&!st.empty, chip=(act,extra)=>`border:1px solid ${act?'#c9a24b':'#3a2c1a'};background:${act?'#3a2c1a':'#15100a'};color:${act?'#f3e2b0':'#a08b5f'};border-radius:5px;padding:5px 4px;font:${act?600:500} 10.5px 'IBM Plex Sans';cursor:pointer;`+(extra||'');
-        if(!on) return { paintOn:false, paintFlags:[], paintModes:[], paintTools:[], paintTips:[], paintMsgOn:false, paintOpenLabel:'Paint attributes…', paintOpenBtnStyle:`width:100%;border:1px solid #6b501f;background:#3a2c1a;color:#e8cf8f;border-radius:6px;padding:9px;font:600 12px 'IBM Plex Sans';cursor:pointer`, openPaint:()=>this.openPaint() };
-        return { paintOn:true, openPaint:()=>this.closePaint(), paintOpenLabel:'Close paint palette', paintOpenBtnStyle:`width:100%;border:1px solid #c9a24b;background:#c9a24b;color:#1a1209;border-radius:6px;padding:9px;font:600 12px 'IBM Plex Sans';cursor:pointer`,
+        if(!on) return { paintOn:false, paintFlags:[], paintModes:[], paintTools:[], paintTips:[], paintMsgOn:false, paintOpenLabel:'Paint attributes…', paintOpenBtnStyle:`flex:1;border:1px solid #6b501f;background:#3a2c1a;color:#e8cf8f;border-radius:6px;padding:9px;font:600 12px 'IBM Plex Sans';cursor:pointer`, openPaint:()=>this.openPaint() };
+        return { paintOn:true, openPaint:()=>this.closePaint(), paintOpenLabel:'Close attributes', paintOpenBtnStyle:`flex:1;border:1px solid #c9a24b;background:#c9a24b;color:#1a1209;border-radius:6px;padding:9px;font:600 12px 'IBM Plex Sans';cursor:pointer`,
           paintBoxStyle:`position:absolute;left:${P.x}px;top:${P.y}px;width:286px;z-index:30;border:1px solid #4a3820;border-radius:10px;background:rgba(28,20,13,.97);box-shadow:0 14px 34px rgba(0,0,0,.55)`,
           startPaintDrag:(e)=>this.startPaintDrag(e), closePaint:()=>this.closePaint(),
           paintFlags:ATTR_FLAGS.map((F,i)=>{ const act=!!(P.mask&F.bit); return { label:F.name, title:F.name+' · bit '+i+' (0x'+F.bit.toString(16).padStart(2,'0')+') · key '+(i+1)+(F.bit===0x02?' · marks water cells; the visible water itself comes from water.wtr':''), onClick:()=>this.paintSet({mask:P.mask^F.bit}), dot:`display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;background:rgb(${F.col.join(',')});opacity:${act?1:.45}`, style:chip(act,'display:flex;align-items:center;justify-content:flex-start;white-space:nowrap;overflow:hidden') }; }),
@@ -3235,6 +3337,18 @@ class Component extends DCLogic {
           paintMsgOn:!!st.paintMsg, paintMsg:st.paintMsg,
           paintStaleText:st.attrStale?'server_attr is out of date':'server_attr: no unsaved paint', paintStaleStyle:`font-size:9.5px;color:${st.attrStale?'#e0a93a':'#6b5a3c'}` }; })(),
       ptBlockRef:this.ptBlockRef, ptSafeRef:this.ptSafeRef, paintTsInputRef:this.paintTsInputRef, onPaintTsInput:(e)=>this.onPaintTsInput(e), generateServerAttr:()=>this.generateServerAttr(),
+      ...(()=>{ const H=this.shade, on=st.shadowPaint&&!st.empty, gray=Math.round(255*(1-H.level/100)), chip=(act,extra)=>`border:1px solid ${act?'#c9a24b':'#3a2c1a'};background:${act?'#3a2c1a':'#15100a'};color:${act?'#f3e2b0':'#a08b5f'};border-radius:5px;padding:5px 4px;font:${act?600:500} 10.5px 'IBM Plex Sans';cursor:pointer;`+(extra||'');
+        const base={ toggleShadowHl:()=>this.toggleShadowHl(), openShadowPaint:()=>on?this.closeShadowPaint():this.openShadowPaint(), shadeOpenLabel:on?'Close shadows':'Paint shadows…',
+          shadowHlStyle:`padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.shadowHl?'#6b6b6b':'#4a3820'};background:${st.shadowHl?'#2a2a2a':'#241a11'};color:${st.shadowHl?'#f0f0f0':'#a08b5f'}`,
+          shadeOpenBtnStyle:`flex:1;border:1px solid ${on?'#c9a24b':'#6b501f'};background:${on?'#c9a24b':'#3a2c1a'};color:${on?'#1a1209':'#e8cf8f'};border-radius:6px;padding:9px 4px;font:600 12px 'IBM Plex Sans';cursor:pointer` };
+        if(!on) return { ...base, shadeOn:false, shadeModes:[], shadeOpts:[] };
+        return { ...base, shadeOn:true, startShadeDrag:(e)=>this.startShadeDrag(e), closeShadowPaint:()=>this.closeShadowPaint(),
+          shadeBoxStyle:`position:absolute;left:${H.x}px;top:${H.y}px;width:270px;z-index:30;border:1px solid #4a3820;border-radius:10px;background:rgba(28,20,13,.97);box-shadow:0 14px 34px rgba(0,0,0,.55)`,
+          shadeModes:[['dark','Shade','Darken down to the chosen darkness; never makes a cell lighter'],['light','Light','Lighten back towards no shadow (X swaps)']].map(([k,label,title])=>({label,title,onClick:()=>this.shadeSet({mode:k}),style:chip(H.mode===k,'flex:1')})),
+          shadeLevel:H.level, shadeLevelText:H.level+'%', onShadeLevel:(e)=>this.shadeSet({level:Math.min(100,Math.max(5,parseInt(e.target.value)||5))}),
+          shadeSwatchStyle:`flex:none;width:16px;height:16px;border-radius:3px;border:1px solid #4a3820;background:rgb(${gray},${gray},${gray})`,
+          shadeSize:H.size, shadeSizeText:H.size+' m', onShadeSize:(e)=>this.shadeSet({size:Math.min(64,Math.max(1,parseInt(e.target.value)||1))}),
+          shadeOpts:[['●','round tip',H.tip==='round',()=>this.shadeSet({tip:'round'})],['■','square tip',H.tip==='square',()=>this.shadeSet({tip:'square'})],['soft edge','the brush fades out towards its rim',H.soft,()=>this.shadeSet({soft:true})],['hard edge','the brush is solid to its rim',!H.soft,()=>this.shadeSet({soft:false})]].map(([label,title,act,onClick])=>({label,title,onClick,style:chip(act,label.length>1?'flex:1':'width:26px;padding:5px 0')})) }; })(),
       toggleAllRegens:()=>this.toggleAllRegens(), allRegensOn:st.allRegens&&!st.empty, allRegensLegend:(st.allRegens&&!st.empty)?this.allRegensLegend():[],
       highlightStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,
       highlightNextStyle:`padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,

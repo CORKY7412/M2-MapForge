@@ -45,6 +45,14 @@ All 8 `attr.atr` bit flags are color-coded. Base layer shows the dominant flag p
 - Keys: **B** brush · **R** rectangle · **C** circle · **I** pick · **X** next mode (Set → Clear → Replace) · **[ ]** size (Shift ×8) · **1–8** toggle flags.
 - The flag overlay now blends the colours of every flag a cell has (it used to show only the first), so mixed cells are visible.
 
+### Paint shadows
+**Converter › Paint shadows…** opens a small palette for the baked terrain shadows; **Highlight shadow** (in the layer bar, next to the other two highlight chips) lays the shadows over whichever layer is shown, so you can edit against the minimap or the height map. The palette forces it on while it is open.
+
+- One brush on purpose: **Shade** darkens down to the chosen darkness (5–100 %) and never makes a cell lighter; **Light** brings it back towards no shadow. Size 1–64 m, round or square tip, soft or hard edge (the soft edge fades out towards the rim).
+- Left-drag paints, right-drag moves the map, the wheel zooms; **X** swaps Shade / Light, **[ ]** changes the size, **− +** the darkness, **Esc** closes. Only one paint palette (attributes or shadows) is open at a time.
+- Each stroke is one undo step. When it ends, `shadowmap.raw` (RGB555) and `shadowmap.dds` (uncompressed X8R8G8B8) are both rewritten, because the client reads both and they must agree; a sector without shadow files starts unshadowed and gets both. Export map includes them.
+- The Shadow layer and the shadow PNG import now read and write `shadowmap.raw` as RGB555 (it was treated as 16-bit gray before, which showed it at half brightness), and a shadow PNG import also writes both files.
+
 ### Server attributes (`server_attr`)
 - **Import from server_attr** — reads the binary, LZO1X-decompresses each block, and reconstructs the per-sector `attr.atr` grids onto the Attribute layer.
 - **Generate server_attr** — builds `server_attr` from the map's `attr.atr` files (full byte preserved, 2×2 upsample, y-major, LZO1X-compressed). Downloads it and bundles it in the map ZIP.
