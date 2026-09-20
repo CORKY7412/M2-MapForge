@@ -84,6 +84,7 @@
       <button onClick="{{ L.onClick }}" style="{{ L.style }}">{{ L.label }}</button>
     </sc-for>
     <button onClick="{{ toggleAllRegens }}" title="Show the spawns of all four files at once (regen · boss · stone · npc), each in its colour. Display only: editing still works on the current file." style="{{ allRegensStyle }}">Highlight all regens</button>
+    <button onClick="{{ toggleReliefHl }}" title="Hillshade from height.raw over whichever layer is shown: the terrain reads as relief, lit from the north-west" style="{{ reliefHlStyle }}">Highlight relief</button>
     <button onClick="{{ toggleShadowHl }}" title="Lay the baked terrain shadows over whichever layer is shown" style="{{ shadowHlStyle }}">Highlight shadow</button>
     <button onClick="{{ toggleHighlight }}" style="{{ highlightNextStyle }}">Highlight attribute</button>
   </div>
@@ -105,6 +106,46 @@
           <sc-for list="{{ allRegensLegend }}" as="G" hint-placeholder-count="4">
             <span style="{{ G.style }}">◆ {{ G.text }}</span>
           </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ sculptOn }}" hint-placeholder-val="{{ false }}">
+        <div style="{{ sculptBoxStyle }}">
+          <div onMouseDown="{{ startSculptDrag }}" style="display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;cursor:move;border-bottom:1px solid #3a2c1a;background:#241a11;border-radius:9px 9px 0 0;user-select:none">
+            <div style="font-family:'Cinzel',serif;color:#e8cf8f;font-size:12.5px;flex:1">Sculpt height <span class="mono" style="font-size:9px;color:#8a744c">experiment</span></div>
+            <button onClick="{{ closeHeightPaint }}" title="Close (Esc)" style="width:20px;height:20px;border:1px solid #4a3820;background:#1c140d;color:#b5573f;border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:0">&times;</button>
+          </div>
+          <div style="padding:9px 10px 10px">
+            <div style="display:flex;gap:4px">
+              <sc-for list="{{ sculptModes }}" as="P" hint-placeholder-count="4">
+                <button onClick="{{ P.onClick }}" title="{{ P.title }}" style="{{ P.style }}">{{ P.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:8px">
+              <span class="mono" style="font-size:10px;color:#a08b5f;width:48px">strength</span>
+              <input type="range" min="1" max="100" step="1" value="{{ sculptStrength }}" onChange="{{ onSculptStrength }}" onInput="{{ onSculptStrength }}" style="flex:1;min-width:0;accent-color:#c9a24b">
+              <span class="mono" style="width:34px;text-align:right;font-size:10.5px;color:#e8cf8f">{{ sculptStrengthText }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+              <span class="mono" style="font-size:10px;color:#a08b5f;width:48px">size</span>
+              <input type="range" min="2" max="128" step="2" value="{{ sculptSize }}" onChange="{{ onSculptSize }}" onInput="{{ onSculptSize }}" style="flex:1;min-width:0;accent-color:#c9a24b">
+              <span class="mono" style="width:34px;text-align:right;font-size:10.5px;color:#e8cf8f">{{ sculptSizeText }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;margin-top:8px">
+              <sc-for list="{{ sculptOpts }}" as="P" hint-placeholder-count="3">
+                <button onClick="{{ P.onClick }}" title="{{ P.title }}" style="{{ P.style }}">{{ P.label }}</button>
+              </sc-for>
+            </div>
+            <div class="mono" style="margin-top:8px;font-size:9px;color:#6b5a3c;line-height:1.5">Writes height.raw only: minimap, shadows, water attr and object Z are not refreshed. Hold the button to keep going. X raise / lower · [ ] size · − + strength · right-drag moves the map · Ctrl+Z undo</div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ pv3On }}" hint-placeholder-val="{{ false }}">
+        <div style="{{ pv3BoxStyle }}">
+          <div onMouseDown="{{ startPv3Drag }}" style="display:flex;align-items:center;gap:8px;padding:6px 8px 6px 12px;cursor:move;border-bottom:1px solid #3a2c1a;background:#241a11;border-radius:9px 9px 0 0;user-select:none">
+            <div style="font-family:'Cinzel',serif;color:#e8cf8f;font-size:12px;flex:1">3D preview <span class="mono" style="font-size:9px;color:#8a744c">follows the cursor · drag orbits · wheel zooms</span></div>
+            <button onClick="{{ closePv3 }}" title="Hide the preview" style="width:20px;height:20px;border:1px solid #4a3820;background:#1c140d;color:#b5573f;border-radius:4px;cursor:pointer;font-size:12px;line-height:1;padding:0">&times;</button>
+          </div>
+          <canvas ref="{{ pv3Ref }}" style="{{ pv3CanvasStyle }}"></canvas>
         </div>
       </sc-if>
       <sc-if value="{{ shadeOn }}" hint-placeholder-val="{{ false }}">
@@ -281,6 +322,9 @@
           <div style="display:flex;gap:6px">
             <button onClick="{{ openPaint }}" title="Opens a floating palette over the map: paint Block, Safezone, Banshop and the other attr flags with a brush, rectangle or circle, or derive them from texture names." style="{{ paintOpenBtnStyle }}">{{ paintOpenLabel }}</button>
             <button onClick="{{ openShadowPaint }}" title="Opens a small palette over the map: darken or lighten the baked terrain shadows with a brush." style="{{ shadeOpenBtnStyle }}">{{ shadeOpenLabel }}</button>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button onClick="{{ openHeightPaint }}" title="Experiment: raise, lower, smooth or flatten the terrain with a brush, with a hillshade overlay and a live 3D preview window." style="{{ sculptOpenBtnStyle }}">{{ sculptOpenLabel }}</button>
           </div>
           <div style="font-family:'Cinzel',serif;color:#c9a24b;font-size:12px;letter-spacing:.5px;margin:18px 0 10px">ALL LAYERS</div>
           <div style="display:flex;gap:6px">
@@ -634,7 +678,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
     mergeOpen:false, mergeMsg:'', mergeRev:0
   };
   pendingConfirm = null;
@@ -784,7 +828,7 @@ class Component extends DCLogic {
         e.preventDefault(); this.selectAll(this.state.mainTab==='regen'?'row':'obj'); return; }
       if(/^Arrow(Up|Down|Left|Right)$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !this.state.empty && !this.state.confirm && !this.state.menu && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){
         const k=this.clipKind(); if(k && this.group(k).length){ e.preventDefault(); this.arrowNudge(k,e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0,e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:0,e.shiftKey); return; } }
-      if(this.paintKey(e)||this.shadowKey(e)){ e.preventDefault(); return; }
+      if(this.paintKey(e)||this.shadowKey(e)||this.sculptKey(e)){ e.preventDefault(); return; }
       if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.ruler && this.rulerPts.length){ this.rulerPts=[]; this.rulerLive=null; this.draw(); } else if(this.state.mainTab==='regen' && this.group('row').length && !this.dragRow && !this.dragHandle && !this.dragGroup){ this.deselect('row'); }
         else if(this.state.mainTab==='objects' && this.group('obj').length && !this.dragObj && !this.dragGroup){ this.deselect('obj'); } }
       else if(e.key==='Enter' && this.state.confirm){ e.preventDefault(); if(!e.repeat) this.confirmYes(); }
@@ -870,7 +914,7 @@ class Component extends DCLogic {
   async wsRefresh(){ if(!this.wsCan()) return; try{ const raw=(await this.wsTx('readonly',st=>st.getAll()))||[], cfg=raw.find(r=>r.id==='__settings'); this._cfg=cfg?{...cfg}:{id:'__settings'}; this._lastNames=this._cfg.namesLink||null; const all=raw.filter(r=>!String(r.id).startsWith('__')); all.sort((a,b)=>(b.opened||0)-(a.opened||0)); this._ws=all; this.setState({wsList:all.map(w=>w.id)}); if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){ this.wsFail(e); } }
   wsGet(id){ return (this._ws||[]).find(w=>w.id===id); }
   async wsSave(w){ try{ await this.wsTx('readwrite',st=>st.put(w)); await this.wsRefresh(); }catch(e){ this.wsFail(e); } }
-  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens,shadowHl:st.shadowHl}; }
+  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens,shadowHl:st.shadowHl,reliefHl:st.reliefHl}; }
   // a map was opened through a handle: reuse the workspace that points at the same folder, or make one (named after the folder)
   async wsMapOpened(handle){
     if(!this.wsCan()||!handle){ this.setState({wsCur:''}); return; }
@@ -923,7 +967,7 @@ class Component extends DCLogic {
       if(!await this.wsPerm(w.map.handle)){ this.setState({statusText:'permission to read '+w.map.name+' was not given'}); return; }
       this.setState({statusText:'loading '+w.name+'…'}); const out={}; await this.walkHandle(w.map.handle,'',out); await this.loadFiles(out,w.map.handle.name);
       if(this.state.empty) return; this.setState({wsCur:w.id});
-      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens,shadowHl:!!v.shadowHl}); await this.renderLayer(); }
+      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens,shadowHl:!!v.shadowHl,reliefHl:!!v.reliefHl}); await this.renderLayer(); }
       if(w.regen){ try{ const files={}; if(w.regen.dir){ if(await this.wsPerm(w.regen.dir)) for await(const [name,h] of w.regen.dir.entries()) if(h.kind==='file') files[name.toLowerCase()]=await h.getFile(); } else for(const f of w.regen.files||[]) if(await this.wsPerm(f.handle)) files[f.name.toLowerCase()]=await f.handle.getFile();
           if(Object.keys(files).length){ const tab=this.state.mainTab, rt=this.state.regenTab; await this.applyRegenFolder(files,w.regen.name||''); this.setState({mainTab:tab,regenTab:rt}); } else miss.push(w.regen.dir||(w.regen.files||[]).some(f=>f.handle)?'regens (moved or permission refused)':'regens (not linked yet — load them once)'); }catch(e){ miss.push('regens (moved or permission refused)'); } }
       for(const kind of ['groups','ggroups']){ if(!w[kind]) continue; try{ if(w[kind].file && await this.wsPerm(w[kind].file) && await this.loadAuxFile(await w[kind].file.getFile(),kind)){ this._auxLink[kind]=w[kind]; await this.wsSetLast(kind+'Link',w[kind]); } else miss.push(w[kind].name+(w[kind].file?' (permission refused)':' (not linked yet — load the file once)')); }catch(e){ miss.push(w[kind].name+' (moved or deleted)'); } }
@@ -952,7 +996,7 @@ class Component extends DCLogic {
     let data; try{ data=JSON.parse(await f.text()); }catch(err){ this.setState({statusText:f.name+' is not valid JSON'}); return; }
     if(!data||data.kind!=='workspaces'||!Array.isArray(data.workspaces)){ this.setState({statusText:f.name+' is not a MapForge workspaces file'}); return; }
     try{ await this.wsRefresh(); const str=(v,d)=>String(v==null?d:v).slice(0,200), taken=new Set((this._ws||[]).map(w=>w.name)); let n=0;
-      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens','shadowHl'];
+      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens','shadowHl','reliefHl'];
       for(const x of data.workspaces.slice(0,500)){ if(!x||!x.map||!x.map.name) continue;
         let name=str(x.name,x.map.name).trim()||str(x.map.name); const base=name; let k=2; while(taken.has(name)) name=base+' (imported'+(k>2?' '+(k-1):'')+')', k++; taken.add(name);
         const w={id:'ws'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)+n,name,created:+x.created||Date.now(),opened:+x.opened||0,imported:true,map:{name:str(x.map.name),handle:null}};
@@ -1193,7 +1237,7 @@ class Component extends DCLogic {
   attrEdit={}; _paintChain=Promise.resolve(); _stroke=null; paintShape=null; paintHover=null;
   openPaint(){
     if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
-    if(this.state.paint) return; if(this.state.shadowPaint) this.closeShadowPaint(); this._hlBefore=this.state.highlight; this.rulerPts=[]; this.rulerLive=null;
+    if(this.state.paint) return; if(this.state.shadowPaint) this.closeShadowPaint(); if(this.state.heightPaint) this.closeHeightPaint(); this._hlBefore=this.state.highlight; this.rulerPts=[]; this.rulerLive=null;
     this.setState({paint:true,highlight:true,ruler:false,menu:'',statusText:'paint on — left-drag paints · right-drag moves the map · wheel zooms · Esc closes'});
     this.ensureHighlight(this.jobId).then(()=>this.draw());
     this.paintTextureEntries().then(()=>this.setState({paintRev:(this.state.paintRev||0)+1})).catch(()=>{});
@@ -1220,6 +1264,7 @@ class Component extends DCLogic {
   rectCells(a,b){ const x0=Math.min(a.x,b.x), x1=Math.max(a.x,b.x), y0=Math.min(a.y,b.y), y1=Math.max(a.y,b.y), out=[]; for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) out.push([x,y]); return out; }
   circleCells(c,e){ const r=Math.hypot(e.x-c.x,e.y-c.y), R=Math.ceil(r), out=[]; for(let y=-R;y<=R;y++) for(let x=-R;x<=R;x++) if(x*x+y*y<=r*r+0.25) out.push([c.x+x,c.y+y]); return out; }
   paintDown(wx,wy){
+    if(this.state.heightPaint){ this.sculptDown(wx,wy); return; }
     if(this.state.shadowPaint){ this.shadowDown(wx,wy); return; }
     const x=Math.floor(wx), y=Math.floor(wy), t=this.paint.tool;
     if(t==='pick'){ this.paintPick(x,y); return; }
@@ -1228,13 +1273,14 @@ class Component extends DCLogic {
     else { this.paintShape={tool:t,a:{x,y},b:{x,y}}; this.draw(); }
   }
   paintMove(wx,wy){
+    if(this.state.heightPaint){ this.sculptMove(wx,wy); return; }
     if(this.state.shadowPaint){ this.shadowMove(wx,wy); return; }
     const s=this._stroke; if(!s) return; const x=Math.floor(wx), y=Math.floor(wy);
     if(this.paint.tool==='brush'){ if(x===s.last.x&&y===s.last.y) return; const seen=new Set(), cells=[]; for(const p of this.lineCells(s.last.x,s.last.y,x,y)) for(const q of this.tipCells(p[0],p[1])){ const k=q[0]+','+q[1]; if(!seen.has(k)){ seen.add(k); cells.push(q); } } s.last={x,y}; this.queuePaint(cells,b=>this.paintValue(b)); }
     else if(this.paintShape){ this.paintShape.b={x,y}; this.draw(); }
   }
   paintUp(){
-    const s=this._stroke; if(!s) return; const sh=this.paintShape; this.paintShape=null;
+    const s=this._stroke; if(!s) return; if(s.kind==='height') this.sculptEnd(); const sh=this.paintShape; this.paintShape=null;
     if(sh) this.queuePaint(sh.tool==='circle'?this.circleCells(sh.a,sh.b):this.rectCells(sh.a,sh.b),b=>this.paintValue(b));
     this._paintChain=this._paintChain.then(()=>this.paintCommit(s)); this.draw(); return this._paintChain;
   }
@@ -1243,6 +1289,7 @@ class Component extends DCLogic {
   // stroke finished: write the touched sectors back as attr.atr files and refresh their bitmaps
   async paintCommit(s){
     if(this._stroke===s) this._stroke=null; if(!s.touched.size){ if(s.undo&&!s.undo.scopes.length){ const i=this.undoStack.indexOf(s.undo); if(i>=0) this.undoStack.splice(i,1); } return; }
+    if(s.kind==='height'){ this.heightWrite([...s.touched]); this.setState({statusText:(s.label||'sculpted')+' '+s.changed.toLocaleString('en-US')+' vert'+(s.changed===1?'ex':'ices')+' in '+s.touched.size+' sector'+(s.touched.size===1?'':'s')+' · height.raw updated'}); await this.heightBitmaps([...s.touched]); this.draw(); return; }
     if(s.kind==='shadow'){ this.shadowWrite([...s.touched]); this.setState({statusText:(s.label||'shaded')+' '+s.changed.toLocaleString('en-US')+' cell'+(s.changed===1?'':'s')+' in '+s.touched.size+' sector'+(s.touched.size===1?'':'s')+' · shadowmap.raw and .dds updated'}); await this.shadowBitmaps([...s.touched]); this.draw(); return; }
     this.attrWrite([...s.touched]); this.setState({attrStale:true,statusText:(s.label||'painted')+' '+s.changed.toLocaleString('en-US')+' cell'+(s.changed===1?'':'s')+' in '+s.touched.size+' sector'+(s.touched.size===1?'':'s')+' · server_attr needs regenerating'});
     await this.attrRebuildBitmaps([...s.touched]); this.draw();
@@ -1256,8 +1303,9 @@ class Component extends DCLogic {
       if(this.cache['attribute:'+c]||this.state.layer==='attribute'){ const img=new ImageData(256,256); for(let i=0;i<65536;i++){ const col=this.attrColor(a[i]), o=i*4; img.data[o]=col[0]; img.data[o+1]=col[1]; img.data[o+2]=col[2]; img.data[o+3]=255; } this.cache['attribute:'+c]=await createImageBitmap(img); } }
   }
   // live feedback while the mouse is still down: redraw the overlay of the sectors changed since the last frame
-  paintRefresh(){ const s=this._stroke; if(!s||this._paintRaf) return; const go=async()=>{ this._paintRaf=0; const d=[...s.dirty]; s.dirty.clear(); if(s.kind==='shadow') await this.shadowBitmaps(d); else await this.attrRebuildBitmaps(d); this.draw(); }; this._paintRaf=(typeof requestAnimationFrame!=='undefined')?requestAnimationFrame(go):setTimeout(go,16); }
+  paintRefresh(){ const s=this._stroke; if(!s||this._paintRaf) return; const go=async()=>{ this._paintRaf=0; const d=[...s.dirty]; s.dirty.clear(); if(s.kind==='height') await this.heightBitmaps(d); else if(s.kind==='shadow') await this.shadowBitmaps(d); else await this.attrRebuildBitmaps(d); this.draw(); }; this._paintRaf=(typeof requestAnimationFrame!=='undefined')?requestAnimationFrame(go):setTimeout(go,16); }
   drawPaint(ctx){
+    if(this.state.heightPaint){ const h=this.paintHover, p=this.sculptPos; if(!h||!h.inside||!p) return; const z=this.zoom, low=this.sculpt.mode==='lower'; ctx.save(); ctx.lineWidth=1.5/z; ctx.strokeStyle=low?'#ffffff':'#f3d98a'; if(low) ctx.setLineDash([4/z,3/z]); ctx.beginPath(); ctx.arc(p.x,p.y,Math.max(1,this.sculpt.size/2),0,6.2832); ctx.stroke(); ctx.restore(); return; }
     if(this.state.shadowPaint){ const h=this.paintHover; if(!h||!h.inside) return; const z=this.zoom, n=Math.max(1,this.shade.size|0), x0=h.x-Math.floor((n-1)/2), y0=h.y-Math.floor((n-1)/2); ctx.save(); ctx.lineWidth=1.5/z; ctx.strokeStyle=this.shade.mode==='light'?'#ffffff':'#f3d98a'; if(this.shade.mode==='light') ctx.setLineDash([4/z,3/z]);
       if(this.shade.tip==='round'&&n>2){ ctx.beginPath(); ctx.arc(x0+n/2,y0+n/2,n/2,0,6.2832); ctx.stroke(); } else ctx.strokeRect(x0,y0,n,n); ctx.restore(); return; }
     if(!this.state.paint) return; const z=this.zoom, F=ATTR_FLAGS.find(f=>this.paint.mask&f.bit), col=F?F.col:[232,207,143], erase=this.paint.mode==='clear';
@@ -1345,7 +1393,7 @@ class Component extends DCLogic {
   shadowEdit={}; shade={mode:'dark',level:45,size:12,tip:'round',soft:true,x:14,y:58};
   openShadowPaint(){
     if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
-    if(this.state.shadowPaint) return; if(this.state.paint) this.closePaint();
+    if(this.state.shadowPaint) return; if(this.state.paint) this.closePaint(); if(this.state.heightPaint) this.closeHeightPaint();
     this._shBefore=this.state.shadowHl; this.rulerPts=[]; this.rulerLive=null;
     this.setState({shadowPaint:true,shadowHl:true,ruler:false,menu:'',statusText:'shadow paint on — left-drag paints · right-drag moves the map · wheel zooms · Esc closes'});
     this.ensureShadowHl(this.jobId).then(()=>this.draw());
@@ -1390,6 +1438,171 @@ class Component extends DCLogic {
     return false;
   }
   startShadeDrag(e){ if(e.button!==0) return; e.preventDefault(); const sx=e.clientX, sy=e.clientY, px=this.shade.x, py=this.shade.y; const move=ev=>{ this.shadeSet({x:Math.max(0,px+ev.clientX-sx),y:Math.max(0,py+ev.clientY-sy)}); }; const up=()=>{ window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); }
+
+  // ================= sculpt height (experiment) =================
+  // height.raw is a 131 × 131 grid of uint16 per sector: vertices every 2 m, vertex 1..129 span the sector's 256 m and vertex 0 / 130
+  // are copies of the neighbours' vertices, so that the client can shade across the seam. A vertex near a sector edge therefore lives
+  // in up to four files, and every one of them must get the same value or the terrain cracks. The sculpt tool works on "global
+  // vertices" (gx, gy = metres / 2) and writes each changed vertex into every sector that holds a copy of it.
+  // Two aids make the top-down edit readable as 3D: a hillshade overlay ("Highlight relief") and a small WebGL preview window that
+  // shows the 3 × 3 sectors around the cursor, live. The preview is view-only; all editing happens on the 2D map.
+  heightEdit={}; sculpt={mode:'raise',strength:30,size:24,soft:true,view3d:true,x:14,y:58}; sculptPos=null;
+  pv={x:300,y:58,w:380,h:280,yaw:-0.5,pitch:0.85,dist:230};
+  openHeightPaint(){
+    if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
+    if(this.state.heightPaint) return; if(this.state.paint) this.closePaint(); if(this.state.shadowPaint) this.closeShadowPaint();
+    this._rlBefore=this.state.reliefHl; this.rulerPts=[]; this.rulerLive=null;
+    this.setState({heightPaint:true,reliefHl:true,ruler:false,menu:'',statusText:'sculpt on — left-drag sculpts (hold to keep going) · right-drag moves the map · wheel zooms · Esc closes'});
+    this.ensureReliefHl(this.jobId).then(()=>this.draw());
+  }
+  closeHeightPaint(){ if(!this.state.heightPaint) return; this.sculptEnd(); this.paintHover=null; this.sculptPos=null; this.pv3Free(); this.setState({heightPaint:false,reliefHl:!!this._rlBefore,statusText:'sculpt off'}); if(this.canvas) this.canvas.style.cursor=''; this.draw(); }
+  sculptSet(patch){ Object.assign(this.sculpt,patch); if('view3d' in patch&&!patch.view3d) this.pv3Free(); this.setState({paintRev:(this.state.paintRev||0)+1}); this.draw(); this.pv3Queue(); }
+  toggleReliefHl(){ const nv=!this.state.reliefHl; this.setState({reliefHl:nv}); if(nv) this.ensureReliefHl(this.jobId).then(()=>this.draw()); else this.draw(); }
+  // metres per raw height unit (world Z = raw × HeightScale, in cm)
+  heightScaleM(){ const v=parseFloat(this.setting&&this.setting.heightScale); return (v>0?v:0.5)/100; }
+  async heightVerts(coord){
+    if(this.heightEdit[coord]) return this.heightEdit[coord]; if(!this.sectorList.includes(coord)) return null;
+    const f=this.getFile(coord+'/height.raw'); if(!f) return null; const b=await f.arrayBuffer(); if(b.byteLength!==131*131*2) return null;
+    return (this.heightEdit[coord]=new Uint16Array(b.slice(0)));
+  }
+  // every [sector, index] that holds global vertex (gx, gy); the sector that owns it (vertex 1..128) comes first
+  vHolders(gx,gy){
+    const out=[], sx0=Math.floor(gx/128), sy0=Math.floor(gy/128);
+    for(const sy of [sy0,sy0-1,sy0+1]){ const r=gy-128*sy+1; if(sy<0||r<0||r>130) continue;
+      for(const sx of [sx0,sx0-1,sx0+1]){ const c=gx-128*sx+1; if(sx<0||c<0||c>130) continue; out.push([this.pad3(sx)+this.pad3(sy),r*131+c]); } }
+    return out;
+  }
+  readV(gx,gy){ for(const h of this.vHolders(gx,gy)){ const a=this.heightEdit[h[0]]; if(a) return a[h[1]]; } return null; }
+  // brush: global vertices within the radius, with a weight (cosine falloff for a soft brush)
+  sculptTip(wx,wy){
+    const R=Math.max(1,this.sculpt.size/2), vx=wx/2, vy=wy/2, vr=R/2, out=[];
+    for(let gy=Math.ceil(vy-vr);gy<=Math.floor(vy+vr);gy++) for(let gx=Math.ceil(vx-vr);gx<=Math.floor(vx+vr);gx++){ if(gx<0||gy<0) continue; const d=Math.hypot(gx-vx,gy-vy)/vr; if(d>1) continue; out.push([gx,gy,this.sculpt.soft?0.5*(1+Math.cos(Math.PI*d)):1]); }
+    if(!out.length){ const gx=Math.round(vx), gy=Math.round(vy); if(gx>=0&&gy>=0) out.push([gx,gy,1]); }
+    return out;
+  }
+  sculptDown(wx,wy){
+    const m=this.sculpt.mode; this._stroke={kind:'height',mode:m,touched:new Set(),dirty:new Set(),changed:0,undo:null,pos:{x:wx,y:wy},path:[[wx,wy]],target:null,busy:0,label:m==='raise'?'raised':m==='lower'?'lowered':m==='smooth'?'smoothed':'flattened'};
+    this.sculptPos={x:wx,y:wy}; this.sculptTick();
+    if(typeof setInterval!=='undefined'){ clearInterval(this._sculptT); this._sculptT=setInterval(()=>this.sculptTick(),40); }
+  }
+  sculptMove(wx,wy){ const s=this._stroke; if(!s||s.kind!=='height') return; s.path.push([wx,wy]); s.pos={x:wx,y:wy}; }
+  // one application of the brush along the path walked since the last one (or on the spot while the mouse is held still)
+  sculptTick(){
+    const s=this._stroke; if(!s||s.kind!=='height'||s.busy>2) return; const pts=[[s.from?s.from.x:s.pos.x,s.from?s.from.y:s.pos.y],...s.path]; s.path=[]; s.from={x:s.pos.x,y:s.pos.y};
+    const best=new Map(); for(let i=pts.length>1?1:0;i<pts.length;i++){ const a=pts[Math.max(0,i-1)], b=pts[i], n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/2)); for(let k=1;k<=n;k++){ const t=k/n; for(const q of this.sculptTip(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t)){ const key=q[0]+','+q[1], old=best.get(key); if(!old||q[2]>old[2]) best.set(key,q); } } }
+    s.busy++; this._paintChain=this._paintChain.then(()=>this.heightApply(s,[...best.values()])).catch(e=>console.error(e)).then(()=>{ s.busy--; });
+  }
+  sculptEnd(){ if(typeof clearInterval!=='undefined') clearInterval(this._sculptT); this._sculptT=0; const s=this._stroke; if(s&&s.kind==='height'&&s.path.length){ s.busy=0; this.sculptTick(); } }
+  async heightApply(s,verts){
+    const need=new Set(); for(const v of verts) for(const h of this.vHolders(v[0],v[1])) need.add(h[0]); for(const c of need) await this.heightVerts(c);
+    const k=this.sculpt.strength, upd=[];
+    if(s.mode==='flatten'&&s.target==null&&verts.length){ let bv=verts[0]; for(const v of verts) if(v[2]>bv[2]) bv=v; s.target=this.readV(bv[0],bv[1]); }
+    for(const v of verts){
+      const old=this.readV(v[0],v[1]); if(old==null) continue; let nv=old;
+      if(s.mode==='raise') nv=old+k*0.5*v[2]; else if(s.mode==='lower') nv=old-k*0.5*v[2];
+      else if(s.mode==='flatten'){ if(s.target!=null) nv=old+(s.target-old)*v[2]*k/100; }
+      else { let sum=0, n=0; for(let j=-1;j<=1;j++) for(let i=-1;i<=1;i++){ const q=this.readV(v[0]+i,v[1]+j); if(q!=null){ sum+=q; n++; } } nv=old+(sum/n-old)*v[2]*k/100; }
+      nv=Math.max(0,Math.min(65535,Math.round(nv))); if(nv!==old) upd.push([v[0],v[1],nv]);
+    }
+    for(const u of upd){ let hit=false; for(const h of this.vHolders(u[0],u[1])){ const a=this.heightEdit[h[0]]; if(!a) continue;
+        if(!s.touched.has(h[0])){ if(!s.undo){ this.pushUndo('sculpt height',[]); s.undo=this.undoStack[this.undoStack.length-1]; } s.undo.scopes.push({kind:'height',key:h[0],data:a.slice()}); s.touched.add(h[0]); }
+        a[h[1]]=u[2]; s.dirty.add(h[0]); hit=true; } if(hit) s.changed++; }
+    if(upd.length) this.paintRefresh();
+  }
+  heightWrite(coords){ for(const c of coords){ const a=this.heightEdit[c]; if(a) this.files[(c+'/height.raw').toLowerCase()]=new File([a.slice()],'height.raw'); } }
+  // hillshade of one sector as a transparent overlay: light from the north-west, white on the lit slopes, black on the others
+  reliefImage(H){
+    const k=this.heightScaleM()/4, sh=new Float32Array(131*131), L=[-0.5298,-0.5298,0.6623], flat=L[2];
+    for(let r=1;r<130;r++) for(let c=1;c<130;c++){ const dx=(H[r*131+c+1]-H[r*131+c-1])*k, dy=(H[(r+1)*131+c]-H[(r-1)*131+c])*k; sh[r*131+c]=(-dx*L[0]-dy*L[1]+L[2])/Math.sqrt(dx*dx+dy*dy+1)-flat; }
+    const img=new ImageData(256,256), d=img.data;
+    for(let y=0;y<256;y++){ const fy=(y+0.5)/2+1, r0=Math.floor(fy), ty=fy-r0; for(let x=0;x<256;x++){ const fx=(x+0.5)/2+1, c0=Math.floor(fx), tx=fx-c0, i=r0*131+c0;
+        const v=(sh[i]*(1-tx)+sh[i+1]*tx)*(1-ty)+(sh[i+131]*(1-tx)+sh[i+132]*tx)*ty, o=(y*256+x)*4;
+        if(v>0){ d[o]=255; d[o+1]=250; d[o+2]=235; d[o+3]=Math.min(150,v*420); } else d[o+3]=Math.min(190,-v*420); } }
+    return img;
+  }
+  async heightBitmaps(coords){
+    for(const c of coords){ if(this._pvDirty) this._pvDirty.add(c); } this.pv3Queue();
+    if(typeof createImageBitmap==='undefined'||typeof ImageData==='undefined') return;
+    for(const c of coords){ const H=this.heightEdit[c]; if(!H) continue; this.cache['hs:'+c]=await createImageBitmap(this.reliefImage(H));
+      if(this.cache['height:'+c]||this.state.layer==='height'){ const img=new ImageData(256,256); for(let y=0;y<256;y++) for(let x=0;x<256;x++){ const g=H[((y>>1)+1)*131+((x>>1)+1)]>>8, o=(y*256+x)*4; img.data[o]=g; img.data[o+1]=g; img.data[o+2]=g; img.data[o+3]=255; } this.cache['height:'+c]=await createImageBitmap(img); } }
+  }
+  async ensureReliefHl(job){
+    if(typeof createImageBitmap==='undefined'||typeof ImageData==='undefined') return;
+    for(const c of this.sectorList){ const key='hs:'+c; if(this.cache[key]) continue; const H=await this.heightVerts(c); if(job!==this.jobId) return; if(!H) continue; this.cache[key]=await createImageBitmap(this.reliefImage(H)); if(job!==this.jobId) return; }
+  }
+  sculptKey(e){
+    if(!this.state.heightPaint||this.state.confirm||this.state.menu||e.ctrlKey||e.metaKey||e.altKey||/^(INPUT|SELECT|TEXTAREA)$/.test((e.target&&e.target.tagName)||'')) return false; const k=e.key, S=this.sculpt;
+    if(k==='Escape'){ this.closeHeightPaint(); return true; }
+    if(k==='x'||k==='X'){ this.sculptSet({mode:S.mode==='raise'?'lower':'raise'}); return true; }
+    if(k==='['||k===']'){ this.sculptSet({size:Math.min(128,Math.max(2,S.size+(k===']'?2:-2)*(e.shiftKey?8:1)))}); return true; }
+    if(k==='-'||k==='='||k==='+'){ this.sculptSet({strength:Math.min(100,Math.max(1,S.strength+(k==='-'?-5:5)))}); return true; }
+    return false;
+  }
+  startSculptDrag(e){ this.boxDrag(e,this.sculpt,()=>this.sculptSet({})); }
+  startPv3Drag(e){ this.boxDrag(e,this.pv,()=>this.sculptSet({})); }
+  boxDrag(e,box,changed){ if(e.button!==0) return; e.preventDefault(); const sx=e.clientX, sy=e.clientY, px=box.x, py=box.y; const move=ev=>{ box.x=Math.max(0,px+ev.clientX-sx); box.y=Math.max(0,py+ev.clientY-sy); changed(); }; const up=()=>{ window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); }
+
+  // ----- 3D preview (WebGL, view-only) -----
+  // vertex data of one sector, sector-local metres: x east, y up, z south. 8 floats per vertex: position, normal, uv.
+  sectorMesh(H){
+    const m=this.heightScaleM(), out=new Float32Array(129*129*8); let o=0;
+    for(let r=1;r<=129;r++) for(let c=1;c<=129;c++){ const i=r*131+c, dx=(H[i+1]-H[i-1])*m/4, dz=(H[i+131]-H[i-131])*m/4, l=Math.sqrt(dx*dx+dz*dz+1);
+      out[o++]=(c-1)*2; out[o++]=H[i]*m; out[o++]=(r-1)*2; out[o++]=-dx/l; out[o++]=1/l; out[o++]=-dz/l; out[o++]=(c-1)/128; out[o++]=(r-1)/128; }
+    return out;
+  }
+  // ground height in metres at a map position, from the sectors already loaded (null when unknown)
+  groundM(wx,wy){ const vx=wx/2, vy=wy/2, x0=Math.floor(vx), y0=Math.floor(vy), tx=vx-x0, ty=vy-y0, a=this.readV(x0,y0), b=this.readV(x0+1,y0), c=this.readV(x0,y0+1), d=this.readV(x0+1,y0+1); if(a==null||b==null||c==null||d==null) return null; return ((a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty)*this.heightScaleM(); }
+  pv3Ref=el=>{ if(!el||el===this._pvCv) return; this.pv3Free(); this._pvCv=el; this.pv3Init(el); };
+  pv3Free(){ const p=this._pv; this._pv=null; this._pvCv=null; this._pvDirty=null; if(p&&p.gl){ try{ const x=p.gl.getExtension('WEBGL_lose_context'); if(x) x.loseContext(); }catch(e){} } }
+  pv3Init(el){
+    const dpr=Math.min(2,(typeof window!=='undefined'&&window.devicePixelRatio)||1); el.width=Math.round(this.pv.w*dpr); el.height=Math.round(this.pv.h*dpr);
+    let gl=null; try{ gl=el.getContext('webgl',{antialias:true})||el.getContext('experimental-webgl'); }catch(e){}
+    if(!gl){ this.setState({statusText:'3D preview needs WebGL, which this browser did not provide — the 2D relief still works'}); return; }
+    const VS='attribute vec3 aPos;attribute vec3 aNrm;attribute vec2 aUv;uniform mat4 uMVP;uniform vec3 uOff;varying vec3 vN;varying vec2 vUv;varying vec2 vW;void main(){vec3 p=aPos+uOff;vN=aNrm;vUv=aUv;vW=p.xz;gl_Position=uMVP*vec4(p,1.0);}';
+    const FS='precision mediump float;uniform sampler2D uTex;uniform vec3 uL;uniform vec3 uBrush;varying vec3 vN;varying vec2 vUv;varying vec2 vW;void main(){vec3 c=texture2D(uTex,vUv).rgb;c*=0.42+0.78*max(dot(normalize(vN),uL),0.0);float r=distance(vW,uBrush.xy);float ring=1.0-smoothstep(0.0,0.9,abs(r-uBrush.z));c=mix(c,vec3(0.95,0.85,0.54),ring*0.85*step(0.5,uBrush.z));gl_FragColor=vec4(c,1.0);}';
+    const sh=(t,src)=>{ const s=gl.createShader(t); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    let prog; try{ prog=gl.createProgram(); gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS)); gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS)); gl.linkProgram(prog); if(!gl.getProgramParameter(prog,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog)); }catch(e){ console.error(e); this.setState({statusText:'3D preview: shader failed — '+e.message}); return; }
+    const idx=new Uint16Array(128*128*6); let o=0; for(let r=0;r<128;r++) for(let c=0;c<128;c++){ const a=r*129+c; idx[o++]=a; idx[o++]=a+129; idx[o++]=a+1; idx[o++]=a+1; idx[o++]=a+129; idx[o++]=a+130; }
+    const ibo=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,idx,gl.STATIC_DRAW);
+    const blank=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,blank); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([150,138,104,255]));
+    const loc={}; for(const n of ['uMVP','uOff','uTex','uL','uBrush']) loc[n]=gl.getUniformLocation(prog,n); for(const n of ['aPos','aNrm','aUv']) loc[n]=gl.getAttribLocation(prog,n);
+    this._pv={gl,prog,loc,ibo,blank,meshes:new Map(),loading:new Set()}; this._pvDirty=new Set();
+    el.addEventListener('contextmenu',e=>e.preventDefault());
+    el.addEventListener('wheel',e=>{ e.preventDefault(); e.stopPropagation(); this.pv.dist=Math.min(900,Math.max(25,this.pv.dist*(e.deltaY<0?1/1.12:1.12))); this.pv3Queue(); },{passive:false});
+    el.addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation(); const sx=e.clientX, sy=e.clientY, y0=this.pv.yaw, p0=this.pv.pitch; const move=ev=>{ this.pv.yaw=y0-(ev.clientX-sx)*0.008; this.pv.pitch=Math.min(1.5,Math.max(0.12,p0+(ev.clientY-sy)*0.006)); this.pv3Queue(); }; const up=()=>{ window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); });
+    this.pv3Queue();
+  }
+  pv3Queue(){ if(!this._pv||this._pvRaf||typeof requestAnimationFrame==='undefined') return; this._pvRaf=requestAnimationFrame(()=>{ this._pvRaf=0; try{ this.pv3Render(); }catch(e){ console.error(e); } }); }
+  async pv3Load(c){
+    const p=this._pv; if(!p||p.loading.has(c)||p.meshes.has(c)) return; p.loading.add(c);
+    try{ const H=await this.heightVerts(c); let bmp=this.cache['minimap:'+c]; if(H&&!bmp){ try{ bmp=await this.buildSector('minimap',c); if(bmp) this.cache['minimap:'+c]=bmp; }catch(e){} }
+      if(this._pv!==p) return; const gl=p.gl; if(!H){ p.meshes.set(c,null); return; }
+      const vbo=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vbo); gl.bufferData(gl.ARRAY_BUFFER,this.sectorMesh(H),gl.DYNAMIC_DRAW);
+      let tex=null; if(bmp){ tex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,tex); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,bmp); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE); }
+      p.meshes.set(c,{vbo,tex}); if(this._pvDirty) this._pvDirty.delete(c);
+    } finally { p.loading.delete(c); this.pv3Queue(); }
+  }
+  pv3Render(){
+    const p=this._pv; if(!p||!this.state.heightPaint) return; const gl=p.gl, cv=this._pvCv, b=this.bounds;
+    const at=this.sculptPos||{x:(b.minx+b.maxx+1)*TILE/2,y:(b.miny+b.maxy+1)*TILE/2}, sx=Math.floor(at.x/TILE), sy=Math.floor(at.y/TILE), want=[];
+    for(let j=-1;j<=1;j++) for(let i=-1;i<=1;i++){ if(sx+i<0||sy+j<0) continue; const c=this.pad3(sx+i)+this.pad3(sy+j); if(this.sectorList.includes(c)) want.push(c); }
+    for(const c of want) if(!p.meshes.has(c)) this.pv3Load(c);
+    for(const c of [...this._pvDirty]){ const m=p.meshes.get(c); if(m&&this.heightEdit[c]){ gl.bindBuffer(gl.ARRAY_BUFFER,m.vbo); gl.bufferData(gl.ARRAY_BUFFER,this.sectorMesh(this.heightEdit[c]),gl.DYNAMIC_DRAW); } this._pvDirty.delete(c); }
+    const g=this.groundM(at.x,at.y); if(g!=null) this._pvGround=g; const ty=this._pvGround||0;
+    const V=this.pv, cp=Math.cos(V.pitch), eye=[V.dist*cp*Math.sin(V.yaw),V.dist*Math.sin(V.pitch),V.dist*cp*Math.cos(V.yaw)];
+    const mvp=this.mat4Mul(this.mat4Persp(0.8,cv.width/cv.height,1,6000),this.mat4Look(eye));
+    gl.viewport(0,0,cv.width,cv.height); gl.clearColor(0.07,0.05,0.03,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+    gl.useProgram(p.prog); gl.uniformMatrix4fv(p.loc.uMVP,false,mvp); gl.uniform3f(p.loc.uL,-0.5298,0.6623,-0.5298); gl.uniform3f(p.loc.uBrush,0,0,this.sculptPos?this.sculpt.size/2:0); gl.uniform1i(p.loc.uTex,0); gl.activeTexture(gl.TEXTURE0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,p.ibo);
+    for(const c of want){ const m=p.meshes.get(c); if(!m) continue; gl.bindBuffer(gl.ARRAY_BUFFER,m.vbo);
+      gl.enableVertexAttribArray(p.loc.aPos); gl.vertexAttribPointer(p.loc.aPos,3,gl.FLOAT,false,32,0); gl.enableVertexAttribArray(p.loc.aNrm); gl.vertexAttribPointer(p.loc.aNrm,3,gl.FLOAT,false,32,12); gl.enableVertexAttribArray(p.loc.aUv); gl.vertexAttribPointer(p.loc.aUv,2,gl.FLOAT,false,32,24);
+      gl.bindTexture(gl.TEXTURE_2D,m.tex||p.blank); gl.uniform3f(p.loc.uOff,(+c.slice(0,3))*TILE-at.x,-ty,(+c.slice(3,6))*TILE-at.y); gl.drawElements(gl.TRIANGLES,128*128*6,gl.UNSIGNED_SHORT,0); }
+    if(p.meshes.size>24) for(const [c,m] of [...p.meshes]) if(!want.includes(c)){ if(m){ gl.deleteBuffer(m.vbo); if(m.tex) gl.deleteTexture(m.tex); } p.meshes.delete(c); }
+  }
+  // column-major 4 × 4 helpers; the camera looks at the origin because everything is drawn relative to the cursor
+  mat4Persp(fov,asp,n,f){ const t=1/Math.tan(fov/2); return [t/asp,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0]; }
+  mat4Look(e){ const l=Math.hypot(e[0],e[1],e[2]), z=[e[0]/l,e[1]/l,e[2]/l], xl=Math.hypot(z[2],z[0])||1, x=[z[2]/xl,0,-z[0]/xl], y=[z[1]*x[2]-z[2]*x[1],z[2]*x[0]-z[0]*x[2],z[0]*x[1]-z[1]*x[0]]; const d=v=>-(v[0]*e[0]+v[1]*e[1]+v[2]*e[2]); return [x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0, d(x),d(y),d(z),1]; }
+  mat4Mul(a,b){ const o=new Float32Array(16); for(let c=0;c<4;c++) for(let r=0;r<4;r++){ let s=0; for(let k=0;k<4;k++) s+=a[k*4+r]*b[c*4+k]; o[c*4+r]=s; } return o; }
 
   // ================= ruler =================
   // Tools › Ruler (off by default). While it is on, a left click drops a point instead of placing / selecting: first click = start,
@@ -1453,7 +1666,8 @@ class Component extends DCLogic {
   undoStack=[]; redoStack=[];
   scopeRegen(){ return [{kind:'regen',key:this.state.regenTab}]; }
   scopeArea(...sectors){ return (sectors.length?sectors:[this.state.oSector]).map(key=>({kind:'area',key})); }
-  snapScope(sc){ if(sc.kind==='shadow') return {kind:'shadow',key:sc.key,data:this.shadowEdit[sc.key]?new Uint8Array(this.shadowEdit[sc.key]):null};
+  snapScope(sc){ if(sc.kind==='height') return {kind:'height',key:sc.key,data:this.heightEdit[sc.key]?this.heightEdit[sc.key].slice():null};
+    if(sc.kind==='shadow') return {kind:'shadow',key:sc.key,data:this.shadowEdit[sc.key]?new Uint8Array(this.shadowEdit[sc.key]):null};
     if(sc.kind==='attr') return {kind:'attr',key:sc.key,data:this.attrEdit[sc.key]?new Uint8Array(this.attrEdit[sc.key]):null};
     return sc.kind==='regen' ? {kind:'regen',key:sc.key,data:(this.regen[sc.key]||[]).map(r=>({...r}))} : {kind:'area',key:sc.key,data:(this.areadata[sc.key]||[]).map(o=>({...o,portals:[...(o.portals||[])]}))}; }
   snapView(){ return {mainTab:this.state.mainTab,regenTab:this.state.regenTab,oSector:this.state.oSector,selRow:this.selRow,selObj:this.selObj}; }
@@ -1473,10 +1687,11 @@ class Component extends DCLogic {
     if(this.state.empty||this.state.confirm) return;
     const e=from.pop(); if(!e){ this.setState({statusText:'nothing to '+verb}); return; }
     to.push({label:e.label,t:0,coalesce:null,view:this.snapView(),scopes:e.scopes.map(sc=>this.snapScope(sc))});
-    const attrs=[], shs=[]; for(const sc of e.scopes){ if(sc.kind==='shadow'){ if(sc.data){ this.shadowEdit[sc.key]=sc.data; shs.push(sc.key); } } else if(sc.kind==='attr'){ if(sc.data){ this.attrEdit[sc.key]=sc.data; attrs.push(sc.key); } } else if(sc.kind==='regen') this.regen[sc.key]=sc.data; else this.areadata[sc.key]=sc.data; }
+    const attrs=[], shs=[], hts=[]; for(const sc of e.scopes){ if(sc.kind==='height'){ if(sc.data){ this.heightEdit[sc.key]=sc.data; hts.push(sc.key); } } else if(sc.kind==='shadow'){ if(sc.data){ this.shadowEdit[sc.key]=sc.data; shs.push(sc.key); } } else if(sc.kind==='attr'){ if(sc.data){ this.attrEdit[sc.key]=sc.data; attrs.push(sc.key); } } else if(sc.kind==='regen') this.regen[sc.key]=sc.data; else this.areadata[sc.key]=sc.data; }
+    if(hts.length){ this.heightWrite(hts); this.heightBitmaps(hts).then(()=>this.draw()); }
     if(shs.length){ this.shadowWrite(shs); this.shadowBitmaps(shs).then(()=>this.draw()); }
     if(attrs.length){ this.attrWrite(attrs); this.setState({attrStale:true}); this.attrRebuildBitmaps(attrs).then(()=>this.draw()); }
-    const onlyAttr=e.scopes.length>0&&e.scopes.every(sc=>sc.kind==='attr'||sc.kind==='shadow'); const v=onlyAttr?this.snapView():e.view; this.selRow=v.selRow; this.selObj=v.selObj; this.selSet.clear(); this.selObjSet.clear();
+    const onlyAttr=e.scopes.length>0&&e.scopes.every(sc=>sc.kind==='attr'||sc.kind==='shadow'||sc.kind==='height'); const v=onlyAttr?this.snapView():e.view; this.selRow=v.selRow; this.selObj=v.selObj; this.selSet.clear(); this.selObjSet.clear();
     this.setState({mainTab:v.mainTab,regenTab:v.regenTab,oSector:v.oSector,statusText:verb+': '+e.label});
     this.reselect(); setTimeout(()=>this.reselect(),0);   // again once a panel that was just switched to has mounted its fields
   }
@@ -1603,7 +1818,7 @@ class Component extends DCLogic {
   getFile(path){ return this.files[path.toLowerCase()]; }
 
   async loadFiles(map, folderName) {
-    this.attrEdit={}; this.shadowEdit={}; this._paintTs=null; this._paintTsFile=null; this._stroke=null;
+    this.attrEdit={}; this.shadowEdit={}; this.heightEdit={}; this.pv3Free(); this._paintTs=null; this._paintTsFile=null; this._stroke=null;
     this._folderName = folderName || null;
     let prefix = '';
     for (const k of Object.keys(map)) { const m = k.match(/(^|.*\/)(\d{6})\/[^/]+$/); if (m) { prefix = m[1]; break; } }
@@ -1920,7 +2135,7 @@ class Component extends DCLogic {
       if(layer==='shadow'){ const g=new Uint8Array(65536); for(let i=0;i<65536;i++) g[i]=id.data[i*4]; this.shadowEdit[c]=g; this.shadowWrite([c]); delete this.cache['shadow:'+c]; delete this.cache['sh:'+c]; n++; continue; }
       const {name,buf}=this.encodeLayer(layer,c,id); if(!buf) continue;
       this.files[(c+'/'+name).toLowerCase()]=new File([buf],name);
-      delete this.cache[layer+':'+c]; if(layer==='attribute'){ delete this.cache['hl:'+c]; delete this.attrEdit[c]; }
+      delete this.cache[layer+':'+c]; if(layer==='height'){ delete this.heightEdit[c]; delete this.cache['hs:'+c]; } if(layer==='attribute'){ delete this.cache['hl:'+c]; delete this.attrEdit[c]; }
       n++;
     }
     return n;
@@ -2747,6 +2962,7 @@ class Component extends DCLogic {
       this.draw();
     }
     if(this.state.highlight) await this.ensureHighlight(job);
+    if(this.state.reliefHl) await this.ensureReliefHl(job);
     if(this.state.shadowHl) await this.ensureShadowHl(job);
     if(job!==this.jobId) return;
     this.setState({ statusText:'ready' });
@@ -2774,6 +2990,7 @@ class Component extends DCLogic {
     ctx.setTransform(this.zoom,0,0,this.zoom,this.ox,this.oy);
     const layer=this.state.layer;
     for(const c of this.sectorList){ const bmp=this.cache[layer+':'+c]; if(!bmp) continue; const x=+c.slice(0,3),y=+c.slice(3,6); ctx.drawImage(bmp,x*TILE,y*TILE,TILE,TILE); }
+    if(this.state.reliefHl) for(const c of this.sectorList){ const bmp=this.cache['hs:'+c]; if(!bmp) continue; const x=+c.slice(0,3),y=+c.slice(3,6); ctx.drawImage(bmp,x*TILE,y*TILE,TILE,TILE); }
     if(this.state.shadowHl) for(const c of this.sectorList){ const bmp=this.cache['sh:'+c]; if(!bmp) continue; const x=+c.slice(0,3),y=+c.slice(3,6); ctx.drawImage(bmp,x*TILE,y*TILE,TILE,TILE); }
     if(this.state.highlight) for(const c of this.sectorList){ const bmp=this.cache['hl:'+c]; if(!bmp) continue; const x=+c.slice(0,3),y=+c.slice(3,6); ctx.drawImage(bmp,x*TILE,y*TILE,TILE,TILE); }
     if(this.gridOn()){
@@ -2856,7 +3073,7 @@ class Component extends DCLogic {
     this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null; this.dragObj=null; this.dragHandle=null; this.dragGroup=null; this.box=null;
     if(e.button!==0||this.state.empty) return;
     const r=this.canvas.getBoundingClientRect(); const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
-    if(this.state.paint||this.state.shadowPaint){ this.down.paint=true; this.paintDown(wx,wy); return; }   // paint on: left-drag paints; the map is moved with right / middle drag
+    if(this.state.paint||this.state.shadowPaint||this.state.heightPaint){ this.down.paint=true; this.paintDown(wx,wy); return; }   // paint on: left-drag paints; the map is moved with right / middle drag
     if(this.state.ruler){ this.down.ruler=true; return; }   // ruler on: a click measures, a drag pans, nothing is selected or placed
     const tab=this.state.mainTab, k=tab==='regen'?'row':tab==='objects'?'obj':null; if(!k) return;
     if(e.ctrlKey||e.metaKey){   // Ctrl = group selection: click toggles one item, drag from empty map draws a box (Alt = take out)
@@ -2895,7 +3112,7 @@ class Component extends DCLogic {
   onMove(e){
     if(this.state.empty){ return; }
     const r=this.canvas.getBoundingClientRect(); const inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
-    if(this.state.paint||this.state.shadowPaint){ const pwx=(e.clientX-r.left-this.ox)/this.zoom, pwy=(e.clientY-r.top-this.oy)/this.zoom; this.paintHover={x:Math.floor(pwx),y:Math.floor(pwy),inside}; if(this.down&&this.down.paint) this.paintMove(pwx,pwy); else if(!this.down){ this.canvas.style.cursor=inside?'crosshair':''; this.draw(); } }
+    if(this.state.paint||this.state.shadowPaint||this.state.heightPaint){ const pwx=(e.clientX-r.left-this.ox)/this.zoom, pwy=(e.clientY-r.top-this.oy)/this.zoom; this.paintHover={x:Math.floor(pwx),y:Math.floor(pwy),inside}; if(this.state.heightPaint&&(e.target===this.canvas||(this.down&&this.down.paint))){ this.sculptPos={x:pwx,y:pwy}; this.pv3Queue(); } if(this.down&&this.down.paint) this.paintMove(pwx,pwy); else if(!this.down){ this.canvas.style.cursor=inside?'crosshair':''; this.draw(); } }
     if(this.down && !this.down.paint){ const dx=e.clientX-this.down.x,dy=e.clientY-this.down.y; if(Math.abs(dx)+Math.abs(dy)>3) this.moved=true;
       if(this.moved){
         const wxm=(e.clientX-r.left-this.ox)/this.zoom, wym=(e.clientY-r.top-this.oy)/this.zoom;
@@ -2923,7 +3140,7 @@ class Component extends DCLogic {
         this.draw();
       }
     }
-    if(!this.down && !this.state.ruler && !this.state.paint && !this.state.shadowPaint){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
+    if(!this.down && !this.state.ruler && !this.state.paint && !this.state.shadowPaint && !this.state.heightPaint){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
       const hh=(inside && tab==='regen' && !e.shiftKey)?this.hitHandle(wx,wy):null;
       const ctrlBox=inside && (e.ctrlKey||e.metaKey) && (tab==='regen'||tab==='objects');
       this.canvas.style.cursor=hh&&!ctrlBox?hh.cur:(inside && ((tab==='regen' && !e.shiftKey && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?(ctrlBox?'pointer':'grab'):(ctrlBox?'crosshair':''); }
@@ -2934,7 +3151,7 @@ class Component extends DCLogic {
   onUp(e){
     if(!this.down) return; const wasMoved=this.moved, btn=this.down.btn, ctrlDown=!!this.down.ctrl, rulerDown=!!this.down.ruler, paintDown=!!this.down.paint; this.down=null;
     if(paintDown){ this.paintUp(); return; }
-    if(this.state.paint||this.state.shadowPaint) return;   // palette open: a click never places or selects (this was a right / middle drag)
+    if(this.state.paint||this.state.shadowPaint||this.state.heightPaint) return;   // palette open: a click never places or selects (this was a right / middle drag)
     if(rulerDown){ if(!wasMoved){ const rr=this.canvas.getBoundingClientRect(); if(e.clientX>=rr.left&&e.clientX<=rr.right&&e.clientY>=rr.top&&e.clientY<=rr.bottom) this.rulerClick((e.clientX-rr.left-this.ox)/this.zoom,(e.clientY-rr.top-this.oy)/this.zoom); } return; }
     if(this.box){ const b=this.box; this.box=null; if(wasMoved) this.boxSel(b.k,b); this.draw(); return; }
     if(this.dragGroup){ const d=this.dragGroup; this.dragGroup=null; if(wasMoved){ this.setState({statusText:this.gName(d.k,d.items.length)+' moved'}); if(d.k==='obj') this.refreshObjs(); else this.refreshRows(); } return; }
@@ -3349,6 +3566,19 @@ class Component extends DCLogic {
           shadeSwatchStyle:`flex:none;width:16px;height:16px;border-radius:3px;border:1px solid #4a3820;background:rgb(${gray},${gray},${gray})`,
           shadeSize:H.size, shadeSizeText:H.size+' m', onShadeSize:(e)=>this.shadeSet({size:Math.min(64,Math.max(1,parseInt(e.target.value)||1))}),
           shadeOpts:[['●','round tip',H.tip==='round',()=>this.shadeSet({tip:'round'})],['■','square tip',H.tip==='square',()=>this.shadeSet({tip:'square'})],['soft edge','the brush fades out towards its rim',H.soft,()=>this.shadeSet({soft:true})],['hard edge','the brush is solid to its rim',!H.soft,()=>this.shadeSet({soft:false})]].map(([label,title,act,onClick])=>({label,title,onClick,style:chip(act,label.length>1?'flex:1':'width:26px;padding:5px 0')})) }; })(),
+      ...(()=>{ const H=this.sculpt, on=st.heightPaint&&!st.empty, chip=(act,extra)=>`border:1px solid ${act?'#c9a24b':'#3a2c1a'};background:${act?'#3a2c1a':'#15100a'};color:${act?'#f3e2b0':'#a08b5f'};border-radius:5px;padding:5px 4px;font:${act?600:500} 10.5px 'IBM Plex Sans';cursor:pointer;`+(extra||'');
+        const base={ toggleReliefHl:()=>this.toggleReliefHl(), openHeightPaint:()=>on?this.closeHeightPaint():this.openHeightPaint(), sculptOpenLabel:on?'Close sculpt':'Sculpt height… (experiment)',
+          reliefHlStyle:`padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.reliefHl?'#8a7a4a':'#4a3820'};background:${st.reliefHl?'#33301f':'#241a11'};color:${st.reliefHl?'#f3e9c4':'#a08b5f'}`,
+          sculptOpenBtnStyle:`flex:1;border:1px solid ${on?'#c9a24b':'#6b501f'};background:${on?'#c9a24b':'#3a2c1a'};color:${on?'#1a1209':'#e8cf8f'};border-radius:6px;padding:9px 4px;font:600 12px 'IBM Plex Sans';cursor:pointer` };
+        if(!on) return { ...base, sculptOn:false, pv3On:false, sculptModes:[], sculptOpts:[] };
+        return { ...base, sculptOn:true, pv3On:!!H.view3d, startSculptDrag:(e)=>this.startSculptDrag(e), startPv3Drag:(e)=>this.startPv3Drag(e), closeHeightPaint:()=>this.closeHeightPaint(), closePv3:()=>this.sculptSet({view3d:false}), pv3Ref:this.pv3Ref,
+          sculptBoxStyle:`position:absolute;left:${H.x}px;top:${H.y}px;width:270px;z-index:30;border:1px solid #4a3820;border-radius:10px;background:rgba(28,20,13,.97);box-shadow:0 14px 34px rgba(0,0,0,.55)`,
+          pv3BoxStyle:`position:absolute;left:${this.pv.x}px;top:${this.pv.y}px;width:${this.pv.w}px;z-index:29;border:1px solid #4a3820;border-radius:10px;background:#120d08;box-shadow:0 14px 34px rgba(0,0,0,.55);overflow:hidden`,
+          pv3CanvasStyle:`display:block;width:${this.pv.w}px;height:${this.pv.h}px;cursor:grab`,
+          sculptModes:[['raise','Raise','Push the ground up (X swaps with Lower)'],['lower','Lower','Push the ground down'],['smooth','Smooth','Average each vertex with its neighbours'],['flatten','Flatten','Pull the ground to the height where the stroke started']].map(([k,label,title])=>({label,title,onClick:()=>this.sculptSet({mode:k}),style:chip(H.mode===k,'flex:1')})),
+          sculptStrength:H.strength, sculptStrengthText:H.strength+'%', onSculptStrength:(e)=>this.sculptSet({strength:Math.min(100,Math.max(1,parseInt(e.target.value)||1))}),
+          sculptSize:H.size, sculptSizeText:H.size+' m', onSculptSize:(e)=>this.sculptSet({size:Math.min(128,Math.max(2,parseInt(e.target.value)||2))}),
+          sculptOpts:[['soft edge','the brush fades out towards its rim',H.soft,()=>this.sculptSet({soft:true})],['hard edge','the brush is solid to its rim',!H.soft,()=>this.sculptSet({soft:false})],['3D preview','a small live 3D view of the terrain around the cursor',!!H.view3d,()=>this.sculptSet({view3d:!H.view3d})]].map(([label,title,act,onClick])=>({label,title,onClick,style:chip(act,'flex:1')})) }; })(),
       toggleAllRegens:()=>this.toggleAllRegens(), allRegensOn:st.allRegens&&!st.empty, allRegensLegend:(st.allRegens&&!st.empty)?this.allRegensLegend():[],
       highlightStyle:`margin-left:auto;padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,
       highlightNextStyle:`padding:5px 12px;border-radius:5px;cursor:pointer;font:600 11.5px 'IBM Plex Sans';border:1px solid ${st.highlight?'#b5573f':'#4a3820'};background:${st.highlight?'#3a1a14':'#241a11'};color:${st.highlight?'#f0a58c':'#c9b567'}`,

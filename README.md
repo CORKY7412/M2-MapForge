@@ -53,6 +53,16 @@ All 8 `attr.atr` bit flags are color-coded. Base layer shows the dominant flag p
 - Each stroke is one undo step. When it ends, `shadowmap.raw` (RGB555) and `shadowmap.dds` (uncompressed X8R8G8B8) are both rewritten, because the client reads both and they must agree; a sector without shadow files starts unshadowed and gets both. Export map includes them.
 - The Shadow layer and the shadow PNG import now read and write `shadowmap.raw` as RGB555 (it was treated as 16-bit gray before, which showed it at half brightness), and a shadow PNG import also writes both files.
 
+### Sculpt height (experiment)
+**Converter › Sculpt height…** opens a palette that edits `height.raw` with a brush, from the usual top-down map. Two aids make the terrain read as 3D while you do it:
+
+- **Highlight relief** (layer bar): a hillshade computed from `height.raw`, lit from the north-west, laid over whichever layer is shown. It redraws live during a stroke, works with the palette closed too, and is remembered in the workspace view settings. The palette forces it on while it is open.
+- **3D preview**: a small floating WebGL window showing the 3 × 3 sectors around the cursor with the minimap as texture, the brush drawn as a ring, updated live. Drag inside it to orbit, wheel to zoom, drag its title bar to move it; the **3D preview** chip in the palette hides it. It is view-only: all editing happens on the 2D map. True vertical scale (`raw × HeightScale`, 0.5 cm per unit by default).
+- Brushes: **Raise**, **Lower**, **Smooth** (average with the neighbours), **Flatten** (pull to the height where the stroke started). Strength 1–100 %, size 2–128 m, soft or hard edge. Hold the button to keep going: the brush is applied 25 times a second, at 100 % Raise / Lower move 0.25 m each time.
+- Left-drag sculpts, right-drag moves the map, the wheel zooms; **X** swaps Raise / Lower, **[ ]** size, **− +** strength, **Esc** closes. Only one of the three palettes is open at a time. Each stroke is one undo step.
+- Vertices sit every 2 m and the ones along a sector edge are stored in up to four `height.raw` files (each sector keeps a one-vertex copy of its neighbours). Every changed vertex is written to all of its copies, so seams do not crack.
+- Only `height.raw` is written. The minimap, baked shadows, the Water attribute and object Z are **not** refreshed. Sectors without a `height.raw` are skipped.
+
 ### Server attributes (`server_attr`)
 - **Import from server_attr** — reads the binary, LZO1X-decompresses each block, and reconstructs the per-sector `attr.atr` grids onto the Attribute layer.
 - **Generate server_attr** — builds `server_attr` from the map's `attr.atr` files (full byte preserved, 2×2 upsample, y-major, LZO1X-compressed). Downloads it and bundles it in the map ZIP.
