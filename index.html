@@ -1548,6 +1548,8 @@ class Component extends DCLogic {
     else { this.ox=r.width/2-this.v3.tx*this.zoom; this.oy=r.height/2-this.v3.ty*this.zoom; this.pv3Free(); this.paintHover=null; }
     this.setState({view3d:on,statusText:on?'3D on — left-drag '+(this.anyPaint()?'paints':'orbits')+' · middle-drag orbits · right-drag moves · wheel zooms':'3D off'}); this.draw();
   }
+  // double-click on a list row while in 3D: put the camera target on it and come closer if far away (never moves away), like the 2D focus
+  v3Focus(x,y){ this.v3.tx=x; this.v3.ty=y; this.v3.dist=Math.min(this.v3.dist,260); this.v3Clamp(); this.pv3Queue(); }
   anyPaint(){ return !!(this.state.paint||this.state.shadowPaint||this.state.heightPaint); }
   v3Clamp(){ const b=this.bounds||{minx:0,miny:0,maxx:0,maxy:0}, V=this.v3; if(V.tx==null){ V.tx=(b.minx+b.maxx+1)*TILE/2; V.ty=(b.miny+b.maxy+1)*TILE/2; } V.tx=Math.min((b.maxx+1)*TILE,Math.max(b.minx*TILE,V.tx)); V.ty=Math.min((b.maxy+1)*TILE,Math.max(b.miny*TILE,V.ty)); }
   // vertex data of one sector, sector-local metres: x east, y up, z south. 8 floats per vertex: position, normal, uv.
@@ -3319,6 +3321,7 @@ class Component extends DCLogic {
   // center on the spawn; zoom in (never out) until ~2 sectors span the view
   focusRow(i){
     const r=this.currentRows()[i], cv=this.canvas; if(!r||!cv||r.type[0]==='e'||r.type[0]==='s') return;
+    if(this.state.view3d){ this.v3Focus(r.x,r.y); return; }
     this.zoom=Math.max(this.zoom, Math.min(40, Math.min(cv.width,cv.height)/(TILE*2)));
     this.ox=cv.width/2-r.x*this.zoom; this.oy=cv.height/2-r.y*this.zoom;
     this.updateZoom(); this.draw();
@@ -3358,7 +3361,7 @@ class Component extends DCLogic {
   selectObj(i,sector,keepGroup){ if(sector && sector!==this.state.oSector){ this.selObjSet.clear(); this.setState({oSector:sector}); } this.selObj=i; if(!keepGroup){ this.selObjSet.clear(); const o=this.curObjs()[i]; if(o) this.selObjSet.add(o); } this.fillObjForm(); this.refreshObjs(); this.draw(); }
   // second click on the same row within 400ms = focus it on the map
   clickObjRow(i,e){ if(e&&(e.ctrlKey||e.metaKey)){ this.toggleSel('obj',i); return; } if(e&&e.shiftKey){ this.rangeSel('obj',i); return; } const t=Date.now(), dbl=(this._lastObjClick && this._lastObjClick.i===i && t-this._lastObjClick.t<400); this._lastObjClick=dbl?null:{i,t}; this.selectObj(i); if(dbl) this.focusObj(i); }
-  focusObj(i){ const o=this.curObjs()[i], cv=this.canvas; if(!o||!cv) return; this.zoom=Math.max(this.zoom, Math.min(40, Math.min(cv.width,cv.height)/(TILE*2))); this.ox=cv.width/2-(o.x/100)*this.zoom; this.oy=cv.height/2-(-o.y/100)*this.zoom; this.updateZoom(); this.draw(); }
+  focusObj(i){ const o=this.curObjs()[i], cv=this.canvas; if(!o||!cv) return; if(this.state.view3d){ this.v3Focus(o.x/100,(-o.y)/100); return; } this.zoom=Math.max(this.zoom, Math.min(40, Math.min(cv.width,cv.height)/(TILE*2))); this.ox=cv.width/2-(o.x/100)*this.zoom; this.oy=cv.height/2-(-o.y/100)*this.zoom; this.updateZoom(); this.draw(); }
   // what Update would write to object o; a blank or non-numeric field keeps the current value
   objFormVals(o){ const out={}; for(const k of ['x','y','z','yaw','pitch','roll','bias']){ const el=this.objField(k), v=el?parseFloat(el.value):NaN; out[k]=isNaN(v)?o[k]:v; } const c=this._ocrc?parseInt(this._ocrc.value):NaN; out.crc=isNaN(c)?o.crc:(c>>>0); return out; }
   // form differs from the selected object → Update lights up; and warn when the client would drop or misplace it
