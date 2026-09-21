@@ -674,7 +674,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, view3d:false, water3d:true, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, view3d:false, water3d:true, compass3d:true, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
     mergeOpen:false, mergeMsg:'', mergeRev:0
   };
   pendingConfirm = null;
@@ -910,7 +910,7 @@ class Component extends DCLogic {
   async wsRefresh(){ if(!this.wsCan()) return; try{ const raw=(await this.wsTx('readonly',st=>st.getAll()))||[], cfg=raw.find(r=>r.id==='__settings'); this._cfg=cfg?{...cfg}:{id:'__settings'}; this._lastNames=this._cfg.namesLink||null; const all=raw.filter(r=>!String(r.id).startsWith('__')); all.sort((a,b)=>(b.opened||0)-(a.opened||0)); this._ws=all; this.setState({wsList:all.map(w=>w.id)}); if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){ this.wsFail(e); } }
   wsGet(id){ return (this._ws||[]).find(w=>w.id===id); }
   async wsSave(w){ try{ await this.wsTx('readwrite',st=>st.put(w)); await this.wsRefresh(); }catch(e){ this.wsFail(e); } }
-  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens,shadowHl:st.shadowHl,reliefHl:st.reliefHl,water3d:st.water3d}; }
+  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens,shadowHl:st.shadowHl,reliefHl:st.reliefHl,water3d:st.water3d,compass3d:st.compass3d}; }
   // a map was opened through a handle: reuse the workspace that points at the same folder, or make one (named after the folder)
   async wsMapOpened(handle){
     if(!this.wsCan()||!handle){ this.setState({wsCur:''}); return; }
@@ -963,7 +963,7 @@ class Component extends DCLogic {
       if(!await this.wsPerm(w.map.handle)){ this.setState({statusText:'permission to read '+w.map.name+' was not given'}); return; }
       this.setState({statusText:'loading '+w.name+'…'}); const out={}; await this.walkHandle(w.map.handle,'',out); await this.loadFiles(out,w.map.handle.name);
       if(this.state.empty) return; this.setState({wsCur:w.id});
-      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens,shadowHl:!!v.shadowHl,reliefHl:!!v.reliefHl,water3d:v.water3d!==false}); await this.renderLayer(); }
+      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens,shadowHl:!!v.shadowHl,reliefHl:!!v.reliefHl,water3d:v.water3d!==false,compass3d:v.compass3d!==false}); await this.renderLayer(); }
       if(w.regen){ try{ const files={}; if(w.regen.dir){ if(await this.wsPerm(w.regen.dir)) for await(const [name,h] of w.regen.dir.entries()) if(h.kind==='file') files[name.toLowerCase()]=await h.getFile(); } else for(const f of w.regen.files||[]) if(await this.wsPerm(f.handle)) files[f.name.toLowerCase()]=await f.handle.getFile();
           if(Object.keys(files).length){ const tab=this.state.mainTab, rt=this.state.regenTab; await this.applyRegenFolder(files,w.regen.name||''); this.setState({mainTab:tab,regenTab:rt}); } else miss.push(w.regen.dir||(w.regen.files||[]).some(f=>f.handle)?'regens (moved or permission refused)':'regens (not linked yet — load them once)'); }catch(e){ miss.push('regens (moved or permission refused)'); } }
       for(const kind of ['groups','ggroups']){ if(!w[kind]) continue; try{ if(w[kind].file && await this.wsPerm(w[kind].file) && await this.loadAuxFile(await w[kind].file.getFile(),kind)){ this._auxLink[kind]=w[kind]; await this.wsSetLast(kind+'Link',w[kind]); } else miss.push(w[kind].name+(w[kind].file?' (permission refused)':' (not linked yet — load the file once)')); }catch(e){ miss.push(w[kind].name+' (moved or deleted)'); } }
@@ -992,7 +992,7 @@ class Component extends DCLogic {
     let data; try{ data=JSON.parse(await f.text()); }catch(err){ this.setState({statusText:f.name+' is not valid JSON'}); return; }
     if(!data||data.kind!=='workspaces'||!Array.isArray(data.workspaces)){ this.setState({statusText:f.name+' is not a MapForge workspaces file'}); return; }
     try{ await this.wsRefresh(); const str=(v,d)=>String(v==null?d:v).slice(0,200), taken=new Set((this._ws||[]).map(w=>w.name)); let n=0;
-      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens','shadowHl','reliefHl','water3d'];
+      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens','shadowHl','reliefHl','water3d','compass3d'];
       for(const x of data.workspaces.slice(0,500)){ if(!x||!x.map||!x.map.name) continue;
         let name=str(x.name,x.map.name).trim()||str(x.map.name); const base=name; let k=2; while(taken.has(name)) name=base+' (imported'+(k>2?' '+(k-1):'')+')', k++; taken.add(name);
         const w={id:'ws'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)+n,name,created:+x.created||Date.now(),opened:+x.opened||0,imported:true,map:{name:str(x.map.name),handle:null}};
@@ -1567,6 +1567,7 @@ class Component extends DCLogic {
         const x0=i*2, x1=(k+1)*2, z0=j*2, z1=j*2+2, y=w.heights[v]*m; out.push(x0,y,z0, x0,y,z1, x1,y,z0, x1,y,z0, x0,y,z1, x1,y,z1); i=k+1; } }
     return out.length?new Float32Array(out):null;
   }
+  toggleCompass3d(){ const on=!this.state.compass3d; this.setState({compass3d:on,statusText:'compass in 3D Preview '+(on?'on':'off')}); this.pv3Queue(); }
   toggleWater3d(){ const on=!this.state.water3d; this.setState({water3d:on,statusText:'water in 3D Preview '+(on?'on':'off')}); this.pv3Queue(); }
   // ground height in metres at a map position, from the sectors already loaded (null when unknown)
   groundM(wx,wy){ const vx=wx/2, vy=wy/2, x0=Math.floor(vx), y0=Math.floor(vy), tx=vx-x0, ty=vy-y0, a=this.readV(x0,y0), b=this.readV(x0+1,y0), c=this.readV(x0,y0+1), d=this.readV(x0+1,y0+1); if(a==null||b==null||c==null||d==null) return null; return ((a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty)*this.heightScaleM(); }
@@ -1692,7 +1693,17 @@ class Component extends DCLogic {
       if(m.k==='row'&&(m.sel||(names&&!hid))){ const t=this.rowName(m.r.type,m.r.vnum); if(t){ ctx.lineWidth=3; ctx.strokeStyle='rgba(18,13,8,.9)'; ctx.strokeText(t,hx+s+4,hy); ctx.fillStyle=m.sel?'#ffffff':'#e6d3a1'; ctx.fillText(t,hx+s+4,hy); } }
       if(m.k!=='other') this._v3Hits.push({x:hx,y:hy,bx:m.a[0],by:m.a[1],m});
     }
-    ctx.globalAlpha=1;
+    ctx.globalAlpha=1; if(this.state.compass3d) this.v3DrawCompass(ctx,W);
+  }
+  // compass rose at the top centre: north is the top of the 2D view (-y), the label at the top is where the camera looks
+  v3DrawCompass(ctx,W){
+    const R=34, cx=W/2, cy=R+22, yaw=this.v3.yaw, N=['N','NE','E','SE','S','SW','W','NW'];
+    ctx.save(); ctx.fillStyle='rgba(18,13,8,.62)'; ctx.strokeStyle='rgba(230,211,161,.55)'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(cx,cy,R+12,0,6.2832); ctx.fill(); ctx.stroke();
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    for(let k=0;k<8;k++){ const a=k*0.7854+yaw, sx=Math.sin(a), sy=-Math.cos(a), main=!(k&1), r0=main?R-16:R-12;
+      ctx.strokeStyle=k===0?'#e05555':'rgba(230,211,161,'+(main?.8:.4)+')'; ctx.lineWidth=main?1.6:1; ctx.beginPath(); ctx.moveTo(cx+sx*5,cy+sy*5); ctx.lineTo(cx+sx*r0,cy+sy*r0); ctx.stroke();
+      ctx.font=(main?"600 "+(k===0?13:11):"500 9")+"px 'IBM Plex Sans',sans-serif"; ctx.fillStyle=k===0?'#ff6b6b':main?'#e6d3a1':'rgba(230,211,161,.6)'; ctx.fillText(N[k],cx+sx*(R-3),cy+sy*(R-3)); }
+    ctx.restore();
   }
   // a click that was not a drag: select the marker under it (Ctrl adds / removes), or clear the selection
   v3Click(e){
@@ -3475,6 +3486,7 @@ class Component extends DCLogic {
       this.mkItem('Stats panel',()=>{ if(has) this.toggleStats(); },{check:st.stats}),
       this.mkItem('Ruler (1 px = 1 m)',()=>{ if(has) this.toggleRuler(); },{check:st.ruler}),
       this.mkItem('Water in 3D Preview',()=>this.toggleWater3d(),{check:st.water3d}),
+      this.mkItem('Compass in 3D Preview',()=>this.toggleCompass3d(),{check:st.compass3d}),
       this.mkItem('Converter tab',()=>this.tabConvert(),{check:st.mainTab==='convert'}),
       this.mkItem('Objects (areadata) tab',()=>this.tabObjects(),{check:st.mainTab==='objects'}),
       this.mkItem('Export areadata .txt',()=>this.exportAreadata()),
