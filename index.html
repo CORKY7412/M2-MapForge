@@ -674,7 +674,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, view3d:false, water3d:true, compass3d:true, walk3d:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, view3d:false, water3d:true, compass3d:true, pack3d:true, walk3d:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
     mergeOpen:false, mergeMsg:'', mergeRev:0
   };
   pendingConfirm = null;
@@ -912,7 +912,7 @@ class Component extends DCLogic {
   async wsRefresh(){ if(!this.wsCan()) return; try{ const raw=(await this.wsTx('readonly',st=>st.getAll()))||[], cfg=raw.find(r=>r.id==='__settings'); this._cfg=cfg?{...cfg}:{id:'__settings'}; this._lastNames=this._cfg.namesLink||null; const all=raw.filter(r=>!String(r.id).startsWith('__')); all.sort((a,b)=>(b.opened||0)-(a.opened||0)); this._ws=all; this.setState({wsList:all.map(w=>w.id)}); if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){ this.wsFail(e); } }
   wsGet(id){ return (this._ws||[]).find(w=>w.id===id); }
   async wsSave(w){ try{ await this.wsTx('readwrite',st=>st.put(w)); await this.wsRefresh(); }catch(e){ this.wsFail(e); } }
-  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens,shadowHl:st.shadowHl,reliefHl:st.reliefHl,water3d:st.water3d,compass3d:st.compass3d}; }
+  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens,shadowHl:st.shadowHl,reliefHl:st.reliefHl,water3d:st.water3d,compass3d:st.compass3d,pack3d:st.pack3d}; }
   // a map was opened through a handle: reuse the workspace that points at the same folder, or make one (named after the folder)
   async wsMapOpened(handle){
     if(!this.wsCan()||!handle){ this.setState({wsCur:''}); return; }
@@ -965,7 +965,7 @@ class Component extends DCLogic {
       if(!await this.wsPerm(w.map.handle)){ this.setState({statusText:'permission to read '+w.map.name+' was not given'}); return; }
       this.setState({statusText:'loading '+w.name+'…'}); const out={}; await this.walkHandle(w.map.handle,'',out); await this.loadFiles(out,w.map.handle.name);
       if(this.state.empty) return; this.setState({wsCur:w.id});
-      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens,shadowHl:!!v.shadowHl,reliefHl:!!v.reliefHl,water3d:v.water3d!==false,compass3d:v.compass3d!==false}); await this.renderLayer(); }
+      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens,shadowHl:!!v.shadowHl,reliefHl:!!v.reliefHl,water3d:v.water3d!==false,compass3d:v.compass3d!==false,pack3d:v.pack3d!==false}); await this.renderLayer(); }
       if(w.regen){ try{ const files={}; if(w.regen.dir){ if(await this.wsPerm(w.regen.dir)) for await(const [name,h] of w.regen.dir.entries()) if(h.kind==='file') files[name.toLowerCase()]=await h.getFile(); } else for(const f of w.regen.files||[]) if(await this.wsPerm(f.handle)) files[f.name.toLowerCase()]=await f.handle.getFile();
           if(Object.keys(files).length){ const tab=this.state.mainTab, rt=this.state.regenTab; await this.applyRegenFolder(files,w.regen.name||''); this.setState({mainTab:tab,regenTab:rt}); } else miss.push(w.regen.dir||(w.regen.files||[]).some(f=>f.handle)?'regens (moved or permission refused)':'regens (not linked yet — load them once)'); }catch(e){ miss.push('regens (moved or permission refused)'); } }
       for(const kind of ['groups','ggroups']){ if(!w[kind]) continue; try{ if(w[kind].file && await this.wsPerm(w[kind].file) && await this.loadAuxFile(await w[kind].file.getFile(),kind)){ this._auxLink[kind]=w[kind]; await this.wsSetLast(kind+'Link',w[kind]); } else miss.push(w[kind].name+(w[kind].file?' (permission refused)':' (not linked yet — load the file once)')); }catch(e){ miss.push(w[kind].name+' (moved or deleted)'); } }
@@ -994,7 +994,7 @@ class Component extends DCLogic {
     let data; try{ data=JSON.parse(await f.text()); }catch(err){ this.setState({statusText:f.name+' is not valid JSON'}); return; }
     if(!data||data.kind!=='workspaces'||!Array.isArray(data.workspaces)){ this.setState({statusText:f.name+' is not a MapForge workspaces file'}); return; }
     try{ await this.wsRefresh(); const str=(v,d)=>String(v==null?d:v).slice(0,200), taken=new Set((this._ws||[]).map(w=>w.name)); let n=0;
-      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens','shadowHl','reliefHl','water3d','compass3d'];
+      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens','shadowHl','reliefHl','water3d','compass3d','pack3d'];
       for(const x of data.workspaces.slice(0,500)){ if(!x||!x.map||!x.map.name) continue;
         let name=str(x.name,x.map.name).trim()||str(x.map.name); const base=name; let k=2; while(taken.has(name)) name=base+' (imported'+(k>2?' '+(k-1):'')+')', k++; taken.add(name);
         const w={id:'ws'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)+n,name,created:+x.created||Date.now(),opened:+x.opened||0,imported:true,map:{name:str(x.map.name),handle:null}};
@@ -1154,17 +1154,21 @@ class Component extends DCLogic {
     return out; }
   // The selected g / r spawn gets its pack written next to its marker: what it spawns (g) or what it can spawn, with the chances (r).
   // Only the primary selection, so a group selection does not paper over the map. The box flips to the other side at the view edge.
+  // the pack / set card of the selected g / r spawn: its lines (cut to 14), and the box itself. z is the zoom the context is scaled by
+  // (1 on the 3D overlay), place(w,h) gives the top-left corner once the size is known.
+  packLabelLines(r){ if(!r||this.isMulti('row')||!/^[gr]/.test(r.type)) return null; let lines=this.packInfo(r.type,r.vnum); if(!lines.length) return null;
+    const MAX=14; if(lines.length>MAX){ const extra=lines.length-(MAX-1); lines=lines.slice(0,MAX-1).concat([{text:'+ '+extra+' more',k:'d'}]); } return lines; }
   drawPackLabel(ctx,rows,ms){
-    const r=rows[this.selRow]; if(!r||this.isMulti('row')||!/^[gr]/.test(r.type)) return; let lines=this.packInfo(r.type,r.vnum); if(!lines.length) return;
-    const MAX=14; if(lines.length>MAX){ const extra=lines.length-(MAX-1); lines=lines.slice(0,MAX-1).concat([{text:'+ '+extra+' more',k:'d'}]); }
-    const z=this.zoom, cv=this.canvas, fs=11/z, lh=fs*1.45, pad=6/z; ctx.font='500 '+fs+"px 'IBM Plex Mono',monospace";
-    const w=Math.max(...lines.map(l=>ctx.measureText(l.text).width))+pad*2, h=lines.length*lh+pad*2, off=Math.max(ms*1.8,(r.sx||0)+ms*0.6);
-    const vx1=(cv.width-this.ox)/z, vy0=-this.oy/z, vy1=(cv.height-this.oy)/z;
-    let x=r.x+off, y=r.y-h/2; if(x+w>vx1) x=r.x-off-w; if(y+h>vy1) y=vy1-h; if(y<vy0) y=vy0;
+    const r=rows[this.selRow], lines=this.packLabelLines(r); if(!lines) return; const z=this.zoom, cv=this.canvas, off=Math.max(ms*1.8,(r.sx||0)+ms*0.6), vx1=(cv.width-this.ox)/z, vy0=-this.oy/z, vy1=(cv.height-this.oy)/z;
+    this.packBox(ctx,lines,z,(w,h)=>{ let x=r.x+off, y=r.y-h/2; if(x+w>vx1) x=r.x-off-w; if(y+h>vy1) y=vy1-h; if(y<vy0) y=vy0; return [x,y]; });
+  }
+  packBox(ctx,lines,z,place){
+    const fs=11/z, lh=fs*1.45, pad=6/z; ctx.font='500 '+fs+"px 'IBM Plex Mono',monospace";
+    const w=Math.max(...lines.map(l=>ctx.measureText(l.text).width))+pad*2, h=lines.length*lh+pad*2, [x,y]=place(w,h), box=[x,y,w,h];
     ctx.fillStyle='rgba(18,13,8,.93)'; ctx.fillRect(x,y,w,h); ctx.strokeStyle='#6b501f'; ctx.lineWidth=1/z; ctx.strokeRect(x,y,w,h);
     const COL={h:'#e8cf8f',t:'#d8c9a8',d:'#8a744c',w:'#e0a93a'}; ctx.textBaseline='middle'; ctx.textAlign='start';
     lines.forEach((l,i)=>{ ctx.font=(l.k==='h'?'600 ':'500 ')+fs+"px 'IBM Plex Mono',monospace"; ctx.fillStyle=COL[l.k]||COL.t; ctx.fillText(l.text,x+pad,y+pad+lh*(i+0.5)); });
-    ctx.textBaseline='alphabetic';
+    ctx.textBaseline='alphabetic'; return box;
   }
   // name for the list / stats: mobs from mob_names.txt, packs and sets from the group files
   rowName(type,vnum){ const t=String(type||''); if(t[0]==='g'){ const g=this.groups.get(+vnum); return g?(g.name||'pack '+vnum):''; } if(t[0]==='r'){ const g=this.ggroups.get(+vnum); return g?(g.name||'set '+vnum):''; } return this.mobName(type,vnum); }
@@ -1609,7 +1613,8 @@ class Component extends DCLogic {
     el.addEventListener('dblclick',e=>{ const r=el.getBoundingClientRect(); if(this.v3GizHit(e.clientX-r.left,e.clientY-r.top)==='h') this.v3GizDrop(); });
     el.addEventListener('mouseleave',()=>{ if(this._v3Drag) return; this.paintHover=null; this.sculptPos=null; this.pv3Queue(); });
     el.addEventListener('mousedown',e=>{
-      e.preventDefault(); if(this.state.menu) this.setState({menu:''}); const sx=e.clientX, sy=e.clientY, V=this.v3, y0=V.yaw, p0=V.pitch, tx0=V.tx, ty0=V.ty; let move, moved=false, giz=null;
+      e.preventDefault(); if(this.state.menu) this.setState({menu:''}); { const r=el.getBoundingClientRect(); if(e.button===0&&this.v3PackHit(e.clientX-r.left,e.clientY-r.top)){ this.setState({pack3d:!this.state.pack3d}); this.pv3Queue(); return; } }
+      const sx=e.clientX, sy=e.clientY, V=this.v3, y0=V.yaw, p0=V.pitch, tx0=V.tx, ty0=V.ty; let move, moved=false, giz=null;
       if(e.button===0&&this.anyPaint()){ const hit=at(e); if(!hit) return; hover(e,hit); this.paintDown(hit.x,hit.y); move=ev=>{ const h=at(ev); if(!h) return; hover(ev,h); this.paintMove(h.x,h.y); this.pv3Queue(); }; }
       else if(e.button===0&&(giz=this.v3GizDown(e,at)||this.v3RangeDown(e,at)||this.v3RowDown(e,at))) move=giz.move;
       else if(e.button===2){ const r=el.getBoundingClientRect(), k=V.dist*2*Math.tan(0.4)/r.height; move=ev=>{ const dx=(ev.clientX-sx)*k, dy=(ev.clientY-sy)*k/Math.max(0.35,Math.sin(V.pitch)); V.tx=tx0-dx*Math.cos(V.yaw)-dy*Math.sin(V.yaw); V.ty=ty0+dx*Math.sin(V.yaw)-dy*Math.cos(V.yaw); this.v3Clamp(); this.pv3Queue(); }; }
@@ -1746,7 +1751,7 @@ class Component extends DCLogic {
       if(m.k==='row'&&(m.sel||(names&&!hid))){ const t=this.rowName(m.r.type,m.r.vnum); if(t){ ctx.lineWidth=3; ctx.strokeStyle='rgba(18,13,8,.9)'; ctx.strokeText(t,hx+s+4,hy); ctx.fillStyle=m.sel?'#ffffff':'#e6d3a1'; ctx.fillText(t,hx+s+4,hy); } }
       if(m.k!=='other') this._v3Hits.push({x:hx,y:hy,bx:m.a[0],by:m.a[1],m});
     }
-    ctx.globalAlpha=1; this.v3DrawGizmo(ctx,P,list); this.v3DrawRange(ctx,P); if(this.state.compass3d) this.v3DrawCompass(ctx,W);
+    ctx.globalAlpha=1; this.v3DrawGizmo(ctx,P,list); this.v3DrawRange(ctx,P); this.v3DrawPack(ctx,P,W,H); if(this.state.compass3d) this.v3DrawCompass(ctx,W);
   }
   // ----- object gizmo in 3D -----
   // On the primary selected object of the Objects tab: a vertical arrow (drag = height: z and bias move together, double-click = back
@@ -1774,7 +1779,7 @@ class Component extends DCLogic {
     if(G.knob&&Math.hypot(G.knob[0]-mx,G.knob[1]-my)<9) return 'r'; for(let k=1;k<G.ring.length;k++) if(seg(G.ring[k-1],G.ring[k])<6) return 'r';
     return null;
   }
-  v3GizHover(e){ const el=this._pvCv; if(!el) return; const r=el.getBoundingClientRect(), h=this.v3GizHit(e.clientX-r.left,e.clientY-r.top)||this.v3RangeHit(e.clientX-r.left,e.clientY-r.top)||this.v3RowHit(e.clientX-r.left,e.clientY-r.top); if(h===this._v3GizHov) return; this._v3GizHov=h; el.style.cursor=h==='h'?'ns-resize':h==='m'?'move':h?'grab':'crosshair'; this.pv3Queue(); }
+  v3GizHover(e){ const el=this._pvCv; if(!el) return; const r=el.getBoundingClientRect(), h=(this.v3PackHit(e.clientX-r.left,e.clientY-r.top)?'p':null)||this.v3GizHit(e.clientX-r.left,e.clientY-r.top)||this.v3RangeHit(e.clientX-r.left,e.clientY-r.top)||this.v3RowHit(e.clientX-r.left,e.clientY-r.top); if(h===this._v3GizHov) return; this._v3GizHov=h; el.style.cursor=h==='p'?'pointer':h==='h'?'ns-resize':h==='m'?'move':h?'grab':'crosshair'; this.pv3Queue(); }
   // where the view ray through a mouse event crosses the horizontal plane at height h (metres), or null
   v3PlaneHit(ev,h){
     const el=this._pvCv, r=el.getBoundingClientRect(), C=this.v3Cam(), t=Math.tan(0.4), nx=((ev.clientX-r.left)/r.width*2-1)*t*r.width/r.height, ny=(1-(ev.clientY-r.top)/r.height*2)*t, d=[C.x[0]*nx+C.y[0]*ny-C.z[0],C.x[1]*nx+C.y[1]*ny-C.z[1],C.x[2]*nx+C.y[2]*ny-C.z[2]];
@@ -1820,6 +1825,13 @@ class Component extends DCLogic {
     const end=()=>{ this._v3GizOn=null; this._v3RangeLabel=''; if(snap){ this.setState({statusText:'spawn range set to Sx '+r.sx+' · Sy '+r.sy+note}); this.refreshRows(); this.draw(); } return true; };
     return {move,end};
   }
+  // the pack / set card of the selected g / r spawn: docked in the bottom-left corner, because beside the pin it would hide the very ground being looked at.
+  // A click on it folds it down to its title line and back (remembered in the workspace view settings)
+  v3DrawPack(ctx,P,W,H){
+    const st=this.state; if(st.mainTab!=='regen') return; const r=this.currentRows()[this.selRow]; let lines=this.packLabelLines(r); this._v3PackBox=null; if(!lines) return; lines=st.pack3d?[{text:'[–] '+lines[0].text,k:'h'},...lines.slice(1)]:[{text:'[+] '+lines[0].text,k:'h'}];
+    ctx.globalAlpha=0.9; this._v3PackBox=this.packBox(ctx,lines,1,(w,h)=>[12,Math.max(4,H-52-h)]); ctx.globalAlpha=1;
+  }
+  v3PackHit(mx,my){ const b=this._v3PackBox; return !!b&&this.state.mainTab==='regen'&&mx>=b[0]&&mx<=b[0]+b[2]&&my>=b[1]&&my<=b[1]+b[3]; }
   // the pin of a selected spawn: a drag moves the selection over the terrain (a press that does not move stays a click)
   v3RowHit(mx,my){ if(this.state.mainTab!=='regen'||this.anyPaint()) return null; for(const h of this._v3Hits||[]) if(h.m.k==='row'&&h.m.sel&&Math.min(Math.hypot(h.x-mx,h.y-my),Math.hypot(h.bx-mx,h.by-my))<10) return 'm'; return null; }
   v3RowDown(e,at){
