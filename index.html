@@ -1750,15 +1750,16 @@ class Component extends DCLogic {
   }
   // ----- object gizmo in 3D -----
   // On the primary selected object of the Objects tab: a vertical arrow (drag = height: z and bias move together, double-click = back
-  // on the ground), a ring at the object's height (drag around = roll, Shift snaps to 15°) and the pin itself (drag = move over the
+  // on the ground), a ring at the object's height (drag around = roll, Shift snaps to 15°; several objects turn around their common centre) and the pin itself (drag = move over the
   // terrain, z follows the ground so the offset is kept). Everything applies to the whole selection. Handles are hit in screen space.
   v3DrawGizmo(ctx,P,list){
     this._v3Giz=null; const st=this.state; if(st.mainTab!=='objects'||this.anyPaint()) return; const m=list.find(q=>q.k==='obj'&&q.sel&&q.c===st.oSector&&q.i===this.selObj); if(!m) return;
-    const up=P(m.x,m.h+1,m.y); if(!up) return; const pxv=Math.max(0.5,Math.hypot(up[0]-m.a[0],up[1]-m.a[1])), Rm=Math.min(80,Math.max(0.8,42/pxv)), ring=[];
-    for(let k=0;k<=48;k++){ const t=k*0.1309, q=P(m.x+Rm*Math.sin(t),m.h,m.y+Rm*Math.cos(t)); if(!q) return; ring.push(q); }
-    const dv=rollVector(m.o.roll)||{x:0,y:1}, knob=P(m.x+dv.x*Rm,m.h,m.y+dv.y*Rm), hx=m.a[0], hy=m.a[1]-13, G=this._v3Giz={m,pxv,ring,knob,ax:hx,ay0:hy-10,ay1:hy-48}, hov=this._v3GizOn||this._v3GizHov;
+    const up=P(m.x,m.h+1,m.y); if(!up) return; const pxv=Math.max(0.5,Math.hypot(up[0]-m.a[0],up[1]-m.a[1])), Rm=Math.min(80,Math.max(0.8,42/pxv)), ring=[], grp=this.group('obj'), pv=grp.length>1?{x:grp.reduce((t,o)=>t+o.x,0)/grp.length/100,y:grp.reduce((t,o)=>t-o.y,0)/grp.length/100}:{x:m.x,y:m.y};
+    for(let k=0;k<=48;k++){ const t=k*0.1309, q=P(pv.x+Rm*Math.sin(t),m.h,pv.y+Rm*Math.cos(t)); if(!q) return; ring.push(q); }
+    const dv=rollVector(m.o.roll)||{x:0,y:1}, knob=P(pv.x+dv.x*Rm,m.h,pv.y+dv.y*Rm), hx=m.a[0], hy=m.a[1]-13, G=this._v3Giz={m,pv,pxv,ring,knob,ax:hx,ay0:hy-10,ay1:hy-48}, hov=this._v3GizOn||this._v3GizHov;
     const line=(col,w,f)=>{ ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=w+2; f(); ctx.stroke(); ctx.strokeStyle=col; ctx.lineWidth=w; f(); ctx.stroke(); };
     line(hov==='r'?'#ffffff':'#e6c15a',hov==='r'?2.4:1.5,()=>{ ctx.beginPath(); ring.forEach((q,k)=>k?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])); });
+    if(grp.length>1){ const c=P(pv.x,m.h,pv.y); if(c) line('#e6c15a',1.5,()=>{ ctx.beginPath(); ctx.moveTo(c[0]-5,c[1]); ctx.lineTo(c[0]+5,c[1]); ctx.moveTo(c[0],c[1]-5); ctx.lineTo(c[0],c[1]+5); }); }
     if(knob){ ctx.fillStyle=hov==='r'?'#ffffff':'#e6c15a'; ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(knob[0],knob[1],5,0,6.2832); ctx.fill(); ctx.stroke(); }
     const hc=hov==='h'?'#ffffff':'#6ad0e0'; line(hc,hov==='h'?2.6:1.8,()=>{ ctx.beginPath(); ctx.moveTo(G.ax,G.ay0); ctx.lineTo(G.ax,G.ay1); });
     ctx.fillStyle=hc; for(const [y,s] of [[G.ay1,-1],[G.ay0,1]]){ ctx.beginPath(); ctx.moveTo(G.ax,y); ctx.lineTo(G.ax-5,y-s*8); ctx.lineTo(G.ax+5,y-s*8); ctx.closePath(); ctx.fill(); }
@@ -1786,9 +1787,12 @@ class Component extends DCLogic {
     const begin=l=>{ if(!snap){ snap=true; this.pushUndo(l+' '+name,this.scopeArea()); } changed=true; }, show=(keys,label)=>{ const g=this.group('obj'); for(const k of keys){ const f=this.objField(k); if(f) f.value=this.common(g,k); } this._v3GizLabel=label; this.pv3Queue(); };
     this._v3GizOn=hit;
     if(hit==='h'){ const pxv=G.pxv; move=ev=>{ const d=Math.round((sy-ev.clientY)/pxv*(ev.shiftKey?10:100))*(ev.shiftKey?10:1); if(!d&&!changed) return; begin('raise'); for(const it of items){ it.o.z=it.z+d; it.o.bias=it.bias+d; } show(['z','bias'],'bias '+(P0.o.bias>=0?'+':'')+(P0.o.bias/100).toFixed(2)+' m'); }; }
-    else if(hit==='r'){ const cx=P0.x, cy=P0.y, ch=P0.h, ang=ev=>{ const q=this.v3PlaneHit(ev,ch); return q?Math.atan2(q.x-cx,q.y-cy)*180/Math.PI:null; }, a0=ang(e), r0=items.find(it=>it.o===P0.o)||items[0];
+    else if(hit==='r'){ const cx=G.pv.x, cy=G.pv.y, ch=P0.h, px=cx*100, py=-cy*100, ang=ev=>{ const q=this.v3PlaneHit(ev,ch); return q?Math.atan2(q.x-cx,q.y-cy)*180/Math.PI:null; }, a0=ang(e), r0=items.find(it=>it.o===P0.o)||items[0];
       move=ev=>{ const a=ang(ev); if(a==null||a0==null) return; let d=(a-a0)/OBJ_ROT_SIGN; if(ev.shiftKey) d=Math.round((r0.roll+d)/15)*15-r0.roll; if(!changed&&Math.abs(d)<0.05) return; begin('rotate');
-        for(const it of items) it.o.roll=Math.round((((it.roll+d)%360)+360)%360*10)/10%360; show(['roll'],'roll '+P0.o.roll+'°'); }; }
+        const th=d*OBJ_ROT_SIGN*Math.PI/180, co=Math.cos(th), si=Math.sin(th);
+        for(const it of items){ it.o.roll=Math.round((((it.roll+d)%360)+360)%360*10)/10%360; if(items.length<2) continue;   // several objects turn around their common centre, like the WorldEditor
+          const rx=it.x-px, ry=it.y-py, nx=Math.min((b.maxx+1)*TILE*100-1,Math.max(b.minx*TILE*100,Math.round(rx*co-ry*si+px))), ny=Math.min((b.maxy+1)*TILE*100-1,Math.max(b.miny*TILE*100,Math.round(-(rx*si+ry*co+py)))), g=this.groundM(nx/100,ny/100); it.o.x=nx; it.o.y=-ny; if(g!=null&&it.g!=null) it.o.z=it.z+Math.round((g-it.g)*100); }
+        show(items.length<2?['roll']:['roll','x','y','z'],'roll '+P0.o.roll+'°'); }; }
     else { const p0=at(e)||{x:P0.x,y:P0.y}; move=ev=>{ if(!changed&&Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)<=3) return; const q=at(ev); if(!q) return; begin('move'); const dx=(q.x-p0.x)*100, dy=(q.y-p0.y)*100;
         for(const it of items){ const nx=Math.min((b.maxx+1)*TILE*100-1,Math.max(b.minx*TILE*100,Math.round(it.x+dx))), ny=Math.min((b.maxy+1)*TILE*100-1,Math.max(b.miny*TILE*100,Math.round(-it.y+dy))), g=this.groundM(nx/100,ny/100); it.o.x=nx; it.o.y=-ny; if(g!=null&&it.g!=null) it.o.z=it.z+Math.round((g-it.g)*100); }
         show(['x','y','z'],''); }; }
