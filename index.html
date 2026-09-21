@@ -1605,14 +1605,16 @@ class Component extends DCLogic {
     const hover=(e,hit)=>{ this.paintHover=hit?{x:Math.floor(hit.x),y:Math.floor(hit.y),inside:true}:null; this.sculptPos=hit&&this.state.heightPaint?{x:hit.x,y:hit.y}:null; };
     el.addEventListener('contextmenu',e=>e.preventDefault());
     el.addEventListener('wheel',e=>{ e.preventDefault(); this.v3.dist=Math.min(2500,Math.max(this.state.walk3d?4:25,this.v3.dist*(e.deltaY<0?1/1.12:1.12))); this.pv3Queue(); },{passive:false});
-    el.addEventListener('mousemove',e=>{ if(this._v3Drag||!this.anyPaint()) return; hover(e,at(e)); this.pv3Queue(); });
+    el.addEventListener('mousemove',e=>{ if(this._v3Drag) return; if(!this.anyPaint()){ this.v3GizHover(e); return; } hover(e,at(e)); this.pv3Queue(); });
+    el.addEventListener('dblclick',e=>{ const r=el.getBoundingClientRect(); if(this.v3GizHit(e.clientX-r.left,e.clientY-r.top)==='h') this.v3GizDrop(); });
     el.addEventListener('mouseleave',()=>{ if(this._v3Drag) return; this.paintHover=null; this.sculptPos=null; this.pv3Queue(); });
     el.addEventListener('mousedown',e=>{
-      e.preventDefault(); if(this.state.menu) this.setState({menu:''}); const sx=e.clientX, sy=e.clientY, V=this.v3, y0=V.yaw, p0=V.pitch, tx0=V.tx, ty0=V.ty; let move, moved=false;
+      e.preventDefault(); if(this.state.menu) this.setState({menu:''}); const sx=e.clientX, sy=e.clientY, V=this.v3, y0=V.yaw, p0=V.pitch, tx0=V.tx, ty0=V.ty; let move, moved=false, giz=null;
       if(e.button===0&&this.anyPaint()){ const hit=at(e); if(!hit) return; hover(e,hit); this.paintDown(hit.x,hit.y); move=ev=>{ const h=at(ev); if(!h) return; hover(ev,h); this.paintMove(h.x,h.y); this.pv3Queue(); }; }
+      else if(e.button===0&&(giz=this.v3GizDown(e,at))) move=giz.move;
       else if(e.button===2){ const r=el.getBoundingClientRect(), k=V.dist*2*Math.tan(0.4)/r.height; move=ev=>{ const dx=(ev.clientX-sx)*k, dy=(ev.clientY-sy)*k/Math.max(0.35,Math.sin(V.pitch)); V.tx=tx0-dx*Math.cos(V.yaw)-dy*Math.sin(V.yaw); V.ty=ty0+dx*Math.sin(V.yaw)-dy*Math.cos(V.yaw); this.v3Clamp(); this.pv3Queue(); }; }
       else move=ev=>{ if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)>3) moved=true; V.yaw=y0-(ev.clientX-sx)*0.008; V.pitch=Math.min(1.5,Math.max(0.12,p0+(ev.clientY-sy)*0.006)); this.pv3Queue(); };
-      this._v3Drag=true; const painting=e.button===0&&this.anyPaint(); const up=()=>{ this._v3Drag=false; window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); if(painting) this.paintUp(); else if(e.button===0&&!moved) this.v3Click(e); this.pv3Queue(); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); this.pv3Queue();
+      this._v3Drag=true; const painting=e.button===0&&this.anyPaint(); const up=()=>{ this._v3Drag=false; window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); if(painting) this.paintUp(); else if(giz){ if(!giz.end()) this.v3Click(e); } else if(e.button===0&&!moved) this.v3Click(e); this.pv3Queue(); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); this.pv3Queue();
     });
     this.pv3Queue();
   }
@@ -1736,16 +1738,66 @@ class Component extends DCLogic {
       // an object away from the ground: a line down to it
       if(m.k==='obj'&&Math.abs(m.h-m.g)>0.3){ const q=P(m.x,m.g,m.y); if(q){ ctx.strokeStyle=col; ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(q[0],q[1]); ctx.lineTo(m.a[0],m.a[1]); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle=col; ctx.fillRect(q[0]-1.5,q[1]-1.5,3,3); } }
       // heading: spawns without a range, and selected objects
-      const dv=!this.state.dirArrows?null:m.k==='obj'?(m.sel?rollVector(m.o.roll):null):(!(m.r.sx>0||m.r.sy>0)?dirVector(m.r.dir):null);
-      if(dv){ const L=m.k==='obj'?5:3.5, tx=m.x+dv.x*L, ty=m.y+dv.y*L, tg=this.groundM(tx,ty), q=P(tx,m.k==='obj'?m.h:(tg==null?m.h:tg),ty); if(q){ const ux=q[0]-m.a[0], uy=q[1]-m.a[1], ul=Math.hypot(ux,uy); if(ul>4){ const nx=ux/ul, ny=uy/ul, hw=4; ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(m.a[0],m.a[1]); ctx.lineTo(q[0]-nx*hw,q[1]-ny*hw); ctx.stroke(); ctx.beginPath(); ctx.moveTo(q[0],q[1]); ctx.lineTo(q[0]-nx*hw*1.6-ny*hw,q[1]-ny*hw*1.6+nx*hw); ctx.lineTo(q[0]-nx*hw*1.6+ny*hw,q[1]-ny*hw*1.6-nx*hw); ctx.closePath(); ctx.fill(); } } }
+      const dv=!this.state.dirArrows?null:m.k==='obj'?((m.sel||occl)?rollVector(m.o.roll):null):(!(m.r.sx>0||m.r.sy>0)?dirVector(m.r.dir):null);
+      if(dv){ const L=m.k==='obj'?(m.sel?5:2):3.5, tx=m.x+dv.x*L, ty=m.y+dv.y*L, tg=this.groundM(tx,ty), q=P(tx,m.k==='obj'?m.h:(tg==null?m.h:tg),ty); if(q){ const ux=q[0]-m.a[0], uy=q[1]-m.a[1], ul=Math.hypot(ux,uy); if(ul>4){ const nx=ux/ul, ny=uy/ul, hw=4; ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(m.a[0],m.a[1]); ctx.lineTo(q[0]-nx*hw,q[1]-ny*hw); ctx.stroke(); ctx.beginPath(); ctx.moveTo(q[0],q[1]); ctx.lineTo(q[0]-nx*hw*1.6-ny*hw,q[1]-ny*hw*1.6+nx*hw); ctx.lineTo(q[0]-nx*hw*1.6+ny*hw,q[1]-ny*hw*1.6-nx*hw); ctx.closePath(); ctx.fill(); } } }
       // the pin: a short stem up from the spot, the 2D marker shape on top
       const hx=m.a[0], hy=m.a[1]-13, s=(m.k==='obj'?4:m.k==='other'?4.5:5.5)*sc; ctx.strokeStyle='rgba(0,0,0,.65)'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(m.a[0],m.a[1]); ctx.lineTo(hx,hy); ctx.stroke(); ctx.strokeStyle=col; ctx.lineWidth=1.4; ctx.beginPath(); ctx.moveTo(m.a[0],m.a[1]); ctx.lineTo(hx,hy); ctx.stroke();
       ctx.fillStyle=col; ctx.beginPath(); if(m.k==='obj') ctx.arc(hx,hy,s,0,6.2832); else { ctx.moveTo(hx,hy-s); ctx.lineTo(hx+s,hy); ctx.lineTo(hx,hy+s); ctx.lineTo(hx-s,hy); ctx.closePath(); } ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.65)'; ctx.lineWidth=1; ctx.stroke();
       if(m.k==='row'&&(m.sel||(names&&!hid))){ const t=this.rowName(m.r.type,m.r.vnum); if(t){ ctx.lineWidth=3; ctx.strokeStyle='rgba(18,13,8,.9)'; ctx.strokeText(t,hx+s+4,hy); ctx.fillStyle=m.sel?'#ffffff':'#e6d3a1'; ctx.fillText(t,hx+s+4,hy); } }
       if(m.k!=='other') this._v3Hits.push({x:hx,y:hy,bx:m.a[0],by:m.a[1],m});
     }
-    ctx.globalAlpha=1; if(this.state.compass3d) this.v3DrawCompass(ctx,W);
+    ctx.globalAlpha=1; this.v3DrawGizmo(ctx,P,list); if(this.state.compass3d) this.v3DrawCompass(ctx,W);
   }
+  // ----- object gizmo in 3D -----
+  // On the primary selected object of the Objects tab: a vertical arrow (drag = height: z and bias move together, double-click = back
+  // on the ground), a ring at the object's height (drag around = roll, Shift snaps to 15°) and the pin itself (drag = move over the
+  // terrain, z follows the ground so the offset is kept). Everything applies to the whole selection. Handles are hit in screen space.
+  v3DrawGizmo(ctx,P,list){
+    this._v3Giz=null; const st=this.state; if(st.mainTab!=='objects'||this.anyPaint()) return; const m=list.find(q=>q.k==='obj'&&q.sel&&q.c===st.oSector&&q.i===this.selObj); if(!m) return;
+    const up=P(m.x,m.h+1,m.y); if(!up) return; const pxv=Math.max(0.5,Math.hypot(up[0]-m.a[0],up[1]-m.a[1])), Rm=Math.min(80,Math.max(0.8,42/pxv)), ring=[];
+    for(let k=0;k<=48;k++){ const t=k*0.1309, q=P(m.x+Rm*Math.sin(t),m.h,m.y+Rm*Math.cos(t)); if(!q) return; ring.push(q); }
+    const dv=rollVector(m.o.roll)||{x:0,y:1}, knob=P(m.x+dv.x*Rm,m.h,m.y+dv.y*Rm), hx=m.a[0], hy=m.a[1]-13, G=this._v3Giz={m,pxv,ring,knob,ax:hx,ay0:hy-10,ay1:hy-48}, hov=this._v3GizOn||this._v3GizHov;
+    const line=(col,w,f)=>{ ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=w+2; f(); ctx.stroke(); ctx.strokeStyle=col; ctx.lineWidth=w; f(); ctx.stroke(); };
+    line(hov==='r'?'#ffffff':'#e6c15a',hov==='r'?2.4:1.5,()=>{ ctx.beginPath(); ring.forEach((q,k)=>k?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])); });
+    if(knob){ ctx.fillStyle=hov==='r'?'#ffffff':'#e6c15a'; ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(knob[0],knob[1],5,0,6.2832); ctx.fill(); ctx.stroke(); }
+    const hc=hov==='h'?'#ffffff':'#6ad0e0'; line(hc,hov==='h'?2.6:1.8,()=>{ ctx.beginPath(); ctx.moveTo(G.ax,G.ay0); ctx.lineTo(G.ax,G.ay1); });
+    ctx.fillStyle=hc; for(const [y,s] of [[G.ay1,-1],[G.ay0,1]]){ ctx.beginPath(); ctx.moveTo(G.ax,y); ctx.lineTo(G.ax-5,y-s*8); ctx.lineTo(G.ax+5,y-s*8); ctx.closePath(); ctx.fill(); }
+    const t=this._v3GizLabel; if(t){ ctx.font="600 12px 'IBM Plex Sans',sans-serif"; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.lineWidth=3; ctx.strokeStyle='rgba(18,13,8,.9)'; ctx.strokeText(t,G.ax+12,G.ay1+8); ctx.fillStyle='#ffffff'; ctx.fillText(t,G.ax+12,G.ay1+8); }
+  }
+  // which handle is under a canvas position: 'h' height arrow, 'r' ring, 'm' the pin of a selected object
+  v3GizHit(mx,my){
+    const G=this._v3Giz; if(!G||this.state.mainTab!=='objects'||this.anyPaint()) return null;
+    const seg=(a,b)=>{ const vx=b[0]-a[0], vy=b[1]-a[1], l=vx*vx+vy*vy||1, t=Math.min(1,Math.max(0,((mx-a[0])*vx+(my-a[1])*vy)/l)); return Math.hypot(mx-a[0]-vx*t,my-a[1]-vy*t); };
+    if(seg([G.ax,G.ay0],[G.ax,G.ay1])<8) return 'h';
+    for(const h of this._v3Hits||[]) if(h.m.k==='obj'&&h.m.sel&&h.m.c===this.state.oSector&&Math.hypot(h.x-mx,h.y-my)<10) return 'm';
+    if(G.knob&&Math.hypot(G.knob[0]-mx,G.knob[1]-my)<9) return 'r'; for(let k=1;k<G.ring.length;k++) if(seg(G.ring[k-1],G.ring[k])<6) return 'r';
+    return null;
+  }
+  v3GizHover(e){ const el=this._pvCv; if(!el) return; const r=el.getBoundingClientRect(), h=this.v3GizHit(e.clientX-r.left,e.clientY-r.top); if(h===this._v3GizHov) return; this._v3GizHov=h; el.style.cursor=h==='h'?'ns-resize':h==='r'?'grab':h==='m'?'move':'crosshair'; this.pv3Queue(); }
+  // where the view ray through a mouse event crosses the horizontal plane at height h (metres), or null
+  v3PlaneHit(ev,h){
+    const el=this._pvCv, r=el.getBoundingClientRect(), C=this.v3Cam(), t=Math.tan(0.4), nx=((ev.clientX-r.left)/r.width*2-1)*t*r.width/r.height, ny=(1-(ev.clientY-r.top)/r.height*2)*t, d=[C.x[0]*nx+C.y[0]*ny-C.z[0],C.x[1]*nx+C.y[1]*ny-C.z[1],C.x[2]*nx+C.y[2]*ny-C.z[2]];
+    if(d[1]>-1e-4) return null; const oy=(this._pvGround||0)+C.e[1], s=(h-oy)/d[1]; if(s<=0) return null; return {x:this.v3.tx+C.e[0]+d[0]*s,y:this.v3.ty+C.e[2]+d[2]*s};
+  }
+  // a left press on a handle: returns the drag ({move, end}) or null when the press is not on the gizmo. end() says whether the press was used up.
+  v3GizDown(e,at){
+    const el=this._pvCv, r=el.getBoundingClientRect(), hit=this.v3GizHit(e.clientX-r.left,e.clientY-r.top); if(!hit) return null;
+    const G=this._v3Giz, P0=G.m, b=this.bounds, sy=e.clientY, sx=e.clientX, items=this.group('obj').map(o=>({o,x:o.x,y:o.y,z:o.z,roll:o.roll,bias:o.bias,g:this.groundM(o.x/100,-o.y/100)})), name=this.gName('obj',items.length); let snap=false, changed=false, move;
+    const begin=l=>{ if(!snap){ snap=true; this.pushUndo(l+' '+name,this.scopeArea()); } changed=true; }, show=(keys,label)=>{ const g=this.group('obj'); for(const k of keys){ const f=this.objField(k); if(f) f.value=this.common(g,k); } this._v3GizLabel=label; this.pv3Queue(); };
+    this._v3GizOn=hit;
+    if(hit==='h'){ const pxv=G.pxv; move=ev=>{ const d=Math.round((sy-ev.clientY)/pxv*(ev.shiftKey?10:100))*(ev.shiftKey?10:1); if(!d&&!changed) return; begin('raise'); for(const it of items){ it.o.z=it.z+d; it.o.bias=it.bias+d; } show(['z','bias'],'bias '+(P0.o.bias>=0?'+':'')+(P0.o.bias/100).toFixed(2)+' m'); }; }
+    else if(hit==='r'){ const cx=P0.x, cy=P0.y, ch=P0.h, ang=ev=>{ const q=this.v3PlaneHit(ev,ch); return q?Math.atan2(q.x-cx,q.y-cy)*180/Math.PI:null; }, a0=ang(e), r0=items.find(it=>it.o===P0.o)||items[0];
+      move=ev=>{ const a=ang(ev); if(a==null||a0==null) return; let d=(a-a0)/OBJ_ROT_SIGN; if(ev.shiftKey) d=Math.round((r0.roll+d)/15)*15-r0.roll; if(!changed&&Math.abs(d)<0.05) return; begin('rotate');
+        for(const it of items) it.o.roll=Math.round((((it.roll+d)%360)+360)%360*10)/10%360; show(['roll'],'roll '+P0.o.roll+'°'); }; }
+    else { const p0=at(e)||{x:P0.x,y:P0.y}; move=ev=>{ if(!changed&&Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)<=3) return; const q=at(ev); if(!q) return; begin('move'); const dx=(q.x-p0.x)*100, dy=(q.y-p0.y)*100;
+        for(const it of items){ const nx=Math.min((b.maxx+1)*TILE*100-1,Math.max(b.minx*TILE*100,Math.round(it.x+dx))), ny=Math.min((b.maxy+1)*TILE*100-1,Math.max(b.miny*TILE*100,Math.round(-it.y+dy))), g=this.groundM(nx/100,ny/100); it.o.x=nx; it.o.y=-ny; if(g!=null&&it.g!=null) it.o.z=it.z+Math.round((g-it.g)*100); }
+        show(['x','y','z'],''); }; }
+    const end=()=>{ this._v3GizOn=null; this._v3GizLabel=''; if(changed){ this.refreshObjs(); if(hit==='m'&&items.length===1) this.offerSectorMove(items[0].o); this.setState({statusText:name+(hit==='h'?' raised — bias '+(P0.o.bias/100).toFixed(2)+' m':hit==='r'?' rotated — roll '+P0.o.roll+'°':' moved')}); this.draw(); } return hit!=='m'||changed; };
+    return {move,end};
+  }
+  // double-click on the height arrow: the selection goes back on the ground, bias 0
+  v3GizDrop(){ const items=this.group('obj'); if(!items.length) return; this.pushUndo('drop '+this.gName('obj',items.length)+' to the ground',this.scopeArea()); for(const o of items){ const g=this.groundM(o.x/100,-o.y/100); if(g==null) continue; o.z=Math.round(g*100); o.bias=0; }
+    for(const k of ['z','bias']){ const f=this.objField(k); if(f) f.value=this.common(items,k); } this.refreshObjs(); this.setState({statusText:this.gName('obj',items.length)+' dropped to the ground'}); this.pv3Queue(); }
   // compass rose at the top centre: north is the top of the 2D view (-y), the label at the top is where the camera looks
   v3DrawCompass(ctx,W){
     const R=34, cx=W/2, cy=R+22, yaw=this.v3.yaw, N=['N','NE','E','SE','S','SW','W','NW'];
