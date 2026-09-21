@@ -1619,11 +1619,13 @@ class Component extends DCLogic {
     el.addEventListener('mousedown',e=>{
       e.preventDefault(); if(this.state.menu) this.setState({menu:''}); { const r=el.getBoundingClientRect(); if(e.button===0&&this.v3PackHit(e.clientX-r.left,e.clientY-r.top)){ this.setState({packCard:!this.state.packCard}); this.pv3Queue(); return; } }
       const sx=e.clientX, sy=e.clientY, V=this.v3, y0=V.yaw, p0=V.pitch, tx0=V.tx, ty0=V.ty; let move, moved=false, giz=null;
-      if(e.button===0&&this.anyPaint()){ const hit=at(e); if(!hit) return; hover(e,hit); this.paintDown(hit.x,hit.y); move=ev=>{ const h=at(ev); if(!h) return; hover(ev,h); this.paintMove(h.x,h.y); this.pv3Queue(); }; }
+      const boxK=e.button===0&&(e.ctrlKey||e.metaKey)&&!this.anyPaint()?(this.state.mainTab==='regen'?'row':this.state.mainTab==='objects'?'obj':null):null;
+      if(boxK){ const r=el.getBoundingClientRect(), x0=sx-r.left, y0=sy-r.top; move=ev=>{ if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)>3) moved=true; if(moved){ this._v3Box={x0,y0,x1:ev.clientX-r.left,y1:ev.clientY-r.top,sub:e.altKey}; this.pv3Queue(); } }; }
+      else if(e.button===0&&this.anyPaint()){ const hit=at(e); if(!hit) return; hover(e,hit); this.paintDown(hit.x,hit.y); move=ev=>{ const h=at(ev); if(!h) return; hover(ev,h); this.paintMove(h.x,h.y); this.pv3Queue(); }; }
       else if(e.button===0&&(giz=this.v3GizDown(e,at)||this.v3RangeDown(e,at)||this.v3RowDown(e,at))) move=giz.move;
       else if(e.button===2){ const r=el.getBoundingClientRect(), k=V.dist*2*Math.tan(0.4)/r.height; move=ev=>{ const dx=(ev.clientX-sx)*k, dy=(ev.clientY-sy)*k/Math.max(0.35,Math.sin(V.pitch)); V.tx=tx0-dx*Math.cos(V.yaw)-dy*Math.sin(V.yaw); V.ty=ty0+dx*Math.sin(V.yaw)-dy*Math.cos(V.yaw); this.v3Clamp(); this.pv3Queue(); }; }
       else move=ev=>{ if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)>3) moved=true; V.yaw=y0-(ev.clientX-sx)*0.008; V.pitch=Math.min(1.5,Math.max(0.12,p0+(ev.clientY-sy)*0.006)); this.pv3Queue(); };
-      this._v3Drag=true; const painting=e.button===0&&this.anyPaint(); const up=()=>{ this._v3Drag=false; window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); if(painting) this.paintUp(); else if(giz){ if(!giz.end()) this.v3Click(e); } else if(e.button===0&&!moved) this.v3Click(e); this.pv3Queue(); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); this.pv3Queue();
+      this._v3Drag=true; const painting=e.button===0&&this.anyPaint(); const up=()=>{ this._v3Drag=false; window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); if(boxK){ const b=this._v3Box; this._v3Box=null; if(b&&moved) this.v3BoxSel(boxK,b); else this.v3Click(e); } else if(painting) this.paintUp(); else if(giz){ if(!giz.end()) this.v3Click(e); } else if(e.button===0&&!moved) this.v3Click(e); this.pv3Queue(); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); this.pv3Queue();
     });
     this.pv3Queue();
   }
@@ -1755,7 +1757,8 @@ class Component extends DCLogic {
       if(m.k==='row'&&(m.sel||(names&&!hid))){ const t=this.rowName(m.r.type,m.r.vnum); if(t){ ctx.lineWidth=3; ctx.strokeStyle='rgba(18,13,8,.9)'; ctx.strokeText(t,hx+s+4,hy); ctx.fillStyle=m.sel?'#ffffff':'#e6d3a1'; ctx.fillText(t,hx+s+4,hy); } }
       if(m.k!=='other') this._v3Hits.push({x:hx,y:hy,bx:m.a[0],by:m.a[1],m});
     }
-    ctx.globalAlpha=1; this.v3DrawGizmo(ctx,P,list); this.v3DrawRange(ctx,P); this.v3DrawPack(ctx,P,W,H); if(this.state.compass3d) this.v3DrawCompass(ctx,W);
+    ctx.globalAlpha=1; this.v3DrawGizmo(ctx,P,list); this.v3DrawRange(ctx,P); this.v3DrawPack(ctx,P,W,H); const bx=this._v3Box; if(bx){ ctx.fillStyle=bx.sub?'rgba(224,85,85,.12)':'rgba(230,193,90,.12)'; ctx.strokeStyle=bx.sub?'#e05555':'#e6c15a'; ctx.lineWidth=1; ctx.setLineDash([4,3]); ctx.fillRect(bx.x0,bx.y0,bx.x1-bx.x0,bx.y1-bx.y0); ctx.strokeRect(bx.x0,bx.y0,bx.x1-bx.x0,bx.y1-bx.y0); ctx.setLineDash([]); }
+    if(this.state.compass3d) this.v3DrawCompass(ctx,W);
   }
   // ----- object gizmo in 3D -----
   // On the primary selected object of the Objects tab: a vertical arrow (drag = height: z and bias move together, double-click = back
@@ -1864,8 +1867,19 @@ class Component extends DCLogic {
     const tab=this.state.mainTab;
     if(best&&best.k==='row'){ if(e.ctrlKey||e.metaKey) this.toggleSel('row',best.i); else this.selectRow(best.i); }
     else if(best&&best.k==='obj'){ if((e.ctrlKey||e.metaKey)&&best.c===this.state.oSector) this.toggleSel('obj',best.i); else this.selectObj(best.i,best.c); }
-    else if(!(e.ctrlKey||e.metaKey)){ if(tab==='regen'&&this.group('row').length) this.deselect('row'); else if(tab==='objects'&&this.group('obj').length) this.deselect('obj'); }
-    this.draw();
+    else if(!(e.ctrlKey||e.metaKey)){
+      // empty ground, as in 2D: with a group selected the click only drops the group, otherwise it places a spawn there (Regen tab)
+      if(tab==='regen'){ if(this.isMulti('row')){ this.deselect('row'); this.gStatus('row'); } else { const hit=this.v3Pick(mx/r.width,my/r.height,r.width/r.height); if(hit) this.placeSpawn(Math.round(hit.x),Math.round(hit.y)); else this.setState({statusText:'click on the terrain to place a spawn'}); } }
+      else if(tab==='objects'&&this.group('obj').length) this.deselect('obj'); }
+    this.draw(); this.pv3Queue();
+  }
+  // Ctrl + drag in 3D: the markers whose pin falls inside the screen rectangle join the selection (Alt takes them out), like the 2D box
+  v3BoxSel(k,b){
+    const set=this.gSet(k), items=this.gItems(k), x0=Math.min(b.x0,b.x1), x1=Math.max(b.x0,b.x1), y0=Math.min(b.y0,b.y1), y1=Math.max(b.y0,b.y1);
+    if(!b.sub&&!set.size){ const p=items[this.gPrimary(k)]; if(p) set.add(p); }
+    for(const h of this._v3Hits||[]){ const it=k==='row'?(h.m.k==='row'?h.m.r:null):(h.m.k==='obj'&&h.m.c===this.state.oSector?h.m.o:null); if(!it||h.x<x0||h.x>x1||h.y<y0||h.y>y1) continue; if(b.sub) set.delete(it); else set.add(it); }
+    if(b.sub&&!set.size){ if(k==='obj') this.selObj=-1; else this.selRow=-1; }
+    this.fixPrimary(k); this.draw(); this.pv3Queue();
   }
   // column-major 4 × 4 helpers; the camera looks at the origin because everything is drawn relative to the cursor
   mat4Persp(fov,asp,n,f){ const t=1/Math.tan(fov/2); return [t/asp,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0]; }
