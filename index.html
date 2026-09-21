@@ -674,7 +674,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, view3d:false, water3d:true, compass3d:true, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, view3d:false, water3d:true, compass3d:true, walk3d:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
     mergeOpen:false, mergeMsg:'', mergeRev:0
   };
   pendingConfirm = null;
@@ -824,6 +824,7 @@ class Component extends DCLogic {
         e.preventDefault(); this.selectAll(this.state.mainTab==='regen'?'row':'obj'); return; }
       if(/^Arrow(Up|Down|Left|Right)$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !this.state.empty && !this.state.confirm && !this.state.menu && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){
         const k=this.clipKind(); if(k && this.group(k).length){ e.preventDefault(); this.arrowNudge(k,e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0,e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:0,e.shiftKey); return; } }
+      if(this.walkKey(e)){ e.preventDefault(); return; }
       if(this.paintKey(e)||this.shadowKey(e)||this.sculptKey(e)){ e.preventDefault(); return; }
       if(e.key==='Escape'){ if(this.state.confirm) this.confirmNo(); else if(this.state.menu) this.setState({menu:''}); else if(this.state.ruler && this.rulerPts.length){ this.rulerPts=[]; this.rulerLive=null; this.draw(); } else if(this.state.mainTab==='regen' && this.group('row').length && !this.dragRow && !this.dragHandle && !this.dragGroup){ this.deselect('row'); }
         else if(this.state.mainTab==='objects' && this.group('obj').length && !this.dragObj && !this.dragGroup){ this.deselect('obj'); } }
@@ -831,11 +832,12 @@ class Component extends DCLogic {
       else if(e.key==='Delete' && this.state.mainTab==='regen' && this.group('row').length && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteGroup('row'); }
       else if(e.key==='Delete' && this.state.mainTab==='objects' && this.group('obj').length && !this.state.confirm && !this.state.empty && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName||'')){ e.preventDefault(); this.deleteGroup('obj'); } };
     window.addEventListener('keydown', this._keyDown);
+    this._keyUp=e=>this._walkKeys.delete(e.code); this._walkBlur=()=>this._walkKeys.clear(); window.addEventListener('keyup',this._keyUp); window.addEventListener('blur',this._walkBlur);
     this._vis=()=>{ if(document.visibilityState==='hidden') this.wsSaveView(); }; document.addEventListener('visibilitychange',this._vis); this.wsRefresh();
     this._copy=e=>this.onCopy(e,false); this._cut=e=>this.onCopy(e,true); this._paste=e=>this.onPaste(e);
     document.addEventListener('copy',this._copy); document.addEventListener('cut',this._cut); document.addEventListener('paste',this._paste);
   }
-  componentWillUnmount(){ document.removeEventListener('visibilitychange',this._vis); window.removeEventListener('dragover',this._dragOver); window.removeEventListener('drop',this._drop); document.removeEventListener('copy',this._copy); document.removeEventListener('cut',this._cut); document.removeEventListener('paste',this._paste); this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); }
+  componentWillUnmount(){ document.removeEventListener('visibilitychange',this._vis); window.removeEventListener('dragover',this._dragOver); window.removeEventListener('drop',this._drop); document.removeEventListener('copy',this._copy); document.removeEventListener('cut',this._cut); document.removeEventListener('paste',this._paste); this.ro && this.ro.disconnect(); window.removeEventListener('mousedown', this._docDown, true); window.removeEventListener('keydown', this._keyDown); window.removeEventListener('keyup',this._keyUp); window.removeEventListener('blur',this._walkBlur); }
 
   // ================= multi-select =================
   // A group is a Set of row / object references on top of the primary selection (selRow / selObj), which still drives the form.
@@ -1545,8 +1547,8 @@ class Component extends DCLogic {
     if(this.state.empty){ this.setState({statusText:'load a map first'}); return; }
     const on=!this.state.view3d, cv=this.canvas, r=cv?cv.getBoundingClientRect():{width:800,height:600};
     if(on){ this.v3.tx=(r.width/2-this.ox)/this.zoom; this.v3.ty=(r.height/2-this.oy)/this.zoom; this.v3.dist=Math.min(2500,Math.max(40,r.height/this.zoom*1.1)); this.v3Clamp(); }
-    else { this.ox=r.width/2-this.v3.tx*this.zoom; this.oy=r.height/2-this.v3.ty*this.zoom; this.pv3Free(); this.paintHover=null; }
-    this.setState({view3d:on,statusText:on?'3D on — left-drag '+(this.anyPaint()?'paints':'orbits')+' · middle-drag orbits · right-drag moves · wheel zooms':'3D off'}); this.draw();
+    else { this.walkEnd(); this.ox=r.width/2-this.v3.tx*this.zoom; this.oy=r.height/2-this.v3.ty*this.zoom; this.pv3Free(); this.paintHover=null; }
+    this.setState({view3d:on,walk3d:false,statusText:on?'3D on — left-drag '+(this.anyPaint()?'paints':'orbits')+' · middle-drag orbits · right-drag moves · wheel zooms':'3D off'}); this.draw();
   }
   // double-click on a list row while in 3D: put the camera target on it and come closer if far away (never moves away), like the 2D focus
   v3Focus(x,y){ this.v3.tx=x; this.v3.ty=y; this.v3.dist=Math.min(this.v3.dist,260); this.v3Clamp(); this.pv3Queue(); }
@@ -1602,7 +1604,7 @@ class Component extends DCLogic {
     const at=e=>{ const r=el.getBoundingClientRect(); return this.v3Pick((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height,r.width/r.height); };
     const hover=(e,hit)=>{ this.paintHover=hit?{x:Math.floor(hit.x),y:Math.floor(hit.y),inside:true}:null; this.sculptPos=hit&&this.state.heightPaint?{x:hit.x,y:hit.y}:null; };
     el.addEventListener('contextmenu',e=>e.preventDefault());
-    el.addEventListener('wheel',e=>{ e.preventDefault(); this.v3.dist=Math.min(2500,Math.max(25,this.v3.dist*(e.deltaY<0?1/1.12:1.12))); this.pv3Queue(); },{passive:false});
+    el.addEventListener('wheel',e=>{ e.preventDefault(); this.v3.dist=Math.min(2500,Math.max(this.state.walk3d?4:25,this.v3.dist*(e.deltaY<0?1/1.12:1.12))); this.pv3Queue(); },{passive:false});
     el.addEventListener('mousemove',e=>{ if(this._v3Drag||!this.anyPaint()) return; hover(e,at(e)); this.pv3Queue(); });
     el.addEventListener('mouseleave',()=>{ if(this._v3Drag) return; this.paintHover=null; this.sculptPos=null; this.pv3Queue(); });
     el.addEventListener('mousedown',e=>{
@@ -1634,12 +1636,12 @@ class Component extends DCLogic {
   pv3Render(){
     const p=this._pv; if(!p||!this.state.view3d||this.state.empty) return; const gl=p.gl, cv=this._pvCv, V=this.v3; this.v3Clamp();
     const dpr=Math.min(2,window.devicePixelRatio||1), W=Math.max(1,Math.round(cv.clientWidth*dpr)), Hh=Math.max(1,Math.round(cv.clientHeight*dpr)); if(cv.width!==W||cv.height!==Hh){ cv.width=W; cv.height=Hh; }
-    const sx=Math.floor(V.tx/TILE), sy=Math.floor(V.ty/TILE), R=Math.min(3,Math.max(1,Math.ceil(V.dist/300))), want=[];
+    const sx=Math.floor(V.tx/TILE), sy=Math.floor(V.ty/TILE), R=Math.min(3,Math.max(this.state.walk3d?2:1,Math.ceil(V.dist/300))), want=[];
     for(let j=-R;j<=R;j++) for(let i=-R;i<=R;i++){ if(sx+i<0||sy+j<0) continue; const c=this.pad3(sx+i)+this.pad3(sy+j); if(this.sectorList.includes(c)) want.push(c); }
     for(const c of want) if(!p.meshes.has(c)) this.pv3Load(c);
     for(const c of [...this._pvDirty]){ const m=p.meshes.get(c); if(m&&this.heightEdit[c]){ gl.bindBuffer(gl.ARRAY_BUFFER,m.vbo); gl.bufferData(gl.ARRAY_BUFFER,this.sectorMesh(this.heightEdit[c]),gl.DYNAMIC_DRAW); } this._pvDirty.delete(c); }
     const g=this.groundM(V.tx,V.ty); if(g!=null) this._pvGround=g; const gy=this._pvGround||0, C=this.v3Cam();
-    const mvp=this.mat4Mul(this.mat4Persp(0.8,W/Hh,1,9000),this.mat4Look(C.e));
+    const mvp=this.mat4Mul(this.mat4Persp(0.8,W/Hh,this.state.walk3d?0.3:1,9000),this.mat4Look(C.e));
     gl.viewport(0,0,W,Hh); gl.clearColor(0.07,0.05,0.03,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
     const h=this.paintHover, st=this.state, rad=!h?0:st.heightPaint?this.sculpt.size/2:st.shadowPaint?this.shade.size/2:(st.paint&&this.paint.tool==='brush')?this.paint.size/2:st.paint?0.6:0, bp=st.heightPaint&&this.sculptPos?this.sculptPos:h?{x:h.x+0.5,y:h.y+0.5}:{x:0,y:0};
     gl.useProgram(p.prog); gl.uniformMatrix4fv(p.loc.uMVP,false,mvp); gl.uniform3f(p.loc.uL,-0.5298,0.6623,-0.5298); gl.uniform3f(p.loc.uBrush,bp.x-V.tx,bp.y-V.ty,rad); gl.uniform1i(p.loc.uTex,0); gl.activeTexture(gl.TEXTURE0);
@@ -1647,11 +1649,60 @@ class Component extends DCLogic {
     for(const c of want){ const m=p.meshes.get(c); if(!m) continue; this.v3Tex(p,c,m); gl.bindBuffer(gl.ARRAY_BUFFER,m.vbo);
       gl.enableVertexAttribArray(p.loc.aPos); gl.vertexAttribPointer(p.loc.aPos,3,gl.FLOAT,false,32,0); gl.enableVertexAttribArray(p.loc.aNrm); gl.vertexAttribPointer(p.loc.aNrm,3,gl.FLOAT,false,32,12); gl.enableVertexAttribArray(p.loc.aUv); gl.vertexAttribPointer(p.loc.aUv,2,gl.FLOAT,false,32,24);
       gl.bindTexture(gl.TEXTURE_2D,m.tex||p.blank); gl.uniform3f(p.loc.uOff,(+c.slice(0,3))*TILE-V.tx,-gy,(+c.slice(3,6))*TILE-V.ty); gl.drawElements(gl.TRIANGLES,128*128*6,gl.UNSIGNED_SHORT,0); }
+    if(st.walk3d){ const cm=this.walkMesh(gy); if(!p.chVbo){ p.chVbo=gl.createBuffer(); p.chTex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,p.chTex); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,8,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([60,48,36,255, 201,162,75,255, 232,196,160,255, 224,67,58,255, 20,15,10,255, 0,0,0,255, 0,0,0,255, 0,0,0,255])); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE); }
+      gl.bindBuffer(gl.ARRAY_BUFFER,p.chVbo); gl.bufferData(gl.ARRAY_BUFFER,cm,gl.DYNAMIC_DRAW); gl.enableVertexAttribArray(p.loc.aPos); gl.vertexAttribPointer(p.loc.aPos,3,gl.FLOAT,false,32,0); gl.enableVertexAttribArray(p.loc.aNrm); gl.vertexAttribPointer(p.loc.aNrm,3,gl.FLOAT,false,32,12); gl.enableVertexAttribArray(p.loc.aUv); gl.vertexAttribPointer(p.loc.aUv,2,gl.FLOAT,false,32,24);
+      gl.bindTexture(gl.TEXTURE_2D,p.chTex); gl.uniform3f(p.loc.uOff,0,0,0); gl.uniform3f(p.loc.uBrush,0,0,0); gl.drawArrays(gl.TRIANGLES,0,cm.length/8); }
     if(this.state.water3d&&p.wprog){ gl.disableVertexAttribArray(p.loc.aNrm); gl.disableVertexAttribArray(p.loc.aUv); gl.useProgram(p.wprog); gl.uniformMatrix4fv(p.wloc.uMVP,false,mvp); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
       for(const c of want){ const m=p.meshes.get(c); if(!m||!m.wvbo) continue; gl.bindBuffer(gl.ARRAY_BUFFER,m.wvbo); gl.enableVertexAttribArray(p.wloc.aPos); gl.vertexAttribPointer(p.wloc.aPos,3,gl.FLOAT,false,12,0); gl.uniform3f(p.wloc.uOff,(+c.slice(0,3))*TILE-V.tx,-gy,(+c.slice(3,6))*TILE-V.ty); gl.drawArrays(gl.TRIANGLES,0,m.wn); }
       gl.depthMask(true); gl.disable(gl.BLEND); }
     this.v3DrawMarks(mvp,(R+1)*TILE,gy,C);
     if(p.meshes.size>90) for(const [c,m] of [...p.meshes]) if(!want.includes(c)){ if(m){ gl.deleteBuffer(m.vbo); if(m.wvbo) gl.deleteBuffer(m.wvbo); if(m.tex) gl.deleteTexture(m.tex); } p.meshes.delete(c); }
+  }
+  // ----- walk mode -----
+  // The camera target becomes a dummy character standing on the ground: W / S walk along the camera direction, A / D strafe, Q / E turn
+  // the camera, Shift runs. Nothing is blocked (it is a tool to look around), the status line names the attribute flags under the feet.
+  // The frame loop only runs while a key is held, so the view stays render-on-demand otherwise.
+  _walkKeys=new Set(); _walkAttr={}; _walkFace=0;
+  toggleWalk3d(){
+    if(!this.state.view3d||this.state.empty){ this.setState({statusText:'walk mode needs the 3D Preview (load a map, switch 3D on)'}); return; }
+    const on=!this.state.walk3d, V=this.v3;
+    if(on){ this._walkSave={dist:V.dist,pitch:V.pitch}; V.dist=14; V.pitch=0.35; this._walkFace=-V.yaw; this._walkAttr={}; this._walkKeys.clear(); } else this.walkEnd();
+    this.setState({walk3d:on,statusText:on?'walk mode — W A S D move · Q E turn · Shift runs · wheel zooms · G or Esc leaves':'walk mode off'}); this.pv3Queue();
+  }
+  walkEnd(){ const w=this._walkSave; this._walkSave=null; this._walkKeys.clear(); if(w){ this.v3.dist=Math.max(25,w.dist); this.v3.pitch=w.pitch; } }
+  walkKey(e){
+    const st=this.state; if(!st.view3d||st.empty||st.confirm||st.menu||e.ctrlKey||e.metaKey||e.altKey||/^(INPUT|SELECT|TEXTAREA)$/.test((e.target&&e.target.tagName)||'')) return false;
+    if(e.code==='KeyG'&&(st.walk3d||!this.anyPaint())){ if(!e.repeat) this.toggleWalk3d(); return true; }
+    if(!st.walk3d) return false;
+    if(e.key==='Escape'){ if(this.anyPaint()) return false; this.toggleWalk3d(); return true; }
+    if(!/^(Key[WASDQE]|Shift(Left|Right))$/.test(e.code)) return false;
+    this._walkKeys.add(e.code); if(!this._walkRaf) this._walkRaf=requestAnimationFrame(t=>this.walkTick(t)); return !e.code.startsWith('Shift');
+  }
+  walkTick(ts){
+    this._walkRaf=0; const K=this._walkKeys, V=this.v3, on=c=>K.has(c)?1:0; if(!this.state.walk3d||!this.state.view3d||!this._pv||![...K].some(c=>c[0]==='K')){ this._walkT=0; return; }
+    const dt=Math.min(0.05,this._walkT?(ts-this._walkT)/1000:0.016); this._walkT=ts;
+    const fw=on('KeyW')-on('KeyS'), rt=on('KeyD')-on('KeyA'); V.yaw+=(on('KeyQ')-on('KeyE'))*1.8*dt;
+    if(fw||rt){ const s=Math.sin(V.yaw), c=Math.cos(V.yaw), l=Math.hypot(fw,rt), dx=(c*rt-s*fw)/l, dy=(-s*rt-c*fw)/l, sp=(on('ShiftLeft')||on('ShiftRight')?15:5)*dt, b=this.bounds;
+      const nx=Math.min((b.maxx+1)*TILE,Math.max(b.minx*TILE,V.tx+dx*sp)), ny=Math.min((b.maxy+1)*TILE,Math.max(b.miny*TILE,V.ty+dy*sp)); if(this.groundM(nx,ny)!=null){ V.tx=nx; V.ty=ny; } this._walkFace=Math.atan2(dx,-dy); }
+    try{ this.pv3Render(); }catch(e){ console.error(e); }
+    if(ts-(this._walkSt||0)>150){ this._walkSt=ts; this.setState({statusText:this.walkStatus()}); }
+    this._walkRaf=requestAnimationFrame(t=>this.walkTick(t));
+  }
+  // attribute byte under a map position, from the edited grid when there is one; a sector not read yet is fetched in the background
+  walkAttrAt(x,y){ const c=this.pad3(Math.floor(x/TILE))+this.pad3(Math.floor(y/TILE)); let a=this.attrEdit[c]||this._walkAttr[c]; if(a===undefined&&this.sectorList.includes(c)){ this._walkAttr[c]=null; const A=this._walkAttr; this.attrGrid(c).then(g=>{ A[c]=g||null; }).catch(()=>{}); } if(!a) return 0; return a[(Math.floor(y)&255)*256+(Math.floor(x)&255)]; }
+  walkStatus(){ const V=this.v3, g=this.groundM(V.tx,V.ty), at=this.walkAttrAt(V.tx,V.ty), fl=ATTR_FLAGS.filter(F=>at&F.bit).map(F=>F.name.toUpperCase()); return 'walk: '+Math.floor(V.tx)+' '+Math.floor(V.ty)+' · '+(g==null?'?':g.toFixed(1))+' m · sector '+this.pad3(Math.floor(V.tx/TILE))+this.pad3(Math.floor(V.ty/TILE))+(fl.length?' · '+fl.join(' '):''); }
+  // the dummy: boxes in the terrain vertex format (position, normal, uv into an 8 × 1 colour strip), turned to the walking direction,
+  // feet at the camera target; local -z is forward. A dark disc draped on the ground stands in for a shadow.
+  walkMesh(gy){
+    const V=this.v3, f=this._walkFace, cf=Math.cos(f), sf=Math.sin(f), out=[];
+    const box=(x0,y0,z0,x1,y1,z1,col)=>{ const u=(col+0.5)/8, q=(n,...ps)=>{ for(const k of [0,1,2,0,2,3]){ const P=ps[k]; out.push(P[0]*cf-P[2]*sf,P[1],P[0]*sf+P[2]*cf, n[0]*cf-n[2]*sf,n[1],n[0]*sf+n[2]*cf, u,0.5); } };
+      q([0,0,1],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]); q([0,0,-1],[x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0]); q([1,0,0],[x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1]);
+      q([-1,0,0],[x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0]); q([0,1,0],[x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0]); q([0,-1,0],[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1]); };
+    const rim=k=>{ const t=k*0.5236, x=0.6*Math.cos(t), z=0.6*Math.sin(t), g=this.groundM(V.tx+x,V.ty+z); return [x,(g==null?0:g-gy)+0.06,z]; };
+    for(let k=0;k<12;k++) for(const P of [[0,0.06,0],rim(k),rim(k+1)]) out.push(P[0],P[1],P[2], 0,1,0, 4.5/8,0.5);
+    box(-0.2,0,-0.12,-0.02,0.85,0.12,0); box(0.02,0,-0.12,0.2,0.85,0.12,0); box(-0.26,0.85,-0.15,0.26,1.45,0.15,1); box(-0.38,0.9,-0.1,-0.28,1.42,0.1,1); box(0.28,0.9,-0.1,0.38,1.42,0.1,1);
+    box(-0.14,1.48,-0.14,0.14,1.78,0.14,2); box(-0.04,1.58,-0.26,0.04,1.66,-0.14,3);
+    return new Float32Array(out);
   }
   // ----- regen and object markers in 3D -----
   // Drawn on a transparent 2D canvas lying over the WebGL one: every position is projected with the same camera matrix, so the
@@ -3487,6 +3538,7 @@ class Component extends DCLogic {
       this.mkItem('Ruler (1 px = 1 m)',()=>{ if(has) this.toggleRuler(); },{check:st.ruler}),
       this.mkItem('Water in 3D Preview',()=>this.toggleWater3d(),{check:st.water3d}),
       this.mkItem('Compass in 3D Preview',()=>this.toggleCompass3d(),{check:st.compass3d}),
+      this.mkItem('Walk mode in 3D Preview (G)',()=>this.toggleWalk3d(),{check:st.walk3d}),
       this.mkItem('Converter tab',()=>this.tabConvert(),{check:st.mainTab==='convert'}),
       this.mkItem('Objects (areadata) tab',()=>this.tabObjects(),{check:st.mainTab==='objects'}),
       this.mkItem('Export areadata .txt',()=>this.exportAreadata()),
