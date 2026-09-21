@@ -1611,7 +1611,7 @@ class Component extends DCLogic {
     el.addEventListener('mousedown',e=>{
       e.preventDefault(); if(this.state.menu) this.setState({menu:''}); const sx=e.clientX, sy=e.clientY, V=this.v3, y0=V.yaw, p0=V.pitch, tx0=V.tx, ty0=V.ty; let move, moved=false, giz=null;
       if(e.button===0&&this.anyPaint()){ const hit=at(e); if(!hit) return; hover(e,hit); this.paintDown(hit.x,hit.y); move=ev=>{ const h=at(ev); if(!h) return; hover(ev,h); this.paintMove(h.x,h.y); this.pv3Queue(); }; }
-      else if(e.button===0&&(giz=this.v3GizDown(e,at)||this.v3RangeDown(e,at))) move=giz.move;
+      else if(e.button===0&&(giz=this.v3GizDown(e,at)||this.v3RangeDown(e,at)||this.v3RowDown(e,at))) move=giz.move;
       else if(e.button===2){ const r=el.getBoundingClientRect(), k=V.dist*2*Math.tan(0.4)/r.height; move=ev=>{ const dx=(ev.clientX-sx)*k, dy=(ev.clientY-sy)*k/Math.max(0.35,Math.sin(V.pitch)); V.tx=tx0-dx*Math.cos(V.yaw)-dy*Math.sin(V.yaw); V.ty=ty0+dx*Math.sin(V.yaw)-dy*Math.cos(V.yaw); this.v3Clamp(); this.pv3Queue(); }; }
       else move=ev=>{ if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)>3) moved=true; V.yaw=y0-(ev.clientX-sx)*0.008; V.pitch=Math.min(1.5,Math.max(0.12,p0+(ev.clientY-sy)*0.006)); this.pv3Queue(); };
       this._v3Drag=true; const painting=e.button===0&&this.anyPaint(); const up=()=>{ this._v3Drag=false; window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); if(painting) this.paintUp(); else if(giz){ if(!giz.end()) this.v3Click(e); } else if(e.button===0&&!moved) this.v3Click(e); this.pv3Queue(); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); this.pv3Queue();
@@ -1774,7 +1774,7 @@ class Component extends DCLogic {
     if(G.knob&&Math.hypot(G.knob[0]-mx,G.knob[1]-my)<9) return 'r'; for(let k=1;k<G.ring.length;k++) if(seg(G.ring[k-1],G.ring[k])<6) return 'r';
     return null;
   }
-  v3GizHover(e){ const el=this._pvCv; if(!el) return; const r=el.getBoundingClientRect(), h=this.v3GizHit(e.clientX-r.left,e.clientY-r.top)||this.v3RangeHit(e.clientX-r.left,e.clientY-r.top); if(h===this._v3GizHov) return; this._v3GizHov=h; el.style.cursor=h==='h'?'ns-resize':h==='m'?'move':h?'grab':'crosshair'; this.pv3Queue(); }
+  v3GizHover(e){ const el=this._pvCv; if(!el) return; const r=el.getBoundingClientRect(), h=this.v3GizHit(e.clientX-r.left,e.clientY-r.top)||this.v3RangeHit(e.clientX-r.left,e.clientY-r.top)||this.v3RowHit(e.clientX-r.left,e.clientY-r.top); if(h===this._v3GizHov) return; this._v3GizHov=h; el.style.cursor=h==='h'?'ns-resize':h==='m'?'move':h?'grab':'crosshair'; this.pv3Queue(); }
   // where the view ray through a mouse event crosses the horizontal plane at height h (metres), or null
   v3PlaneHit(ev,h){
     const el=this._pvCv, r=el.getBoundingClientRect(), C=this.v3Cam(), t=Math.tan(0.4), nx=((ev.clientX-r.left)/r.width*2-1)*t*r.width/r.height, ny=(1-(ev.clientY-r.top)/r.height*2)*t, d=[C.x[0]*nx+C.y[0]*ny-C.z[0],C.x[1]*nx+C.y[1]*ny-C.z[1],C.x[2]*nx+C.y[2]*ny-C.z[2]];
@@ -1818,6 +1818,17 @@ class Component extends DCLogic {
     const move=ev=>{ const q=at(ev); if(!q) return; if(!snap){ snap=true; this.pushUndo('resize spawn range'+note,this.scopeRegen()); }
       if(h.ax!=='y'){ r.sx=Math.max(1,Math.round(Math.abs(q.x-r.x))); if(this._sx) this._sx.value=r.sx; } if(h.ax!=='x'){ r.sy=Math.max(1,Math.round(Math.abs(q.y-r.y))); if(this._sy) this._sy.value=r.sy; } for(const q of rows){ q.sx=r.sx; q.sy=r.sy; } this._v3RangeLabel='Sx '+r.sx+' · Sy '+r.sy+note; this.pv3Queue(); };
     const end=()=>{ this._v3GizOn=null; this._v3RangeLabel=''; if(snap){ this.setState({statusText:'spawn range set to Sx '+r.sx+' · Sy '+r.sy+note}); this.refreshRows(); this.draw(); } return true; };
+    return {move,end};
+  }
+  // the pin of a selected spawn: a drag moves the selection over the terrain (a press that does not move stays a click)
+  v3RowHit(mx,my){ if(this.state.mainTab!=='regen'||this.anyPaint()) return null; for(const h of this._v3Hits||[]) if(h.m.k==='row'&&h.m.sel&&Math.min(Math.hypot(h.x-mx,h.y-my),Math.hypot(h.bx-mx,h.by-my))<10) return 'm'; return null; }
+  v3RowDown(e,at){
+    const el=this._pvCv, rc=el.getBoundingClientRect(); if(!this.v3RowHit(e.clientX-rc.left,e.clientY-rc.top)) return null;
+    const items=this.group('row').map(r=>({r,x:r.x,y:r.y})), b=this.bounds, sx=e.clientX, sy=e.clientY, p0=at(e)||{x:items[0].x,y:items[0].y}, name=this.gName('row',items.length); let changed=false;
+    const move=ev=>{ if(!changed&&Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)<=3) return; const q=at(ev); if(!q) return; if(!changed){ changed=true; this.pushUndo('move '+name,this.scopeRegen()); }
+      for(const it of items){ it.r.x=Math.min((b.maxx+1)*TILE-1,Math.max(b.minx*TILE,Math.round(it.x+q.x-p0.x))); it.r.y=Math.min((b.maxy+1)*TILE-1,Math.max(b.miny*TILE,Math.round(it.y+q.y-p0.y))); }
+      const g=items.map(it=>it.r); if(this._x) this._x.value=this.common(g,'x'); if(this._y) this._y.value=this.common(g,'y'); this.pv3Queue(); };
+    const end=()=>{ if(changed){ this.setState({statusText:items.length>1?name+' moved':'spawn moved to '+items[0].r.x+', '+items[0].r.y}); this.refreshRows(); this.draw(); } return changed; };
     return {move,end};
   }
   // compass rose at the top centre: north is the top of the 2D view (-y), the label at the top is where the camera looks
