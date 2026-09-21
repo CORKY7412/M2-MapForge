@@ -1159,8 +1159,11 @@ class Component extends DCLogic {
   packLabelLines(r){ if(!r||this.isMulti('row')||!/^[gr]/.test(r.type)) return null; let lines=this.packInfo(r.type,r.vnum); if(!lines.length) return null;
     const MAX=14; if(lines.length>MAX){ const extra=lines.length-(MAX-1); lines=lines.slice(0,MAX-1).concat([{text:'+ '+extra+' more',k:'d'}]); } return lines; }
   drawPackLabel(ctx,rows,ms){
-    const r=rows[this.selRow], lines=this.packLabelLines(r); if(!lines) return; const z=this.zoom, cv=this.canvas, off=Math.max(ms*1.8,(r.sx||0)+ms*0.6), vx1=(cv.width-this.ox)/z, vy0=-this.oy/z, vy1=(cv.height-this.oy)/z;
-    this.packBox(ctx,lines,z,(w,h)=>{ let x=r.x+off, y=r.y-h/2; if(x+w>vx1) x=r.x-off-w; if(y+h>vy1) y=vy1-h; if(y<vy0) y=vy0; return [x,y]; });
+    const r=rows[this.selRow], lines=this.packLabelLines(r); if(!lines) return; const z=this.zoom, cv=this.canvas, off=Math.max(ms*1.8,(r.sx||0)+ms*0.6), offV=Math.max(ms*1.8,(r.sy||0)+ms*0.6), vx0=-this.ox/z, vx1=(cv.width-this.ox)/z, vy0=-this.oy/z, vy1=(cv.height-this.oy)/z;
+    // beside the marker (right, else left); with no room on either side, below or above it; failing all four, inside the view with the start of the lines first
+    this.packBox(ctx,lines,z,(w,h)=>{ const fitY=y=>Math.max(vy0,Math.min(vy1-h,y)), fitX=Math.max(vx0,Math.min(vx1-w,r.x-w/2));
+      if(r.x+off+w<=vx1) return [r.x+off,fitY(r.y-h/2)]; if(r.x-off-w>=vx0) return [r.x-off-w,fitY(r.y-h/2)];
+      if(r.y+offV+h<=vy1) return [fitX,r.y+offV]; if(r.y-offV-h>=vy0) return [fitX,r.y-offV-h]; return [Math.max(vx0,vx1-w),fitY(r.y-h/2)]; });
   }
   packBox(ctx,lines,z,place){
     const fs=11/z, lh=fs*1.45, pad=6/z; ctx.font='500 '+fs+"px 'IBM Plex Mono',monospace";
