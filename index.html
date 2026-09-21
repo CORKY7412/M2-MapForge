@@ -493,7 +493,7 @@
             <div style="font:600 10px 'IBM Plex Mono',monospace;color:#8a744c;letter-spacing:.5px">LOADED MAPS — {{ mergeMapCount }}</div>
             <button onClick="{{ openMergeTsPoolPicker }}" class="mono" style="margin-left:auto;font-size:10px;padding:3px 8px;border-radius:5px;cursor:pointer;border:1px solid #4a3820;background:#15100a;color:#a08b5f">📁 {{ mergeTsPoolLabel }}</button>
           </div>
-          <div onDragOver="{{ onPaletteDragOver }}" onDrop="{{ onPaletteDrop }}" style="display:flex;gap:8px;flex-wrap:wrap;max-height:172px;overflow:auto;padding:2px 2px 6px;border-radius:8px">
+          <div onDragOver="{{ onPaletteDragOver }}" onDrop="{{ onPaletteDrop }}" style="display:flex;gap:8px;flex-wrap:wrap;max-height:236px;overflow:auto;padding:2px 2px 6px;border-radius:8px">
             <sc-for list="{{ mergeMapCards }}" as="M" hint-placeholder-count="2">
               <div draggable="true" onDragStart="{{ M.onDragStart }}" onDragEnd="{{ mergeDragEnd }}" onDragOver="{{ M.onDragOver }}" onDrop="{{ M.onDrop }}" onClick="{{ M.onClick }}" style="{{ M.style }}">
                 <sc-if value="{{ M.placed }}" hint-placeholder-val="{{ false }}">
@@ -1062,7 +1062,7 @@ class Component extends DCLogic {
         entry.pos=(sm.pos && sm.pos.r+entry.slot.h<=this.mergeGrid.rows && sm.pos.c+entry.slot.w<=this.mergeGrid.cols)?{r:sm.pos.r,c:sm.pos.c}:entry.pos;   // the saved spot, overlaps included
         if(sm.ts){ try{ if(state.get(sm.ts.handle)!=='granted') throw 0; await this.attachTsFile(entry,await sm.ts.handle.getFile(),sm.ts.handle); }catch(err){ miss.push('textureset '+sm.ts.name+' of '+sm.name); } } }
       catch(err){ miss.push(sm.name); } }
-    setTimeout(()=>this.mergeScrollTo(this.mergeMaps.find(m=>m.pos)),0);
+    setTimeout(()=>this.mergeScrollToAll(),0);
     this._mergeSetupId=su.id; this.refreshMergeUi('restored “'+su.name+'” — '+this.mergeMaps.length+' of '+su.maps.length+' maps'+(miss.length?' · not loaded (moved, deleted or permission refused): '+miss.join(', '):''));
   }
   mergeSetupRename(id,e){ if(e&&e.stopPropagation) e.stopPropagation(); const su=this.mergeSetupById(id); if(!su) return; const name=(window.prompt('Setup name',su.name)||'').trim(); if(!name||name===su.name) return; su.name=name; this.wsTx('readwrite',st=>st.put(su)).then(()=>this.mergeSetupsRefresh()).catch(err=>this.wsFail(err)); }
@@ -3774,6 +3774,8 @@ class Component extends DCLogic {
     const cf=st.confirm||{};
     const layers=LAYER_DEFS.map(([k,label])=>({ key:k, label, style:this.chipStyle(st.layer===k), onClick:()=>this.setLayer(k) }));
     const subtabs=Object.keys(REGEN_FILES).map(k=>({ key:k, label:REGEN_FILES[k], style:this.subStyle(st.regenTab===k), onClick:()=>this.setRegenTab(k) }));
+  // a restored layout: show it from its top-left corner (one cell of margin), so the first row is never left above the fold
+  mergeScrollToAll(){ const el=this.mergeGridEl, box=el&&el.parentElement, ms=this.mergeMaps.filter(m=>m.pos); if(!box||!ms.length) return; const pitch=MERGE_CELL_PX+MERGE_CELL_GAP; box.scrollTop=Math.max(0,(Math.min(...ms.map(m=>m.pos.r))-1)*pitch); box.scrollLeft=Math.max(0,(Math.min(...ms.map(m=>m.pos.c))-1)*pitch); }
     const nameCol=(this.mobNames.size||this.groups.size||this.ggroups.size)?'width:150px;padding:5px 6px;color:#c9b567;white-space:nowrap;overflow:hidden;text-overflow:ellipsis':'display:none';
     const rows=this.currentRows().map((r,i)=>{ const t=rowTraps(r), tip=t.map(x=>x.msg).join(' · ');
       const cell=(k,width)=>{ const w=t.find(x=>x.fields.includes(k)); return 'width:'+width+'px;padding:5px 6px'+(w?';font-weight:600;color:'+(w.sev==='red'?'#e0604a':'#e0a93a'):''); };
