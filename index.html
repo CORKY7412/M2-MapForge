@@ -1611,7 +1611,7 @@ class Component extends DCLogic {
     el.addEventListener('mousedown',e=>{
       e.preventDefault(); if(this.state.menu) this.setState({menu:''}); const sx=e.clientX, sy=e.clientY, V=this.v3, y0=V.yaw, p0=V.pitch, tx0=V.tx, ty0=V.ty; let move, moved=false, giz=null;
       if(e.button===0&&this.anyPaint()){ const hit=at(e); if(!hit) return; hover(e,hit); this.paintDown(hit.x,hit.y); move=ev=>{ const h=at(ev); if(!h) return; hover(ev,h); this.paintMove(h.x,h.y); this.pv3Queue(); }; }
-      else if(e.button===0&&(giz=this.v3GizDown(e,at))) move=giz.move;
+      else if(e.button===0&&(giz=this.v3GizDown(e,at)||this.v3RangeDown(e,at))) move=giz.move;
       else if(e.button===2){ const r=el.getBoundingClientRect(), k=V.dist*2*Math.tan(0.4)/r.height; move=ev=>{ const dx=(ev.clientX-sx)*k, dy=(ev.clientY-sy)*k/Math.max(0.35,Math.sin(V.pitch)); V.tx=tx0-dx*Math.cos(V.yaw)-dy*Math.sin(V.yaw); V.ty=ty0+dx*Math.sin(V.yaw)-dy*Math.cos(V.yaw); this.v3Clamp(); this.pv3Queue(); }; }
       else move=ev=>{ if(Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)>3) moved=true; V.yaw=y0-(ev.clientX-sx)*0.008; V.pitch=Math.min(1.5,Math.max(0.12,p0+(ev.clientY-sy)*0.006)); this.pv3Queue(); };
       this._v3Drag=true; const painting=e.button===0&&this.anyPaint(); const up=()=>{ this._v3Drag=false; window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); if(painting) this.paintUp(); else if(giz){ if(!giz.end()) this.v3Click(e); } else if(e.button===0&&!moved) this.v3Click(e); this.pv3Queue(); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); this.pv3Queue();
@@ -1746,7 +1746,7 @@ class Component extends DCLogic {
       if(m.k==='row'&&(m.sel||(names&&!hid))){ const t=this.rowName(m.r.type,m.r.vnum); if(t){ ctx.lineWidth=3; ctx.strokeStyle='rgba(18,13,8,.9)'; ctx.strokeText(t,hx+s+4,hy); ctx.fillStyle=m.sel?'#ffffff':'#e6d3a1'; ctx.fillText(t,hx+s+4,hy); } }
       if(m.k!=='other') this._v3Hits.push({x:hx,y:hy,bx:m.a[0],by:m.a[1],m});
     }
-    ctx.globalAlpha=1; this.v3DrawGizmo(ctx,P,list); if(this.state.compass3d) this.v3DrawCompass(ctx,W);
+    ctx.globalAlpha=1; this.v3DrawGizmo(ctx,P,list); this.v3DrawRange(ctx,P); if(this.state.compass3d) this.v3DrawCompass(ctx,W);
   }
   // ----- object gizmo in 3D -----
   // On the primary selected object of the Objects tab: a vertical arrow (drag = height: z and bias move together, double-click = back
@@ -1774,7 +1774,7 @@ class Component extends DCLogic {
     if(G.knob&&Math.hypot(G.knob[0]-mx,G.knob[1]-my)<9) return 'r'; for(let k=1;k<G.ring.length;k++) if(seg(G.ring[k-1],G.ring[k])<6) return 'r';
     return null;
   }
-  v3GizHover(e){ const el=this._pvCv; if(!el) return; const r=el.getBoundingClientRect(), h=this.v3GizHit(e.clientX-r.left,e.clientY-r.top); if(h===this._v3GizHov) return; this._v3GizHov=h; el.style.cursor=h==='h'?'ns-resize':h==='r'?'grab':h==='m'?'move':'crosshair'; this.pv3Queue(); }
+  v3GizHover(e){ const el=this._pvCv; if(!el) return; const r=el.getBoundingClientRect(), h=this.v3GizHit(e.clientX-r.left,e.clientY-r.top)||this.v3RangeHit(e.clientX-r.left,e.clientY-r.top); if(h===this._v3GizHov) return; this._v3GizHov=h; el.style.cursor=h==='h'?'ns-resize':h==='m'?'move':h?'grab':'crosshair'; this.pv3Queue(); }
   // where the view ray through a mouse event crosses the horizontal plane at height h (metres), or null
   v3PlaneHit(ev,h){
     const el=this._pvCv, r=el.getBoundingClientRect(), C=this.v3Cam(), t=Math.tan(0.4), nx=((ev.clientX-r.left)/r.width*2-1)*t*r.width/r.height, ny=(1-(ev.clientY-r.top)/r.height*2)*t, d=[C.x[0]*nx+C.y[0]*ny-C.z[0],C.x[1]*nx+C.y[1]*ny-C.z[1],C.x[2]*nx+C.y[2]*ny-C.z[2]];
@@ -1802,6 +1802,24 @@ class Component extends DCLogic {
   // double-click on the height arrow: the selection goes back on the ground, bias 0
   v3GizDrop(){ const items=this.group('obj'); if(!items.length) return; this.pushUndo('drop '+this.gName('obj',items.length)+' to the ground',this.scopeArea()); for(const o of items){ const g=this.groundM(o.x/100,-o.y/100); if(g==null) continue; o.z=Math.round(g*100); o.bias=0; }
     for(const k of ['z','bias']){ const f=this.objField(k); if(f) f.value=this.common(items,k); } this.refreshObjs(); this.setState({statusText:this.gName('obj',items.length)+' dropped to the ground'}); this.pv3Queue(); }
+  // spawn range handles in 3D: the same eight squares as in 2D (edges and corners of the selected spawn's range), standing on the ground;
+  // a drag sets Sx / Sy from the terrain point under the cursor
+  v3DrawRange(ctx,P){
+    this._v3RH=[]; const st=this.state; if(st.mainTab!=='regen'||this.anyPaint()||this.isMulti('row')) return; const r=this.currentRows()[this.selRow]; if(!r||r.type[0]==='e'||r.type[0]==='s') return;
+    const g0=this.groundM(r.x,r.y), hx=r.sx>=1, hy=r.sy>=1, pts=[]; if(g0==null) return; if(hx) pts.push([1,0,'x'],[-1,0,'x']); if(hy) pts.push([0,1,'y'],[0,-1,'y']); if(hx&&hy) pts.push([1,1,'xy'],[-1,-1,'xy'],[1,-1,'xy'],[-1,1,'xy']);
+    const hov=this._v3GizOn||this._v3GizHov;
+    pts.forEach(([dx,dy,ax],k)=>{ const x=r.x+dx*r.sx, y=r.y+dy*r.sy, g=this.groundM(x,y), q=P(x,(g==null?g0:g)+0.15,y); if(!q) return; const id='rh:'+k, hot=hov===id, s=hot?5:3.5; this._v3RH.push({id,ax,x:q[0],y:q[1]});
+      ctx.fillStyle=hot?'#e6c15a':'#ffffff'; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.lineWidth=1; ctx.fillRect(q[0]-s,q[1]-s,s*2,s*2); ctx.strokeRect(q[0]-s,q[1]-s,s*2,s*2); });
+    const t=this._v3RangeLabel; if(t){ const a=P(r.x,g0,r.y); if(a){ ctx.font="600 12px 'IBM Plex Sans',sans-serif"; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.lineWidth=3; ctx.strokeStyle='rgba(18,13,8,.9)'; ctx.strokeText(t,a[0]+12,a[1]-34); ctx.fillStyle='#ffffff'; ctx.fillText(t,a[0]+12,a[1]-34); } }
+  }
+  v3RangeHit(mx,my){ let best=null, bd=9; for(const h of this._v3RH||[]){ const d=Math.max(Math.abs(h.x-mx),Math.abs(h.y-my)); if(d<=bd&&(!best||h.ax==='xy'||d<bd)){ best=h; bd=d; } } return best?best.id:null; }
+  v3RangeDown(e,at){
+    const el=this._pvCv, rc=el.getBoundingClientRect(), id=this.v3RangeHit(e.clientX-rc.left,e.clientY-rc.top); if(!id) return null; const h=this._v3RH.find(q=>q.id===id), r=this.currentRows()[this.selRow]; if(!h||!r) return null; let snap=false; this._v3GizOn=id;
+    const move=ev=>{ const q=at(ev); if(!q) return; if(!snap){ snap=true; this.pushUndo('resize spawn range',this.scopeRegen()); }
+      if(h.ax!=='y'){ r.sx=Math.max(1,Math.round(Math.abs(q.x-r.x))); if(this._sx) this._sx.value=r.sx; } if(h.ax!=='x'){ r.sy=Math.max(1,Math.round(Math.abs(q.y-r.y))); if(this._sy) this._sy.value=r.sy; } this._v3RangeLabel='Sx '+r.sx+' · Sy '+r.sy; this.pv3Queue(); };
+    const end=()=>{ this._v3GizOn=null; this._v3RangeLabel=''; if(snap){ this.setState({statusText:'spawn range set to Sx '+r.sx+' · Sy '+r.sy}); this.refreshRows(); this.draw(); } return true; };
+    return {move,end};
+  }
   // compass rose at the top centre: north is the top of the 2D view (-y), the label at the top is where the camera looks
   v3DrawCompass(ctx,W){
     const R=34, cx=W/2, cy=R+22, yaw=this.v3.yaw, N=['N','NE','E','SE','S','SW','W','NW'];
