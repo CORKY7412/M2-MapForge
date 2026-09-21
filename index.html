@@ -674,7 +674,7 @@ class Component extends DCLogic {
     layer:'minimap', mainTab:'convert', regenTab:'regen',
     empty:true, highlight:false, statusText:'no map loaded',
     info:{ name:'—', dims:'—', sectors:'—', base:'—', cell:'—', height:'—', view:'—', tex:'—', env:'—' },
-    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, view3d:false, water3d:true, compass3d:true, pack3d:true, walk3d:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
+    oSector:'', rev:0, menu:'', confirm:null, showGrid:null, dirty:false, respWarn:null, objDirty:false, objWarn:null, ruler:false, stats:false, dirArrows:true, mapNames:true, allRegens:false, paint:false, paintRev:0, attrStale:false, paintMsg:'', shadowPaint:false, shadowHl:false, heightPaint:false, reliefHl:false, view3d:false, water3d:true, compass3d:true, packCard:true, walk3d:false, mobNames:0, namesHint:'', vnumName:'', groupsN:0, ggroupsN:0, wsList:[], wsCur:'', wsOff:'',
     mergeOpen:false, mergeMsg:'', mergeRev:0
   };
   pendingConfirm = null;
@@ -912,7 +912,7 @@ class Component extends DCLogic {
   async wsRefresh(){ if(!this.wsCan()) return; try{ const raw=(await this.wsTx('readonly',st=>st.getAll()))||[], cfg=raw.find(r=>r.id==='__settings'); this._cfg=cfg?{...cfg}:{id:'__settings'}; this._lastNames=this._cfg.namesLink||null; const all=raw.filter(r=>!String(r.id).startsWith('__')); all.sort((a,b)=>(b.opened||0)-(a.opened||0)); this._ws=all; this.setState({wsList:all.map(w=>w.id)}); if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){ this.wsFail(e); } }
   wsGet(id){ return (this._ws||[]).find(w=>w.id===id); }
   async wsSave(w){ try{ await this.wsTx('readwrite',st=>st.put(w)); await this.wsRefresh(); }catch(e){ this.wsFail(e); } }
-  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens,shadowHl:st.shadowHl,reliefHl:st.reliefHl,water3d:st.water3d,compass3d:st.compass3d,pack3d:st.pack3d}; }
+  wsView(){ const st=this.state; return {layer:st.layer,mainTab:st.mainTab,regenTab:st.regenTab,dirArrows:st.dirArrows,mapNames:st.mapNames,stats:st.stats,highlight:st.highlight,allRegens:st.allRegens,shadowHl:st.shadowHl,reliefHl:st.reliefHl,water3d:st.water3d,compass3d:st.compass3d,packCard:st.packCard}; }
   // a map was opened through a handle: reuse the workspace that points at the same folder, or make one (named after the folder)
   async wsMapOpened(handle){
     if(!this.wsCan()||!handle){ this.setState({wsCur:''}); return; }
@@ -965,7 +965,7 @@ class Component extends DCLogic {
       if(!await this.wsPerm(w.map.handle)){ this.setState({statusText:'permission to read '+w.map.name+' was not given'}); return; }
       this.setState({statusText:'loading '+w.name+'…'}); const out={}; await this.walkHandle(w.map.handle,'',out); await this.loadFiles(out,w.map.handle.name);
       if(this.state.empty) return; this.setState({wsCur:w.id});
-      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens,shadowHl:!!v.shadowHl,reliefHl:!!v.reliefHl,water3d:v.water3d!==false,compass3d:v.compass3d!==false,pack3d:v.pack3d!==false}); await this.renderLayer(); }
+      if(w.view){ const v=w.view; this.setState({layer:v.layer||this.state.layer,mainTab:v.mainTab||'convert',regenTab:v.regenTab||'regen',dirArrows:v.dirArrows!==false,mapNames:v.mapNames!==false,stats:!!v.stats,allRegens:!!v.allRegens,shadowHl:!!v.shadowHl,reliefHl:!!v.reliefHl,water3d:v.water3d!==false,compass3d:v.compass3d!==false,packCard:v.packCard!==false}); await this.renderLayer(); }
       if(w.regen){ try{ const files={}; if(w.regen.dir){ if(await this.wsPerm(w.regen.dir)) for await(const [name,h] of w.regen.dir.entries()) if(h.kind==='file') files[name.toLowerCase()]=await h.getFile(); } else for(const f of w.regen.files||[]) if(await this.wsPerm(f.handle)) files[f.name.toLowerCase()]=await f.handle.getFile();
           if(Object.keys(files).length){ const tab=this.state.mainTab, rt=this.state.regenTab; await this.applyRegenFolder(files,w.regen.name||''); this.setState({mainTab:tab,regenTab:rt}); } else miss.push(w.regen.dir||(w.regen.files||[]).some(f=>f.handle)?'regens (moved or permission refused)':'regens (not linked yet — load them once)'); }catch(e){ miss.push('regens (moved or permission refused)'); } }
       for(const kind of ['groups','ggroups']){ if(!w[kind]) continue; try{ if(w[kind].file && await this.wsPerm(w[kind].file) && await this.loadAuxFile(await w[kind].file.getFile(),kind)){ this._auxLink[kind]=w[kind]; await this.wsSetLast(kind+'Link',w[kind]); } else miss.push(w[kind].name+(w[kind].file?' (permission refused)':' (not linked yet — load the file once)')); }catch(e){ miss.push(w[kind].name+' (moved or deleted)'); } }
@@ -994,7 +994,7 @@ class Component extends DCLogic {
     let data; try{ data=JSON.parse(await f.text()); }catch(err){ this.setState({statusText:f.name+' is not valid JSON'}); return; }
     if(!data||data.kind!=='workspaces'||!Array.isArray(data.workspaces)){ this.setState({statusText:f.name+' is not a MapForge workspaces file'}); return; }
     try{ await this.wsRefresh(); const str=(v,d)=>String(v==null?d:v).slice(0,200), taken=new Set((this._ws||[]).map(w=>w.name)); let n=0;
-      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens','shadowHl','reliefHl','water3d','compass3d','pack3d'];
+      const VIEW=['layer','mainTab','regenTab','dirArrows','mapNames','stats','highlight','allRegens','shadowHl','reliefHl','water3d','compass3d','packCard'];
       for(const x of data.workspaces.slice(0,500)){ if(!x||!x.map||!x.map.name) continue;
         let name=str(x.name,x.map.name).trim()||str(x.map.name); const base=name; let k=2; while(taken.has(name)) name=base+' (imported'+(k>2?' '+(k-1):'')+')', k++; taken.add(name);
         const w={id:'ws'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)+n,name,created:+x.created||Date.now(),opened:+x.opened||0,imported:true,map:{name:str(x.map.name),handle:null}};
@@ -1154,17 +1154,18 @@ class Component extends DCLogic {
     return out; }
   // The selected g / r spawn gets its pack written next to its marker: what it spawns (g) or what it can spawn, with the chances (r).
   // Only the primary selection, so a group selection does not paper over the map. The box flips to the other side at the view edge.
-  // the pack / set card of the selected g / r spawn: its lines (cut to 14), and the box itself. z is the zoom the context is scaled by
+  // the pack / set card of the selected g / r spawn: its lines (cut to 14, or only the title when folded), and the box itself. z is the zoom the context is scaled by
   // (1 on the 3D overlay), place(w,h) gives the top-left corner once the size is known.
   packLabelLines(r){ if(!r||this.isMulti('row')||!/^[gr]/.test(r.type)) return null; let lines=this.packInfo(r.type,r.vnum); if(!lines.length) return null;
-    const MAX=14; if(lines.length>MAX){ const extra=lines.length-(MAX-1); lines=lines.slice(0,MAX-1).concat([{text:'+ '+extra+' more',k:'d'}]); } return lines; }
-  drawPackLabel(ctx,rows,ms){
-    const r=rows[this.selRow], lines=this.packLabelLines(r); if(!lines) return; const z=this.zoom, cv=this.canvas, off=Math.max(ms*1.8,(r.sx||0)+ms*0.6), offV=Math.max(ms*1.8,(r.sy||0)+ms*0.6), vx0=-this.ox/z, vx1=(cv.width-this.ox)/z, vy0=-this.oy/z, vy1=(cv.height-this.oy)/z;
-    // beside the marker (right, else left); with no room on either side, below or above it; failing all four, inside the view with the start of the lines first
-    this.packBox(ctx,lines,z,(w,h)=>{ const fitY=y=>Math.max(vy0,Math.min(vy1-h,y)), fitX=Math.max(vx0,Math.min(vx1-w,r.x-w/2));
-      if(r.x+off+w<=vx1) return [r.x+off,fitY(r.y-h/2)]; if(r.x-off-w>=vx0) return [r.x-off-w,fitY(r.y-h/2)];
-      if(r.y+offV+h<=vy1) return [fitX,r.y+offV]; if(r.y-offV-h>=vy0) return [fitX,r.y-offV-h]; return [Math.max(vx0,vx1-w),fitY(r.y-h/2)]; });
+    const MAX=14; if(lines.length>MAX){ const extra=lines.length-(MAX-1); lines=lines.slice(0,MAX-1).concat([{text:'+ '+extra+' more',k:'d'}]); }
+    return this.state.packCard?[{text:'[–] '+lines[0].text,k:'h'},...lines.slice(1)]:[{text:'[+] '+lines[0].text,k:'h'}]; }
+  // docked in the bottom-left corner above the zoom buttons, in 2D and in 3D alike: beside the marker it hid the map and ran out of the view.
+  // A click folds it down to its title line and back (packCard, remembered in the workspace view settings).
+  drawPackLabel(ctx,rows){
+    const lines=this.packLabelLines(rows[this.selRow]); this._packBox=null; if(!lines) return; const z=this.zoom, cv=this.canvas;
+    ctx.globalAlpha=0.9; const b=this.packBox(ctx,lines,z,(w,h)=>[(12-this.ox)/z,(Math.max(4+h*z,cv.height-52)-this.oy)/z-h]); ctx.globalAlpha=1; this._packBox=[b[0]*z+this.ox,b[1]*z+this.oy,b[2]*z,b[3]*z];
   }
+  packHit(e){ const b=this._packBox, cv=this.canvas; if(!b||!cv||this.state.view3d||this.state.mainTab!=='regen') return false; const r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top; return mx>=b[0]&&mx<=b[0]+b[2]&&my>=b[1]&&my<=b[1]+b[3]; }
   packBox(ctx,lines,z,place){
     const fs=11/z, lh=fs*1.45, pad=6/z; ctx.font='500 '+fs+"px 'IBM Plex Mono',monospace";
     const w=Math.max(...lines.map(l=>ctx.measureText(l.text).width))+pad*2, h=lines.length*lh+pad*2, [x,y]=place(w,h), box=[x,y,w,h];
@@ -1616,7 +1617,7 @@ class Component extends DCLogic {
     el.addEventListener('dblclick',e=>{ const r=el.getBoundingClientRect(); if(this.v3GizHit(e.clientX-r.left,e.clientY-r.top)==='h') this.v3GizDrop(); });
     el.addEventListener('mouseleave',()=>{ if(this._v3Drag) return; this.paintHover=null; this.sculptPos=null; this.pv3Queue(); });
     el.addEventListener('mousedown',e=>{
-      e.preventDefault(); if(this.state.menu) this.setState({menu:''}); { const r=el.getBoundingClientRect(); if(e.button===0&&this.v3PackHit(e.clientX-r.left,e.clientY-r.top)){ this.setState({pack3d:!this.state.pack3d}); this.pv3Queue(); return; } }
+      e.preventDefault(); if(this.state.menu) this.setState({menu:''}); { const r=el.getBoundingClientRect(); if(e.button===0&&this.v3PackHit(e.clientX-r.left,e.clientY-r.top)){ this.setState({packCard:!this.state.packCard}); this.pv3Queue(); return; } }
       const sx=e.clientX, sy=e.clientY, V=this.v3, y0=V.yaw, p0=V.pitch, tx0=V.tx, ty0=V.ty; let move, moved=false, giz=null;
       if(e.button===0&&this.anyPaint()){ const hit=at(e); if(!hit) return; hover(e,hit); this.paintDown(hit.x,hit.y); move=ev=>{ const h=at(ev); if(!h) return; hover(ev,h); this.paintMove(h.x,h.y); this.pv3Queue(); }; }
       else if(e.button===0&&(giz=this.v3GizDown(e,at)||this.v3RangeDown(e,at)||this.v3RowDown(e,at))) move=giz.move;
@@ -1831,7 +1832,7 @@ class Component extends DCLogic {
   // the pack / set card of the selected g / r spawn: docked in the bottom-left corner, because beside the pin it would hide the very ground being looked at.
   // A click on it folds it down to its title line and back (remembered in the workspace view settings)
   v3DrawPack(ctx,P,W,H){
-    const st=this.state; if(st.mainTab!=='regen') return; const r=this.currentRows()[this.selRow]; let lines=this.packLabelLines(r); this._v3PackBox=null; if(!lines) return; lines=st.pack3d?[{text:'[–] '+lines[0].text,k:'h'},...lines.slice(1)]:[{text:'[+] '+lines[0].text,k:'h'}];
+    const st=this.state; if(st.mainTab!=='regen') return; const r=this.currentRows()[this.selRow], lines=this.packLabelLines(r); this._v3PackBox=null; if(!lines) return;
     ctx.globalAlpha=0.9; this._v3PackBox=this.packBox(ctx,lines,1,(w,h)=>[12,Math.max(4,H-52-h)]); ctx.globalAlpha=1;
   }
   v3PackHit(mx,my){ const b=this._v3PackBox; return !!b&&this.state.mainTab==='regen'&&mx>=b[0]&&mx<=b[0]+b[2]&&my>=b[1]&&my<=b[1]+b[3]; }
@@ -3285,7 +3286,7 @@ class Component extends DCLogic {
         ctx.font='500 '+fs+"px 'IBM Plex Sans',sans-serif"; ctx.textBaseline='middle'; ctx.lineWidth=3/this.zoom; ctx.strokeStyle='rgba(18,13,8,.9)';
         for(const lb of this.nameLabels(rows,ms)){ lb.lines.forEach((ln,k)=>{ const ty=lb.y+k*lh; ctx.strokeText(ln,lb.x,ty); ctx.fillStyle=lb.sel?'#ffffff':(k===lb.lines.length-1&&lb.more?'#a08b5f':'#e6d3a1'); ctx.fillText(ln,lb.x,ty); }); }
         ctx.textBaseline='alphabetic'; }
-      this.drawPackLabel(ctx,rows,ms);
+      this.drawPackLabel(ctx,rows);
       const hs=3.5/this.zoom; ctx.lineWidth=1/this.zoom;
       for(const h of this.rangeHandles()){ ctx.fillStyle='#ffffff'; ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.fillRect(h.x-hs,h.y-hs,hs*2,hs*2); ctx.strokeRect(h.x-hs,h.y-hs,hs*2,hs*2); }
     }
@@ -3341,6 +3342,7 @@ class Component extends DCLogic {
     return -1;
   }
   onDown(e){
+    if(e.button===0&&this.packHit(e)){ this.setState({packCard:!this.state.packCard}); this.draw(); return; }
     this.down={x:e.clientX,y:e.clientY,ox:this.ox,oy:this.oy,btn:e.button}; this.moved=false; this.dragRow=null; this.dragObj=null; this.dragHandle=null; this.dragGroup=null; this.box=null;
     if(e.button!==0||this.state.empty) return;
     const r=this.canvas.getBoundingClientRect(); const wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
@@ -3416,7 +3418,7 @@ class Component extends DCLogic {
     if(!this.down && !this.state.ruler && !this.state.paint && !this.state.shadowPaint && !this.state.heightPaint){ const tab=this.state.mainTab, wx=(e.clientX-r.left-this.ox)/this.zoom, wy=(e.clientY-r.top-this.oy)/this.zoom;
       const hh=(inside && tab==='regen' && !e.shiftKey)?this.hitHandle(wx,wy):null;
       const ctrlBox=inside && (e.ctrlKey||e.metaKey) && (tab==='regen'||tab==='objects');
-      this.canvas.style.cursor=hh&&!ctrlBox?hh.cur:(inside && ((tab==='regen' && !e.shiftKey && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?(ctrlBox?'pointer':'grab'):(ctrlBox?'crosshair':''); }
+      this.canvas.style.cursor=this.packHit(e)?'pointer':hh&&!ctrlBox?hh.cur:(inside && ((tab==='regen' && !e.shiftKey && this.hitSpawn(wx,wy)>=0) || (tab==='objects' && this.hitObj(wx,wy))))?(ctrlBox?'pointer':'grab'):(ctrlBox?'crosshair':''); }
     this.mouseW={x:(e.clientX-r.left-this.ox)/this.zoom,y:(e.clientY-r.top-this.oy)/this.zoom,inside};
     if(this.state.ruler){ if(!this.down) this.canvas.style.cursor=inside?'crosshair':''; if(this.rulerPts.length===1 && inside){ this.rulerLive={x:this.mouseW.x,y:this.mouseW.y}; if(!this.down) this.draw(); } }
     if(inside && this.coordEl){ const mx=e.clientX-r.left,my=e.clientY-r.top; const ax=Math.floor((mx-this.ox)/this.zoom), ay=Math.floor((my-this.oy)/this.zoom); this.coordEl.textContent='x '+ax+' · y '+ay; }
