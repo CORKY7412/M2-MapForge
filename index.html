@@ -1800,9 +1800,9 @@ class Component extends DCLogic {
     this._v3GizOn=hit;
     if(hit==='h'){ const pxv=G.pxv; move=ev=>{ const d=Math.round((sy-ev.clientY)/pxv*(ev.shiftKey?10:100))*(ev.shiftKey?10:1); if(!d&&!changed) return; begin('raise'); for(const it of items){ it.o.z=it.z+d; it.o.bias=it.bias+d; } show(['z','bias'],'bias '+(P0.o.bias>=0?'+':'')+(P0.o.bias/100).toFixed(2)+' m'); }; }
     else if(hit==='r'){ const cx=G.pv.x, cy=G.pv.y, ch=P0.h, px=cx*100, py=-cy*100, ang=ev=>{ const q=this.v3PlaneHit(ev,ch); return q?Math.atan2(q.x-cx,q.y-cy)*180/Math.PI:null; }, a0=ang(e), r0=items.find(it=>it.o===P0.o)||items[0];
-      move=ev=>{ const a=ang(ev); if(a==null||a0==null) return; let d=(a-a0)/OBJ_ROT_SIGN; if(ev.shiftKey) d=Math.round((r0.roll+d)/15)*15-r0.roll; if(!changed&&Math.abs(d)<0.05) return; begin('rotate');
+      move=ev=>{ const a=ang(ev); if(a==null||a0==null) return; let d=(a-a0)/OBJ_ROT_SIGN; d=ev.shiftKey?Math.round((r0.roll+d)/15)*15-r0.roll:Math.round(r0.roll+d)-r0.roll; if(!changed&&!d) return; begin('rotate');   // whole degrees: the client truncates the rest
         const th=d*OBJ_ROT_SIGN*Math.PI/180, co=Math.cos(th), si=Math.sin(th);
-        for(const it of items){ it.o.roll=Math.round((((it.roll+d)%360)+360)%360*10)/10%360; if(items.length<2) continue;   // several objects turn around their common centre, like the WorldEditor
+        for(const it of items){ it.o.roll=Math.round((((it.roll+d)%360)+360)%360)%360; if(items.length<2) continue;   // several objects turn around their common centre, like the WorldEditor
           const rx=it.x-px, ry=it.y-py, nx=Math.min((b.maxx+1)*TILE*100-1,Math.max(b.minx*TILE*100,Math.round(rx*co-ry*si+px))), ny=Math.min((b.maxy+1)*TILE*100-1,Math.max(b.miny*TILE*100,Math.round(-(rx*si+ry*co+py)))), g=this.groundM(nx/100,ny/100); it.o.x=nx; it.o.y=-ny; if(g!=null&&it.g!=null) it.o.z=it.z+Math.round((g-it.g)*100); }
         show(items.length<2?['roll']:['roll','x','y','z'],'roll '+P0.o.roll+'°'); }; }
     else { const p0=at(e)||{x:P0.x,y:P0.y}; move=ev=>{ if(!changed&&Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy)<=3) return; const q=at(ev); if(!q) return; begin('move'); const dx=(q.x-p0.x)*100, dy=(q.y-p0.y)*100;
