@@ -560,6 +560,12 @@
       <div style="width:360px;background:#1c140d;border:1px solid #4a3820;border-radius:10px;box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden">
         <div style="padding:18px 20px 6px;font-family:'Cinzel',serif;color:#e8cf8f;font-size:15px">{{ confirmTitle }}</div>
         <div style="padding:0 20px 18px;color:#c9b89a;font-size:13px;line-height:1.55;white-space:pre-wrap">{{ confirmMsg }}</div>
+        <sc-if value="{{ confirmLinks }}" hint-placeholder-val="{{ false }}">
+          <div class="mono" style="padding:0 20px 18px;margin-top:-6px;color:#8a744c;font-size:12px;line-height:1.7;word-break:break-all">
+            <div>Web &rarr; <a href="{{ appWeb }}" target="_blank" rel="noopener" style="color:#e8cf8f">{{ appWeb }}</a></div>
+            <div>Repo &rarr; <a href="{{ appRepo }}" target="_blank" rel="noopener" style="color:#e8cf8f">{{ appRepo }}</a></div>
+          </div>
+        </sc-if>
         <div style="display:flex;gap:8px;padding:0 16px 16px;justify-content:flex-end">
           <sc-if value="{{ confirmHasCancel }}" hint-placeholder-val="{{ true }}">
             <button onClick="{{ confirmNo }}" style="border:1px solid #4a3820;background:#241a11;color:#d8c9a8;border-radius:6px;padding:8px 16px;font:500 12px 'IBM Plex Sans';cursor:pointer" style-hover="filter:brightness(1.2)">Cancel</button>
@@ -666,6 +672,7 @@ const ATTR_FLAGS = [
 // merge result is trimmed to the area the placed maps cover — so there is nothing to resize.
 // Shown by Tools › About MapForge. Add a name to CONTRIBUTORS to credit someone.
 const APP_AUTHOR = 'martysama0134';
+const APP_WEB = 'https://martysama0134.github.io/M2-MapForge', APP_REPO = 'https://github.com/martysama0134/M2-MapForge';
 const CONTRIBUTORS = ['loknarash'];
 const MERGE_MAX_DIM = 40, MERGE_CELL_PX = 20, MERGE_CELL_GAP = 2;
 
@@ -1982,11 +1989,11 @@ class Component extends DCLogic {
   // ================= about =================
   showAbout(){
     const msg='Metin2 map editor for the browser: layers, spawns, objects, merging.\n\nAuthor\n    '+APP_AUTHOR+'\n\nContributors\n'+CONTRIBUTORS.map(n=>'    '+n).join('\n')+'\n\nMIT License · runs entirely in your browser, nothing is uploaded.';
-    this.askConfirm(msg,null,{title:'About MapForge',yes:'OK',safe:true,notice:true});
+    this.askConfirm(msg,null,{title:'About MapForge',yes:'OK',safe:true,notice:true,links:true});
   }
 
   // ================= confirm =================
-  askConfirm(msg, fn, opts){ this.pendingConfirm=fn; this.pendingNo=(opts&&opts.onNo)||null; this.setState({ menu:'', confirm:{ msg, title:(opts&&opts.title)||'Are you sure?', yes:(opts&&opts.yes)||'Delete', danger:!(opts&&opts.safe), notice:!!(opts&&opts.notice) } }); }
+  askConfirm(msg, fn, opts){ this.pendingConfirm=fn; this.pendingNo=(opts&&opts.onNo)||null; this.setState({ menu:'', confirm:{ msg, title:(opts&&opts.title)||'Are you sure?', yes:(opts&&opts.yes)||'Delete', danger:!(opts&&opts.safe), notice:!!(opts&&opts.notice), links:!!(opts&&opts.links) } }); }
   confirmYes(){ const f=this.pendingConfirm; this.pendingConfirm=null; this.pendingNo=null; this.setState({confirm:null}); if(f) f(); }
   confirmNo(){ const f=this.pendingNo; this.pendingConfirm=null; this.pendingNo=null; this.setState({confirm:null}); if(f) f(); }
 
@@ -3758,6 +3765,8 @@ class Component extends DCLogic {
   mergeResultLabel(){ const b=this.mergeBounds(); if(!b) return 'place your maps anywhere — the result is cut down to the area they cover'; const cov=new Set(); for(const m of this.mergeMaps){ if(!m.pos) continue; for(let r=0;r<m.slot.h;r++) for(let c=0;c<m.slot.w;c++) cov.add((m.pos.r+r)+','+(m.pos.c+c)); } const gaps=b.w*b.h-cov.size;
     return 'result: '+b.w+'×'+b.h+' sectors'+(gaps?'  ·  '+gaps+' empty sector'+(gaps>1?'s':'')+' will be generated':'')+(b.n<2?'  ·  place at least two maps':''); }
   // bring a map into view on the (scrolling) board
+  // a restored layout: show it from its top-left corner (one cell of margin), so the first row is never left above the fold
+  mergeScrollToAll(){ const el=this.mergeGridEl, box=el&&el.parentElement, ms=this.mergeMaps.filter(m=>m.pos); if(!box||!ms.length) return; const pitch=MERGE_CELL_PX+MERGE_CELL_GAP; box.scrollTop=Math.max(0,(Math.min(...ms.map(m=>m.pos.r))-1)*pitch); box.scrollLeft=Math.max(0,(Math.min(...ms.map(m=>m.pos.c))-1)*pitch); }
   mergeScrollTo(m){ const el=this.mergeGridEl, box=el&&el.parentElement; if(!box||!m||!m.pos) return; const pitch=MERGE_CELL_PX+MERGE_CELL_GAP; box.scrollTop=Math.max(0,(m.pos.r+m.slot.h/2)*pitch-box.clientHeight/2); box.scrollLeft=Math.max(0,(m.pos.c+m.slot.w/2)*pitch-box.clientWidth/2); }
   renderVals(){
     const st=this.state, info=st.info;
@@ -3795,7 +3804,7 @@ class Component extends DCLogic {
     return {
       layers, subtabs, rows, sectorOpts, objRows, layerName:layerLabel, oSectorVal:st.oSector,
       menus, menuBarRef:this.menuBarRef,
-      confirmOpen:!!st.confirm, confirmHasCancel:!cf.notice, confirmTitle:cf.title||'', confirmMsg:cf.msg||'', confirmYesLabel:cf.yes||'Delete',
+      confirmOpen:!!st.confirm, confirmHasCancel:!cf.notice, confirmTitle:cf.title||'', confirmMsg:cf.msg||'', confirmLinks:!!cf.links, appWeb:APP_WEB, appRepo:APP_REPO, confirmYesLabel:cf.yes||'Delete',
       confirmBtnStyle:`border:1px solid ${cf.danger?'#7a2f22':'#6b501f'};background:${cf.danger?'linear-gradient(#c25236,#9a3d26)':'linear-gradient(#d9b845,#a5802e)'};color:${cf.danger?'#fff':'#2a1d09'};border-radius:6px;padding:8px 16px;font:600 12px 'IBM Plex Sans';cursor:pointer`,
       confirmYes:()=>this.confirmYes(), confirmNo:()=>this.confirmNo(),
       mergeOpen:st.mergeOpen, mergeMsg:st.mergeMsg, mergeMsgRef:this.mergeMsgRef, mergeGridRef:this.mergeGridRef, mergeGhostRef:this.mergeGhostRef, mergeDragEnd:()=>this.mergeDragEnd(), mergeBoardDragLeave:(e)=>this.mergeBoardDragLeave(e),
